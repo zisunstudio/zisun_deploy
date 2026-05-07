@@ -1,0 +1,884 @@
+ZISUN
+Content-Driven Commerce Platform
+PROJECT REQUIREMENTS DOCUMENT
+Version 1.0  •  2024  •  Confidential
+
+Product
+ZISUN — Content-Driven Commerce Platform
+Type
+Mobile-First eCommerce + Content Platform
+Target Market
+India — Tier 1, 2, 3 cities; fashion-forward consumers 18–35
+Document Owner
+Product & Engineering Team
+Status
+Draft — Pending Founder Approval
+Last Updated
+2024
+
+1. Product Overview
+
+1.1 Vision
+ZISUN is a mobile-first, content-driven commerce platform that fuses storytelling with shopping. Unlike traditional eCommerce catalogues, ZISUN puts discovery at the center of the experience — every piece of content is a potential transaction, and every transaction is a story.
+
+1.2 Problem Statement
+Indian eCommerce today suffers from three compounding failures:
+Discovery deficit: Search-first commerce assumes users know what they want. Most users — especially in fashion — do not. They need inspiration, context, and narrative.
+Trust gap: Generic product listings with stock photos and templated descriptions do not build brand affinity. Conversion rates remain low because emotional connection is absent.
+Experience fragmentation: Content lives on Instagram and YouTube; purchasing happens on Flipkart or Myntra. There is no single platform that closes the loop from story to sale in one gesture.
+
+1.3 Solution Overview
+ZISUN closes the gap between content consumption and commerce execution:
+Shoppable content: Every reel, story card, and editorial is directly linked to purchasable products. The content IS the storefront.
+Mobile-native checkout: Frictionless OTP auth, one-tap payment via Razorpay, and WhatsApp-based order management for users who prefer messaging over apps.
+Story-led brand building: Vendors present products through curated narratives — occasion-based, season-based, lifestyle-based — not SKU grids.
+AI personalization (Phase 2+): Behavioral signals feed a recommendation engine that adapts the discovery feed to each user's style fingerprint.
+
+1.4 Unique Differentiation
+Dimension
+ZISUN
+Competitors (Myntra / Meesho)
+Discovery
+Story + content-first
+Search + category grid
+UX Model
+Editorial / immersive
+Catalogue / transactional
+Target Cohort
+Style-aware 18–35
+Price-sensitive mass market
+Content Role
+Primary interface
+Marketing add-on
+WhatsApp Commerce
+Native, first-class
+Absent or bolt-on
+Personalization
+Behavioral + style AI
+Basic purchase history
+
+2. Goals & Success Metrics
+
+2.1 Business Goals
+BG-01: Achieve 100 successful paid orders within 10 weeks of launch.
+BG-02: Establish a repeat-customer rate of 25%+ by Month 4.
+BG-03: Reach break-even on unit economics (revenue > COGS + fulfillment) by Month 6.
+BG-04: Onboard 3 curated vendor partners by Month 9.
+BG-05: Build a behavioral data asset of 10,000+ profiled users for AI personalization by Month 10.
+
+2.2 User Goals
+Discover fashion that fits their aesthetic without searching for it.
+Complete a purchase in under 90 seconds from intent to confirmation.
+Track and manage orders through WhatsApp without needing to log into an app.
+Feel a sense of style curation — that the platform understands their taste.
+
+2.3 KPIs
+Metric
+Target
+Timeline
+Owner
+Gross Merchandise Value (GMV)
+₹5L / month by M4
+Month 4
+CEO / Growth
+Order Conversion Rate
+>3.5% (sessions to orders)
+Month 3
+Product
+Cart Abandonment Rate
+<45%
+Month 3
+Product / UX
+Average Order Value (AOV)
+₹800+
+Month 2
+Catalog / Merchandising
+D30 Retention Rate
+>25%
+Month 5
+Growth / CRM
+Payment Success Rate
+>96%
+Pre-launch
+Engineering
+Page Load Time (P95)
+<2s on 4G
+Pre-launch
+Engineering
+Webhook Processing Latency
+<500ms P99
+Pre-launch
+Engineering
+Inventory Accuracy
+>99.5%
+Month 1
+Ops / Engineering
+WhatsApp Order Enquiry Response
+<5 min (bot)
+Month 2
+Ops / Bot
+
+3. User Personas
+
+Persona 1 — Priya (Primary Buyer)
+Age
+23
+Location
+Mumbai / Pune (Tier 1)
+Occupation
+Junior marketing exec; monthly income ₹35,000–₹55,000
+Devices
+iPhone 13 / mid-range Android; 5G user
+Apps Used Daily
+Instagram, WhatsApp, Zomato, Spotify
+Shopping Behavior
+Discovers via Instagram Reels; price-checks on Myntra; occasionally abandons due to friction
+Pain Points
+Myntra feels too clinical. Meesho feels chaotic. No platform makes her feel curated.
+Core Desire
+"Show me what to wear to this wedding without me having to search for it."
+Willingness to Pay
+₹500–₹2000 per item if the story resonates
+
+Persona 2 — Rohan (Aspirational Urban Male)
+Age
+27
+Location
+Bangalore (Tier 1)
+Occupation
+Mid-level software engineer; income ₹80,000+
+Shopping Behavior
+Rarely browses; buys when something resonates. High AOV, low frequency.
+Pain Points
+Spending 40 minutes on Myntra to find one kurta. Overwhelming choice, low curation.
+Core Desire
+"Just tell me what works for a rooftop party. I'll buy it."
+
+Persona 3 — Divya (Tier 2 Value Shopper)
+Age
+26
+Location
+Nagpur / Indore (Tier 2)
+Occupation
+School teacher; income ₹22,000
+Device
+Budget Android; inconsistent 4G
+Shopping Behavior
+WhatsApp-first; asks friends for product recommendations via chat.
+Pain Points
+Apps feel slow. Checkout is confusing. Doesn't trust online payments easily.
+Core Desire
+"I want to buy something nice for my cousin's engagement. Keep it simple."
+Note
+Requires offline-tolerant UX, UPI/COD support, WhatsApp-native ordering
+
+Persona 4 — Admin / Ops User (Internal)
+Role
+ZISUN operations team
+Tasks
+Manage orders, update inventory, handle returns, track payments, push content
+Pain Points
+If there's no admin panel, everything is done via SQL — unacceptable.
+Requirement
+A functional internal dashboard is a P0 requirement, not a nice-to-have.
+
+4. Core Features
+
+4.1 OTP-Based Authentication
+Priority  P0 — Required for all commerce activity
+
+Description
+Phone number-based login using OTP (SMS/WhatsApp delivery). No passwords. JWT issued on successful verification with refresh token rotation.
+User Story
+As a first-time user, I want to sign in with my phone number so that I don't need to create or remember a password.
+Acceptance Criteria
+User enters 10-digit Indian mobile number; system validates format before sending OTP.
+OTP is 6 digits, valid for 5 minutes, delivered within 10 seconds via SMS.
+Maximum 5 OTP requests per phone per hour; after limit, user sees a cooldown message.
+Successful OTP returns access token (15-min expiry) + refresh token (30-day expiry, stored httpOnly).
+Refresh token rotation: every refresh generates a new refresh token and invalidates the old one.
+Admin role users require a secondary confirmation step (admin-specific OTP flag in DB).
+
+Priority
+Acceptance Criteria
+Edge Cases
+P0
+OTP expires after 5 min; max 5 attempts before lockout; SMS fallback if WhatsApp fails
+SIM swap attack mitigation; concurrent login from two devices; invalid number edge
+
+4.2 Shoppable Content Feed
+Priority  P0 — Core product differentiator
+
+Description
+A vertically scrollable, story-first feed where each card links to shoppable products. Content types: editorial images, short video reels, occasion bundles, product spotlights.
+User Story
+As a fashion-curious user, I want to scroll a curated feed and tap any item to instantly view and purchase it, so I can shop without actively searching.
+Acceptance Criteria
+Feed loads within 2 seconds on 4G with skeleton loading states.
+Each content card displays: media (image or video thumbnail), caption, and a "Shop Now" CTA with price.
+Tapping a product within content opens a bottom sheet (not a new page) with product details, size selection, and Add to Cart.
+Video autoplay is muted by default; tap to unmute.
+Feed is paginated (20 cards per page); infinite scroll with preloading next page at 80% scroll depth.
+Content is tagged by: occasion, season, price band, category. Used for personalization.
+
+Priority
+Acceptance Criteria
+Edge Cases
+P0
+Shoppable content renders correctly on both iOS and Android; product link always resolves to live inventory
+Out-of-stock product in live content must show "Notify Me"; deleted product must gracefully degrade
+P1
+Video content loads within 3 seconds on 3G; first frame shown as thumbnail during load
+Video codec compatibility across mid-range Android
+
+4.3 Product Catalog & Inventory
+Priority  P0
+
+Description
+Admin-managed product catalog with support for variants (size, color), media (images + video), category tagging, and real-time stock tracking.
+User Story
+As an admin, I want to create and manage products with variants so that customers always see accurate availability and pricing.
+Acceptance Criteria
+Product creation: name, description, base price, sale price, category, tags, images (min 1, max 10), video (optional).
+Variants: each variant has its own SKU, stock count, and price delta.
+Inventory decrement is atomic: uses SELECT FOR UPDATE or Redis DECR. Overselling is impossible.
+Out-of-stock variants are visually disabled (not hidden) with "Notify Me" CTA.
+Soft delete on products: deleted products remain in order history but are hidden from catalog.
+Admin can bulk update stock via CSV import.
+
+Priority
+Acceptance Criteria
+Edge Cases
+P0
+Atomic inventory decrement on checkout; stock cannot go below 0 under any concurrent load
+Race condition: two users checkout simultaneously for last unit — only one succeeds
+P1
+Product images served via CDN; original stored in S3; thumbnails auto-generated at 3 sizes
+Missing image fallback; corrupted upload handling
+
+4.4 Cart & Checkout
+Priority  P0
+
+Description
+A streamlined checkout flow: cart review → address selection → payment method → order confirmation. Target: under 90 seconds from cart to confirmation.
+Acceptance Criteria
+Cart persists across sessions (stored server-side, linked to user ID).
+Checkout step 1: cart review with item, quantity, price, and subtotal.
+Checkout step 2: address selection (saved addresses) or new address entry with pincode-based auto-fill for city/state.
+Checkout step 3: payment — Razorpay (card, UPI, netbanking, wallets) as primary; COD as secondary for eligible pincodes.
+Order created in DB before payment initiated; status = PAYMENT_PENDING.
+Payment success webhook processes idempotently using payment_gateway_id unique constraint.
+Order confirmation sent via WhatsApp + in-app notification within 60 seconds of payment.
+
+Priority
+Acceptance Criteria
+Edge Cases
+P0
+Idempotent webhook processing: duplicate webhooks do not create duplicate orders or shipments
+Razorpay webhook delivered twice; Razorpay API timeout at checkout initiation
+P0
+Zombie order cleanup: orders in PAYMENT_PENDING for >30 min are auto-cancelled and inventory released
+User abandons payment page; payment succeeds after cleanup job runs
+P1
+Coupon / discount code support with validation (expiry, usage limit, minimum order value)
+Negative price after discount; stacking multiple coupons
+
+4.5 Order Management & Tracking
+Priority  P0
+
+Description
+End-to-end order lifecycle management from CREATED to DELIVERED, with automated status updates via WhatsApp and a self-service tracking page.
+Order State Machine
+State
+Trigger
+Action
+CREATED
+Order API call
+Reserve inventory lock; create order record
+PAYMENT_PENDING
+Razorpay checkout initiated
+Start 30-min cleanup timer
+PAID
+Razorpay webhook (success)
+Release inventory lock; decrement stock; trigger fulfillment
+PACKED
+Admin marks packed
+Notify user via WhatsApp
+SHIPPED
+Shiprocket AWB generated
+Send tracking link via WhatsApp
+DELIVERED
+Shiprocket webhook / manual
+Trigger review request; update analytics
+CANCELLED
+User / admin / timeout
+Release inventory; initiate refund if paid
+FAILED_PAYMENT
+Razorpay webhook (failure)
+Release inventory lock; notify user
+RETURNED
+User initiates return
+Trigger reverse logistics; process refund
+
+4.6 WhatsApp Commerce Agent
+Priority  P1 — Month 1–2
+
+Description
+A WhatsApp Business API-powered agent that handles order confirmation, status enquiries, and escalation — allowing users who prefer messaging to manage their entire post-purchase experience without opening the app.
+Acceptance Criteria
+Order confirmation message sent within 60 seconds of PAID status.
+User can type "Where is my order?" and receive current status + tracking link.
+User can initiate a return via WhatsApp ("I want to return order #1234").
+Bot escalates to human support if confidence in intent classification is below threshold.
+WhatsApp template messages pre-approved before go-live; fallback to SMS if WhatsApp delivery fails.
+
+Priority
+Acceptance Criteria
+Edge Cases
+P1
+All WhatsApp message templates reviewed and approved by Meta before launch
+Template rejection blocks order confirmation flow — SMS fallback must be pre-configured
+P1
+Bot handles ambiguous queries gracefully; never gives incorrect order information
+24-hour session window expiry; user replies to old notification outside session window
+
+4.7 Internal Admin Dashboard
+Priority  P0 — Required before any real orders
+
+Description
+A web-based internal tool for the ZISUN ops team. Without this, all order management requires direct DB access — which is operationally unsafe and creates a single point of human error.
+Acceptance Criteria
+Order list view with filters: status, date range, payment method, search by order ID / phone.
+Order detail view: items, customer info, payment status, fulfillment status, action buttons (mark packed, cancel, initiate refund).
+Product management: create / edit / deactivate products and variants; bulk stock update via CSV.
+Inventory dashboard: current stock per SKU; low-stock alerts (configurable threshold).
+Payment reconciliation view: orders with payment status, gateway ID, settlement status.
+Role-based access: Admin (full access), Operations (orders + inventory), Finance (payments view only).
+
+5. User Flows
+
+5.1 First-Time User Purchase Flow
+#
+Step
+User Action
+System Response
+1
+App Entry
+Opens ZISUN app / link
+Serves content feed (no auth required for browse)
+2
+Discovery
+Scrolls feed; taps a content card
+Bottom sheet: product detail, images, sizes, price
+3
+Intent
+Selects size; taps "Add to Cart"
+Prompts sign in if not authenticated
+4
+Auth
+Enters phone number
+Sends OTP via SMS within 10s
+5
+OTP Verify
+Enters 6-digit OTP
+JWT issued; cart restored; user directed to checkout
+6
+Address
+Enters delivery address
+Pincode validation; city/state auto-filled
+7
+Payment
+Selects UPI; scans QR
+Razorpay SDK handles payment; webhook fired on success
+8
+Confirmation
+(System action)
+Order confirmed; WhatsApp message sent within 60s
+
+5.2 Return & Refund Flow
+User contacts via WhatsApp or app: "Return order #1234".
+System validates: order must be in DELIVERED state and within return window (7 days).
+System presents return reason options.
+On confirmation, creates a Reverse Pickup request via Shiprocket API.
+Once pickup confirmed, refund is initiated to original payment method via Razorpay Refunds API.
+Refund status updates sent via WhatsApp; stock reinstated on warehouse receipt confirmation.
+
+5.3 Admin Order Processing Flow
+Admin receives new order notification (Slack / email / dashboard alert).
+Admin views order in dashboard; confirms item availability.
+Admin marks order as PACKED.
+System calls Shiprocket API to create shipment and generate AWB.
+System sends tracking WhatsApp to customer.
+Shiprocket webhooks update order to SHIPPED → DELIVERED automatically.
+
+6. System Requirements
+
+6.1 Functional Requirements
+ID
+Module
+Requirement
+Priority
+FR-01
+Auth
+System must authenticate users via OTP with rate limiting (5 OTP/hr/phone)
+P0
+FR-02
+Auth
+JWT access tokens expire in 15 minutes; refresh tokens in 30 days with rotation
+P0
+FR-03
+Catalog
+Product stock decrement must be atomic; concurrent checkouts cannot oversell
+P0
+FR-04
+Order
+Every state transition must be validated against the state machine; invalid transitions rejected
+P0
+FR-05
+Payment
+Webhook handler must be idempotent using payment_gateway_id unique constraint
+P0
+FR-06
+Payment
+Orders in PAYMENT_PENDING for >30 minutes must be auto-cancelled by cleanup job
+P0
+FR-07
+Fulfillment
+Shiprocket API calls must be idempotent; re-attempted calls check for existing AWB before creating new
+P0
+FR-08
+Admin
+Admin dashboard must support order management without direct DB access
+P0
+FR-09
+Notification
+Order confirmation WhatsApp message sent within 60 seconds of PAID status
+P1
+FR-10
+Analytics
+All user events (view, add-to-cart, purchase, abandon) logged with session ID and timestamp
+P1
+
+6.2 Non-Functional Requirements
+Performance
+P95 API response time: < 300ms for catalog reads, < 500ms for order creation.
+Content feed initial load: < 2 seconds on 4G (10 Mbps).
+Checkout completion (cart to confirmation): < 90 seconds end-to-end.
+Webhook processing latency: < 500ms P99 from receipt to DB update.
+
+Scalability
+Architecture must support 1,000 concurrent users without degradation in Month 1.
+Designed to scale to 50,000 concurrent users with addition of read replica and horizontal API scaling.
+Database queries must use indexes from Day 1 — no sequential scans on production tables.
+
+Availability
+Target uptime: 99.5% (allows ~3.6 hours downtime/month).
+Critical path (checkout + payment): 99.9% availability target with circuit breakers on external APIs.
+Zero-downtime deployments via rolling update strategy.
+
+Security
+All data in transit encrypted via TLS 1.3.
+All data at rest encrypted (RDS encryption enabled, S3 SSE).
+Razorpay webhook signature verified via HMAC-SHA256 at middleware level — not per-handler.
+Rate limiting: 100 req/min per IP on public endpoints; 10 req/min on auth endpoints.
+No sensitive data (payment card numbers, full OTPs) logged anywhere.
+
+7. Data Requirements
+
+7.1 Core Entities & Relationships
+Entity
+Key Fields
+Relationships
+Users
+id, phone, name, email, role, created_at, deleted_at
+has many Orders, Addresses
+Products
+id, name, description, base_price, category_id, vendor_id, deleted_at
+has many ProductVariants, belongs to Category
+ProductVariants
+id, product_id, sku, size, color, stock, price_delta, version
+belongs to Product; version for optimistic locking
+Orders
+id, user_id, status, total_amount, address_id, created_at, region
+has many OrderItems, one Payment, one Fulfillment
+OrderItems
+id, order_id, product_variant_id, quantity, unit_price
+Snapshot of variant price at time of order
+Payments
+id, order_id, gateway, payment_gateway_id UNIQUE, status, amount, processed_at
+Unique on payment_gateway_id — idempotency key
+InventoryLocks
+id, product_variant_id, order_id, reserved_qty, status, expires_at
+status: active / released / expired
+Addresses
+id, user_id, line1, city, state, pincode, is_default
+belongs to User
+Fulfillments
+id, order_id, carrier, awb_number, status, external_ref, created_at
+external_ref prevents duplicate AWB creation
+OutboxEvents
+id, aggregate_type, aggregate_id, event_type, payload, published_at, created_at
+Transactional outbox for reliable event delivery
+
+7.2 Critical Indexes
+Orders: (user_id, created_at DESC), (status, created_at) for cleanup job
+OrderItems: (order_id) for order detail lookups
+Payments: UNIQUE (payment_gateway_id) — idempotency enforcement
+ProductVariants: (product_id), (sku) — for catalog and checkout validation
+InventoryLocks: (product_variant_id, status), (order_id), (expires_at) for cleanup job
+OutboxEvents: (published_at IS NULL, created_at) — for outbox poller
+
+7.3 Data Retention Policy
+Order data: retained for 7 years (GST compliance).
+User behavioral events: retained for 2 years; anonymized after 1 year for ML use.
+Payment data: no card numbers stored. Gateway transaction IDs retained for reconciliation.
+Logs: application logs retained for 90 days; error logs for 1 year.
+
+8. Integrations
+
+Service
+Purpose
+Key Requirements
+Fallback
+Razorpay
+Payments
+Webhook signature verification (middleware); idempotent handler; Refunds API for returns; Settlement reconciliation API for daily job
+Circuit breaker; graceful degradation message to user
+Shiprocket
+Shipping & fulfillment
+Order creation with idempotency check (external_ref); AWB retrieval; tracking webhook; Reverse pickup for returns
+Manual fulfillment entry in admin; pincode serviceability pre-check
+WhatsApp Business API
+Order notifications, support bot
+Pre-approved message templates; session window management; fallback to SMS
+Twilio SMS as primary fallback
+AWS S3 / Cloudflare R2
+Media storage
+Images and video stored with signed URLs; CDN delivery; auto-thumbnail generation (3 sizes) on upload
+Direct S3 URL if CDN fails
+Sentry
+Error monitoring
+All exceptions captured with request context and user ID (anonymized); P0 alerts for payment errors
+Email alerts as secondary
+Alembic
+DB migrations
+All schema changes via versioned migration files; no manual ALTER statements in production
+Rollback migration on deploy failure
+
+9. UX & Design Guidelines
+
+9.1 Design Principles
+Content first, commerce second: The product must feel like a magazine that sells, not a shop that tells stories. Every design decision must serve the content experience first.
+Zero friction to purchase: Every additional tap is a potential abandonment. The checkout flow must be the shortest legally and technically possible.
+Trust through clarity: Price, delivery estimate, and return policy visible on every product page — no hidden information that requires scrolling to find.
+Accessible at entry-level: Design must work on a 5-inch, 720p screen on a mid-range Android. Premium UI is achievable without requiring premium hardware.
+
+9.2 Mobile-First Considerations
+Minimum tap target size: 44x44pt (iOS HIG standard).
+Bottom sheet pattern for product quick-view (avoids full page navigation).
+Thumb-zone optimized CTA placement: primary actions within natural thumb reach (bottom 60% of screen).
+All images lazy-loaded with blur-up placeholder; no layout shift (CLS score < 0.1).
+Offline state: app shows cached content with "You're offline" banner; no white screen of death.
+
+9.3 Accessibility Basics
+Minimum contrast ratio: 4.5:1 for body text; 3:1 for large text (WCAG AA).
+All interactive elements have aria-label or accessible text.
+Screen reader support for product names, prices, and CTA buttons.
+No information conveyed by color alone (e.g., out-of-stock uses text label, not just greyed color).
+
+9.4 Loading & Error States
+Every async operation has a loading skeleton — never a blank white screen.
+Error messages are human-readable and action-oriented: "Payment failed — try another method" not "Error 402".
+Network failure: show cached state where possible; show retry button with countdown where not.
+
+10. Performance Expectations
+
+Metric
+Target (P50)
+Target (P95)
+Hard Limit
+Content feed load (first paint)
+< 800ms
+< 2s
+< 4s
+Product detail page load
+< 500ms
+< 1.5s
+< 3s
+Cart → Checkout initiation
+< 300ms
+< 800ms
+< 2s
+Payment webhook processing
+< 150ms
+< 500ms
+< 1s
+OTP delivery (SMS)
+< 5s
+< 10s
+< 30s
+WhatsApp order confirmation
+< 30s
+< 60s
+< 120s
+Admin order list load (1000 orders)
+< 400ms
+< 1s
+< 2s
+Image load (mobile, 4G)
+< 1s
+< 2s
+< 4s
+
+Concurrency Target  MVP: 200 concurrent checkout sessions. Month 6: 2,000. Year 1: 10,000. Load test with Locust before every major release.
+
+11. Security & Compliance
+
+11.1 Authentication Security
+OTP brute-force protection: 5 incorrect OTPs trigger a 1-hour lockout on that phone number.
+Rate limiting: 10 auth requests per IP per minute; 5 OTP sends per phone per hour.
+JWTs signed with RS256 (asymmetric); signing keys rotated quarterly.
+Refresh tokens stored server-side hash (not the raw token); one-time use with rotation.
+
+11.2 Payment Security
+Razorpay webhook HMAC-SHA256 signature verified at middleware level before any handler executes.
+No payment card data stored or logged — PCI DSS compliance delegated to Razorpay.
+Payment amount validated server-side against order total — client-side amount ignored.
+All refunds initiated via admin action only; automated refund requires admin-level JWT.
+
+11.3 API Security
+All endpoints behind HTTPS; HTTP redirects to HTTPS at Nginx/Cloudflare level.
+Input validation via Pydantic on all request bodies — no raw string interpolation in queries.
+SQL queries via SQLAlchemy ORM — parameterized by default; no raw SQL in business logic.
+CORS configured to allow only ZISUN frontend domains; no wildcard origins.
+Sensitive environment variables (DB credentials, API keys) managed via AWS Secrets Manager — never in code or .env files in production.
+
+11.4 Data Compliance (India DPDP Act 2023)
+User data collection limited to what is strictly required for commerce (name, phone, address).
+Privacy policy clearly states what data is collected, why, and for how long.
+Users can request data deletion; system must support soft-delete of user PII.
+Data processing agreements with all vendors (Razorpay, Shiprocket, WhatsApp) reviewed.
+No user data shared with third parties for advertising without explicit consent.
+
+12. Release Plan
+
+Phase
+Timeline
+Features
+Success Criteria
+Phase 1
+MVP
+Weeks 1–6
+OTP Auth, Content Feed, Product Catalog, Cart & Checkout, Razorpay Integration, WhatsApp Order Confirmation, Admin Dashboard (basic), Sentry monitoring
+100 successful paid orders; payment success rate >96%; zero inventory oversell incidents
+Phase 2
+Growth
+Months 3–5
+Shiprocket automation, Return & Refund flow, Review & Ratings, Coupon/discount engine, WhatsApp bot for order status, Enhanced admin dashboard, Basic analytics funnel
+500 orders/month; D30 retention >20%; AOV >₹800; cart abandonment <50%
+Phase 3
+Personalization
+Months 6–8
+Behavioral event pipeline, Recommendation engine (collaborative filtering), User style profiles, Personalized content feed, Push notifications
+25% lift in conversion from personalized feed vs baseline; 10,000 profiled users
+Phase 4
+Scale
+Months 9–10
+Vendor onboarding portal, Commission tracking, Read replica for catalog, Celery migration from background tasks, Multi-region readiness assessment
+3 vendor partners live; GMV ₹10L/month; zero performance regression at 5x traffic
+
+13. Risks & Assumptions
+
+13.1 Risk Register
+Risk
+Likelihood
+Impact
+Mitigation
+WhatsApp template rejection blocks order confirmation
+Medium
+High
+Pre-approve all templates before dev starts; SMS fallback pre-configured and tested
+Shiprocket API downtime at order creation
+Medium
+High
+Circuit breaker; fallback to manual admin entry; SLA reviewed with Shiprocket
+Inventory oversell under concurrent load
+Low
+High
+Atomic decrement enforced at DB level; load tested with Locust before launch
+Razorpay webhook duplication causes double fulfillment
+Medium
+High
+Idempotency key (UNIQUE on payment_gateway_id) enforced at schema level
+Low organic traffic; no content discovery flywheel
+High
+High
+Content strategy (reels, influencer seeding) budgeted and planned pre-launch
+Key person dependency on engineering lead
+Medium
+High
+Documentation standards enforced; no single point of knowledge failure
+Razorpay settlement delays affect cash flow
+Low
+Medium
+T+2 settlement reviewed; cash buffer maintained for first 60 days
+Mid-range Android performance issues with video content
+Medium
+Medium
+Video compression pipeline; device-grade detection for quality adaptation
+
+13.2 Key Assumptions
+Razorpay and Shiprocket APIs remain stable and available; SLA reviewed before contract signing.
+WhatsApp Business API message templates are approved within 5 business days.
+Engineering team has Python/FastAPI and React/Next.js proficiency; no ramp-up time budgeted.
+Initial product catalog (first 50 SKUs) is curated and ready for upload at Week 2.
+Admin team is trained on the dashboard before first real order is accepted.
+COD (cash on delivery) is NOT in scope for MVP; added in Phase 2 after NDR (non-delivery ratio) tracking is in place.
+
+14. Analytics & Tracking
+
+14.1 Core Events to Track
+Event
+Properties
+Purpose
+content_viewed
+content_id, content_type, session_id, user_id (if authed)
+Content performance; discovery funnel
+product_viewed
+product_id, source (feed/search/direct), session_id
+Product interest signal; personalization
+add_to_cart
+product_id, variant_id, price, session_id
+Intent signal; abandonment analysis
+checkout_started
+order_id, cart_total, item_count
+Checkout funnel entry
+payment_initiated
+order_id, payment_method, amount
+Payment method preference
+order_completed
+order_id, amount, payment_method, item_count
+Core commerce KPI
+cart_abandoned
+session_id, last_step (cart/address/payment), cart_total
+Abandonment recovery targeting
+otp_requested
+phone_hash (not raw), source
+Auth funnel; OTP delivery success rate
+search_performed
+query, results_count, session_id
+Search demand; catalog gap analysis
+return_initiated
+order_id, reason, days_since_delivery
+Return rate; quality signal
+
+14.2 Key Funnels
+Acquisition funnel: Content view → Product view → Add to cart → Checkout started → Order completed
+Auth funnel: OTP requested → OTP delivered → OTP entered → Auth success
+Retention funnel: Order completed → WhatsApp follow-up → Second visit → Repeat order
+Content funnel: Feed impression → Content card tap → Product bottom sheet view → Add to cart
+
+15. Testing Strategy
+
+15.1 Unit Tests
+All business logic functions have unit test coverage: order state machine transitions, inventory lock/release, idempotency key handling, OTP rate limiting.
+Minimum coverage target: 80% on business logic modules; 100% on payment and inventory modules.
+Test framework: pytest with pytest-asyncio for async FastAPI routes.
+
+15.2 Integration Tests
+Razorpay webhook handler tested with real webhook payloads (success, failure, duplicate).
+Inventory race condition tested: 100 concurrent requests for 1 unit — exactly 1 succeeds.
+Order state machine tested: all valid transitions, all invalid transition rejections.
+Cleanup job tested: orders expire correctly; inventory locks released; no orphaned records.
+
+15.3 User Acceptance Testing (UAT) Scenarios
+#
+Scenario
+Expected Result
+Pass Criteria
+UAT-01
+First-time user completes a purchase end-to-end
+Order confirmed, WhatsApp received, inventory decremented
+Completed in < 3 minutes
+UAT-02
+User attempts checkout for an out-of-stock item
+Clear "Out of stock" message; cannot proceed to payment
+No order created
+UAT-03
+Two users simultaneously checkout for last unit
+Only one succeeds; other sees stock unavailable
+Zero oversell
+UAT-04
+User abandons payment page; Razorpay session expires
+Order auto-cancelled after 30 min; inventory restored
+No orphaned PAYMENT_PENDING orders
+UAT-05
+Duplicate Razorpay webhook fires for same payment
+Only one fulfillment created; idempotent response
+No duplicate shipment
+UAT-06
+Admin cancels an order after payment
+Refund initiated via Razorpay API; user notified via WhatsApp
+Refund status visible in admin
+UAT-07
+User with poor 3G connection completes checkout
+App handles network drops gracefully; checkout state preserved
+No lost order data
+UAT-08
+Admin bulk updates stock via CSV
+Stock updated correctly for all variants; no data loss
+Stock values match CSV after import
+
+15.4 Load Testing
+Tool: Locust (Python-native, integrates with CI).
+Scenario 1: 200 concurrent users browsing catalog — no DB degradation.
+Scenario 2: 50 concurrent checkout sessions — zero oversell, P95 < 800ms.
+Scenario 3: Webhook flood test — 1,000 duplicate webhook payloads — all idempotent, zero data corruption.
+Load tests run in staging environment against production-scale data volume (seeded with 100k product records, 10k orders).
+
+16. Monetization Strategy
+
+16.1 Phase 1–2: Direct Margin (Own Inventory)
+Product margin: ₹200–₹500 per item. ZISUN sources directly and sells at a 40–60% gross margin. This is the primary revenue model for the first 6 months.
+Premium positioning: Products priced at a deliberate premium over mass-market (Meesho/Flipkart). The margin is justified by curation, content quality, and brand story.
+
+16.2 Phase 3–4: Platform Revenue
+Vendor commission: 5–15% GMV commission on vendor sales transacted through ZISUN. Commission tier based on vendor GMV volume and exclusivity agreement.
+Featured placement: Vendors pay for premium placement in the content feed — editorial features, occasion bundles, homepage spotlights. Priced at ₹15,000–₹50,000 per campaign.
+AI Styling Services (Phase 4): Subscription-based personal styling service powered by the recommendation engine. Target: ₹299–₹499/month for personalized weekly outfit curation.
+
+16.3 Unit Economics (MVP Target)
+Average Order Value (AOV)
+₹900
+COGS (product cost)
+₹450 (50%)
+Fulfillment cost (Shiprocket)
+₹80
+Payment gateway fee (Razorpay ~2%)
+₹18
+Gross Profit per Order
+₹352 (39%)
+Target to reach break-even
+142 orders/month at ₹352 margin to cover ₹50,000/month infra + ops cost
+
+17. Future Roadmap (Year 2+)
+
+17.1 AI & Personalization
+Behavioral style fingerprinting: A per-user embedding trained on scroll patterns, dwell time, add-to-cart signals, and purchase history. Used to rank the content feed in real time.
+Predictive restocking: Demand forecasting model predicts which SKUs will sell out based on content virality signals; triggers vendor purchase orders automatically.
+AI Stylist Agent: Conversational agent (WhatsApp / in-app) that accepts a photo or occasion description and returns a complete styled look using catalog inventory, with one-tap checkout.
+
+17.2 Experience Innovation
+AR try-on: Garment diffusion model renders products onto user-uploaded photo or live camera. Reduces return rates and increases conversion on apparel.
+Shoppable video (native): Product overlay rendered directly on video frames using computer vision. Users tap a product in a reel mid-play; bottom sheet opens without pausing video.
+Social commerce graph: "3 people you follow bought this" surface in the feed. Requires opt-in social graph feature; privacy-first by design.
+
+17.3 Platform & Infrastructure
+Kafka-based streaming backbone: Replace Redis pub/sub with Kafka for durable, replayable event streaming. Enables real-time analytics, ML feature pipelines, and event sourcing.
+Multi-region deployment: Active-active setup across Mumbai + Singapore for latency and resilience. Data partitioned by home_region.
+Vendor self-service portal: Vendors upload products, set pricing, view analytics, and manage inventory without ZISUN ops involvement.
+
+Strategic Vision  By Year 2, ZISUN transitions from a curated boutique to an AI-powered style discovery platform where the data flywheel — behavioral signals feeding model training feeding better personalization driving more engagement — becomes the primary competitive moat. Every product interaction from Day 1 is an investment in this flywheel. Instrument everything.
+
+
+End of Document  •  ZISUN PRD v1.0  •  Confidential
