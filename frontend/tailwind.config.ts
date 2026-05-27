@@ -9,23 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "#F7F0E8",
+        foreground: "#1A0F0A",
         primary: {
-          DEFAULT: "#E63946", // red-600
+          DEFAULT: "#6B3F2A",
           foreground: "#ffffff",
         },
-        secondary: {
-          DEFAULT: "#F4A261", // orange-400
-          foreground: "#ffffff",
-        },
-        accent: {
-          DEFAULT: "#f97316", // A vibrant orange for highlights
-          foreground: "#ffffff",
-        }
+        muted: "#9E8070",
+        cream: "#F7F0E8",
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'sans-serif'],
+        sans: ["var(--font-inter)", "sans-serif"],
+        serif: ["var(--font-playfair)", "Georgia", "serif"],
       },
     },
   },

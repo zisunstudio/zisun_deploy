@@ -20,62 +20,79 @@ export default function BottomSheet({ isOpen, onClose }: BottomSheetProps) {
       price: 2499,
       quantity: 1,
       image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200",
-      size: "M"
+      size: "M",
     });
     onClose();
-    toggleCart(); // Open cart to show user it was added
+    toggleCart();
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/60 z-40"
+            className="absolute inset-0 bg-black/50 z-40"
           />
-
-          {/* Sheet */}
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="absolute bottom-0 w-full bg-zinc-900 rounded-t-3xl z-50 overflow-hidden"
+            transition={{ type: "spring", damping: 26, stiffness: 220 }}
+            className="absolute bottom-0 w-full bg-white rounded-t-3xl z-50 overflow-hidden shadow-2xl"
           >
-            {/* Drag Handle Area */}
+            {/* Drag handle */}
             <div className="w-full pt-4 pb-2 flex justify-center items-center relative">
-              <div className="w-12 h-1.5 bg-zinc-700 rounded-full" />
-              <button onClick={onClose} className="absolute right-4 text-zinc-400 hover:text-white">
-                <X className="w-5 h-5" />
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+              <button
+                onClick={onClose}
+                className="absolute right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Product Details */}
-            <div className="p-6 pt-2">
+            <div className="px-6 pb-8 pt-2">
+              {/* Product info */}
               <div className="flex gap-4 mb-6">
-                <img 
-                  src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200" 
-                  alt="Product Thumbnail"
-                  className="w-24 h-32 object-cover rounded-lg"
+                <img
+                  src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200"
+                  alt="Silk Resort Shirt"
+                  className="w-24 h-32 object-cover rounded-xl"
                 />
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-white mb-1">Silk Resort Shirt</h3>
-                  <p className="text-accent text-lg font-medium mb-3">₹2,499</p>
-                  <p className="text-zinc-400 text-sm line-clamp-2">
+                <div className="flex-1 py-1">
+                  <h3 className="font-serif text-xl font-bold text-foreground mb-1">
+                    Silk Resort Shirt
+                  </h3>
+                  <p className="text-primary text-lg font-semibold mb-2">₹2,499</p>
+                  <p className="text-muted text-sm leading-relaxed line-clamp-2">
                     Premium silk blend resort shirt perfect for your summer getaway. Relaxed fit.
                   </p>
                 </div>
               </div>
 
-              {/* Add to Cart Button */}
-              <button 
+              {/* Size selector placeholder */}
+              <div className="flex gap-2 mb-5">
+                {["XS", "S", "M", "L", "XL"].map((s) => (
+                  <button
+                    key={s}
+                    className={`w-10 h-10 rounded-full border text-xs font-medium transition-colors ${
+                      s === "M"
+                        ? "border-primary bg-primary text-white"
+                        : "border-gray-200 text-gray-500 hover:border-primary"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              <button
                 onClick={handleAddToCart}
-                className="w-full bg-white text-black py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors"
+                className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#4A2810] transition-colors shadow-md"
               >
                 <ShoppingBag className="w-5 h-5" />
                 Add to Cart
