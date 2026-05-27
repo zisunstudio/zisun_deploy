@@ -3,15 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f1115;
-    --foreground: #ffffff;
-  }
+  --background: #F7F0E8;
+  --foreground: #1A0F0A;
 }
 
 body {
@@ -21,7 +14,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Hide scrollbar for the infinite feed but keep functionality */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
