@@ -1,53 +1,57 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.schemas.order import CartItemRequest, CheckoutInitiateRequest, CheckoutResponse
 from app.services.checkout import CheckoutService
 from app.core.database import get_async_db
+from app.core.security import get_current_user
 
 router = APIRouter()
 
-def get_current_user_id(authorization: str = Header(...)):
-    # Mocking JWT validation for scaffold completeness.
-    # In reality, this depends on OAuth2PasswordBearer and `jose.jwt.decode`
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid token format")
-    try:
-        # Mock payload logic. Just extracting a UUID if present for dev.
-        # token = authorization.split(" ")[1]
-        # payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        # return uuid.UUID(payload["sub"])
-        
-        # MOCK RETURN:
-        return uuid.UUID("12345678-1234-5678-1234-567812345678")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
-@router.post("/items")
+@router.post("/items", status_code=200)
 async def add_item_to_cart(
-    request: CartItemRequest, 
+    body: CartItemRequest,
     db: AsyncSession = Depends(get_async_db),
-    user_id: uuid.UUID = Depends(get_current_user_id)
+    current_user=Depends(get_current_user),
 ):
-    checkout_service = CheckoutService(db)
-    await checkout_service.add_to_cart(user_id, request.variant_id, request.quantity)
-    return {"message": "Added to cart"}
+    svc = CheckoutService(db)
+    await svc.add_to_cart(current_user.id, body.variant_id, body.quantity)
+    return {"success": True, "message": "Item added to cart"}
+
+
+@router.delete("/items/{variant_id}", status_code=200)
+async def remove_cart_item(
+    variant_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(get_current_user),
+):
+    svc = CheckoutService(db)
+    await svc.remove_from_cart(current_user.id, variant_id)
+    return {"success": True, "message": "Item removed"}
+
+
+@router.get("/", status_code=200)
+async def get_cart(
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(get_current_user),
+):
+    svc = CheckoutService(db)
+    cart = await svc.get_or_create_cart(current_user.id)
+    return {"success": True, "data": cart}
+
 
 @router.post("/checkout/initiate", response_model=CheckoutResponse)
 async def initiate_checkout(
-    request: CheckoutInitiateRequest,
+    body: CheckoutInitiateRequest,
     db: AsyncSession = Depends(get_async_db),
-    user_id: uuid.UUID = Depends(get_current_user_id)
+    current_user=Depends(get_current_user),
 ):
-    checkout_service = CheckoutService(db)
-    order = await checkout_service.initiate_checkout(user_id, request.address_id)
-    
-    # Mock Razorpay Order ID creation
-    razorpay_order_id = f"order_mock_{uuid.uuid4().hex[:8]}"
-    
+    svc = CheckoutService(db)
+    order, razorpay_order_id = await svc.initiate_checkout(current_user.id, body.address_id)
     return CheckoutResponse(
         order_id=order.id,
         razorpay_order_id=razorpay_order_id,
-        amount=order.total_amount
+        amount=order.total_amount,
     )
