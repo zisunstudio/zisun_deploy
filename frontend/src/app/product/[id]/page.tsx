@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { ChevronLeft, Heart, ShoppingBag, Share2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import { ProductDetailSkeleton } from "@/components/skeletons/Skeleton";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
+import { trackEvent } from "@/lib/queries/analytics";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -25,6 +26,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [imageIdx, setImageIdx] = useState(0);
+
+  // Track product view on mount
+  useEffect(() => {
+    trackEvent("product_viewed", { product_id: params.id });
+  }, [params.id]);
 
   if (isLoading) return <ProductDetailSkeleton />;
   if (!product) return (
@@ -58,6 +64,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
   function handleAddToCart() {
     if (!product || !selectedVariant) { showToast("Please select a size/variant", "warning"); return; }
+    trackEvent("add_to_cart", { product_id: product.id, variant_id: selectedVariant.id, price });
     addItem({
       id: selectedVariant.id,
       name: product.name,

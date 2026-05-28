@@ -93,42 +93,50 @@ export default function HomePage() {
         </header>
 
         {/* Hero */}
-        <div className="relative h-[72vh]">
-          <Image
-            src={HERO_IMAGE}
-            alt="Summer Collection '24"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-[50%_20%]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
-
-          <div className="absolute bottom-10 left-5 z-10">
-            <h2 className="font-serif text-[2.6rem] font-bold text-white leading-tight mb-1 drop-shadow-sm">
-              Summer<br />Collection &#39;24
-            </h2>
-            <p className="text-white/80 text-sm mb-5">Elevate your everyday aesthetic.</p>
-            <button
-              onClick={() => setIsSheetOpen(true)}
-              className="bg-[#5C3317] text-white px-7 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm hover:bg-[#4A2810] transition-colors shadow-lg"
-            >
-              Shop the Look
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-            {[0, 1, 2, 3].map((i) => (
-              <button
-                key={i}
-                onClick={() => setActiveDot(i)}
-                className={`rounded-full transition-all duration-300 ${
-                  activeDot === i ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40"
-                }`}
+        <div ref={heroRef} className="relative h-[72vh]">
+          {feedData?.items?.[0] ? (
+            <div className="absolute inset-0">
+              <FeedCard item={feedData.items[0] as any} />
+            </div>
+          ) : (
+            <>
+              <Image
+                src={HERO_IMAGE}
+                alt="Summer Collection '24"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-[50%_20%]"
               />
-            ))}
-          </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
+
+              <div className="absolute bottom-10 left-5 z-10">
+                <h2 className="font-serif text-[2.6rem] font-bold text-white leading-tight mb-1 drop-shadow-sm">
+                  Summer<br />Collection &#39;24
+                </h2>
+                <p className="text-white/80 text-sm mb-5">Elevate your everyday aesthetic.</p>
+                <button
+                  onClick={() => setIsSheetOpen(true)}
+                  className="bg-[#5C3317] text-white px-7 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm hover:bg-[#4A2810] transition-colors shadow-lg"
+                >
+                  Shop the Look
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                {[0, 1, 2, 3].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveDot(i)}
+                    className={`rounded-full transition-all duration-300 ${
+                      activeDot === i ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Trust badges */}

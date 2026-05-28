@@ -14,6 +14,7 @@ import { useAddresses, useCreateAddress } from "@/lib/queries/address";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/lib/queries/catalog";
+import { trackEvent } from "@/lib/queries/analytics";
 
 // Declare Razorpay on window to avoid TypeScript errors
 declare global {
@@ -480,6 +481,7 @@ export default function CheckoutPage() {
                   showToast("Please select an address", "warning");
                   return;
                 }
+                trackEvent("checkout_initiated", { cart_total: cart?.cart_total });
                 setStep("payment");
               }}
               className="w-full bg-primary text-white py-4 rounded-full font-semibold"
