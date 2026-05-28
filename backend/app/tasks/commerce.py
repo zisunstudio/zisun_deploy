@@ -191,3 +191,70 @@ async def _process_outbox():
                 logger.error("Outbox event %s failed: %s", event.id, exc)
 
         await db.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Task: razorpay_daily_reconciliation
+# ─────────────────────────────────────────────────────────────────────────────
+
+@celery_app.task(name="tasks.razorpay_daily_reconciliation")
+def razorpay_daily_reconciliation():
+    """Daily: compare Razorpay settlements with internal payments table. Log discrepancies."""
+    run_async(_razorpay_daily_reconciliation())
+
+
+async def _razorpay_daily_reconciliation():
+    try:
+        import razorpay
+        from app.core.config import settings as _settings
+
+        if not _settings.RAZORPAY_KEY_ID or not _settings.RAZORPAY_KEY_SECRET:
+            logger.info("Razorpay keys not set — skipping reconciliation")
+            return
+
+        rz = razorpay.Client(
+            auth=(_settings.RAZORPAY_KEY_ID, _settings.RAZORPAY_KEY_SECRET)
+        )
+
+        # Fetch last 24h settlements
+        import time
+
+        from_ts = int(time.time()) - 86400
+        settlements = rz.settlement.all({"from": from_ts})
+
+        async with AsyncSessionLocal() as db:
+            from datetime import timedelta
+
+            from sqlalchemy.future import select as futureselect
+
+            from app.models.order import Payment, PaymentStatus
+
+            since = datetime.now(timezone.utc) - timedelta(days=1)
+            result = await db.execute(
+                futureselect(Payment).where(
+                    Payment.status == PaymentStatus.CAPTURED,
+                    Payment.processed_at >= since,
+                )
+            )
+            db_payments = result.scalars().all()
+
+            rz_count = len(settlements.get("items", [])) if settlements else 0
+            db_count = len(db_payments)
+
+            if rz_count != db_count:
+                logger.warning(
+                    "Razorpay reconciliation mismatch",
+                    extra={
+                        "rz_settlements_24h": rz_count,
+                        "db_payments_24h": db_count,
+                    },
+                )
+            else:
+                logger.info(
+                    "Razorpay reconciliation OK",
+                    extra={"payments_24h": db_count},
+                )
+    except Exception as e:
+        logger.error(
+            "Razorpay reconciliation failed", extra={"error": str(e)}
+        )

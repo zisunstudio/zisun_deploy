@@ -1,19 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ShoppingBag, Search, User, Truck, RefreshCcw,
   ShieldCheck, Star, Home, Grid3X3, Heart, ChevronRight,
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import BottomSheet from "@/components/BottomSheet";
 import CartDrawer from "@/components/CartDrawer";
 import { CategoryCard } from "@/components/CategoryCard";
 import { CategoryCardSkeleton } from "@/components/skeletons/Skeleton";
 import { useCartStore } from "@/store/useCartStore";
 import { useCategories, useFeed } from "@/lib/queries/catalog";
-import { FeedCard } from "@/components/FeedCard";
+import { FeedCard, FeedItem } from "@/components/FeedCard";
 import { trackEvent } from "@/lib/queries/analytics";
 
 const TRUST_BADGES = [
@@ -30,18 +31,53 @@ export default function HomePage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("home");
   const [activeDot, setActiveDot] = useState(0);
+  const [feedPage, setFeedPage] = useState(1);
+  const [allFeedItems, setAllFeedItems] = useState<FeedItem[]>([]);
+  const [hasMore, setHasMore] = useState(true);
   const toggleCart = useCartStore((state) => state.toggleCart);
   const cartItemsCount = useCartStore((state) => state.items.length);
   const { data: categories, isLoading: loadingCategories } = useCategories();
-  const { data: feedData } = useFeed(1);
+  const { data: feedData } = useFeed(feedPage);
   const heroRef = useRef<HTMLDivElement>(null);
+  const feedParentRef = useRef<HTMLDivElement>(null);
+
+  // Accumulate feed pages
+  useEffect(() => {
+    if (!feedData?.items) return;
+    setAllFeedItems((prev) => {
+      const existingIds = new Set(prev.map((i) => i.id));
+      const newItems = feedData.items.filter((i: FeedItem) => !existingIds.has(i.id));
+      return [...prev, ...newItems];
+    });
+    if (feedData.items.length < (feedData.limit ?? 20)) {
+      setHasMore(false);
+    }
+  }, [feedData]);
 
   // Track hero feed item view
   useEffect(() => {
-    const firstItem = feedData?.items?.[0];
+    const firstItem = allFeedItems[0];
     if (!firstItem) return;
     trackEvent("content_viewed", { item_id: firstItem.id });
-  }, [feedData]);
+  }, [allFeedItems]);
+
+  // Virtualizer for the feed section
+  const virtualizer = useVirtualizer({
+    count: allFeedItems.length,
+    getScrollElement: () => feedParentRef.current,
+    estimateSize: () => (typeof window !== "undefined" ? window.innerHeight : 700),
+    overscan: 2,
+  });
+
+  // Load more when near the end
+  const handleFeedScroll = useCallback(() => {
+    const el = feedParentRef.current;
+    if (!el || !hasMore) return;
+    const nearEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - el.clientHeight * 1.5;
+    if (nearEnd) {
+      setFeedPage((p) => p + 1);
+    }
+  }, [hasMore]);
 
   const NAV_ITEMS = [
     { Icon: Home, label: "Home", id: "home", href: "/" },
@@ -94,9 +130,9 @@ export default function HomePage() {
 
         {/* Hero */}
         <div ref={heroRef} className="relative h-[72vh]">
-          {feedData?.items?.[0] ? (
+          {allFeedItems[0] ? (
             <div className="absolute inset-0">
-              <FeedCard item={feedData.items[0] as any} />
+              <FeedCard item={allFeedItems[0]} />
             </div>
           ) : (
             <>
@@ -171,6 +207,42 @@ export default function HomePage() {
             }
           </div>
         </div>
+
+        {/* Virtualized Feed */}
+        {allFeedItems.length > 1 && (
+          <div className="mt-6 px-5">
+            <h3 className="font-serif text-xl font-bold text-foreground mb-3">Latest Drops</h3>
+          </div>
+        )}
+        {allFeedItems.length > 1 && (
+          <div
+            ref={feedParentRef}
+            onScroll={handleFeedScroll}
+            style={{ height: "100vh", overflow: "auto" }}
+            className="no-scrollbar"
+          >
+            <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const feedItem = allFeedItems[virtualItem.index];
+                return (
+                  <div
+                    key={virtualItem.key}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: `${virtualItem.size}px`,
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    <FeedCard item={feedItem} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="h-20" />
       </div>

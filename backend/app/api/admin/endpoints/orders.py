@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_async_db
 from app.core.config import settings
+from app.core.security import require_role
 from app.models.order import Order, OrderStatus, Payment, PaymentStatus, OutboxEvent
 from app.models.user import User
 from app.schemas.order import OrderResponse
@@ -138,40 +139,63 @@ async def admin_update_order_status(
     return await admin_get_order(order_id, db)
 
 
-@router.post("/{order_id}/refund")
+@router.post("/{order_id}/refund", tags=["Admin Orders"])
 async def admin_refund_order(
     order_id: uuid.UUID,
     body: RefundRequest,
     db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_role("admin")),
 ):
+    """Initiate Razorpay refund for a PAID/PACKED order."""
     stmt = (
         select(Order)
-        .options(selectinload(Order.payment), selectinload(Order.user))
+        .options(
+            selectinload(Order.payment),
+            selectinload(Order.user),
+            selectinload(Order.items),
+        )
         .where(Order.id == order_id)
+        .with_for_update()
     )
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
+
+    # 1. Verify order status is PAID or PACKED
+    if order.status not in (OrderStatus.PAID, OrderStatus.PACKED):
+        raise HTTPException(
+            400,
+            f"Cannot refund order in status {order.status.value}; must be PAID or PACKED",
+        )
+
+    # 2. Fetch first captured payment for this order
     if not order.payment or order.payment.status != PaymentStatus.CAPTURED:
         raise HTTPException(400, "No captured payment to refund")
 
     refund_amount = body.amount or order.payment.amount
+    refund_id = None
 
-    # Call Razorpay refund API
+    # 3. Call Razorpay refund API
     if settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET:
         import razorpay
 
         client = razorpay.Client(
             auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
         )
-        client.payment.refund(
+        refund = client.payment.refund(
             order.payment.payment_gateway_id, {"amount": refund_amount}
+        )
+        refund_id = refund.get("id") if isinstance(refund, dict) else None
+    else:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "Razorpay keys not configured — skipping live refund for order %s", order_id
         )
 
     order.payment.status = PaymentStatus.REFUNDED
 
-    # Write OutboxEvent for WhatsApp notification
+    # 4. Write OutboxEvent
     db.add(
         OutboxEvent(
             aggregate_type="Order",
@@ -184,5 +208,13 @@ async def admin_refund_order(
             },
         )
     )
+
+    # 5. Transition order to CANCELLED via OrderStateMachine
+    OrderStateMachine.transition(order, OrderStatus.CANCELLED)
+
+    # 6. Release inventory locks
+    await _release_locks_for_order(db, order_id)
+
+    # 7. Commit and return
     await db.commit()
-    return {"refunded": True, "amount": refund_amount}
+    return {"success": True, "refund_id": refund_id, "amount": refund_amount}

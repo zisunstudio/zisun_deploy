@@ -1,4 +1,6 @@
 from celery import Celery
+from celery.schedules import crontab
+
 from app.core.config import settings
 
 celery_app = Celery(
@@ -20,6 +22,10 @@ celery_app.conf.beat_schedule = {
     "process-outbox": {
         "task": "app.tasks.commerce.process_outbox",
         "schedule": 30,
+    },
+    "razorpay-daily-reconciliation": {
+        "task": "tasks.razorpay_daily_reconciliation",
+        "schedule": crontab(hour=2, minute=0),  # 02:00 UTC daily
     },
 }
 celery_app.conf.timezone = "Asia/Kolkata"

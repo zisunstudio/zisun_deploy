@@ -9,6 +9,7 @@ import {
   CreditCard,
   ShoppingBag,
 } from "lucide-react";
+import Image from "next/image";
 import { useCart, useInitiateCheckout } from "@/lib/queries/cart";
 import { useAddresses, useCreateAddress } from "@/lib/queries/address";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -244,12 +245,14 @@ export default function CheckoutPage() {
                   className="flex gap-3 bg-white rounded-xl p-3 shadow-sm"
                 >
                   {item.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.image_url}
-                      alt={item.product_name ?? "Product"}
-                      className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                    />
+                    <div className="relative w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden">
+                      <Image
+                        src={item.image_url}
+                        alt={item.product_name ?? "Product"}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-foreground truncate">

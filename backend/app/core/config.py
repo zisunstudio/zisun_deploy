@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_PHONE_NUMBER_ID: str = ""
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = ""
+    # Alias used by webhook handler (falls back to WHATSAPP_WEBHOOK_VERIFY_TOKEN if not set)
+    WHATSAPP_VERIFY_TOKEN: str = ""
+    # HMAC secret for inbound webhook signature verification
+    WHATSAPP_APP_SECRET: str = ""
 
     # ── Razorpay ─────────────────────────────────────────────────────────────
     RAZORPAY_KEY_ID: str = ""

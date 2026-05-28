@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
 import { Eye, EyeOff, Trash2, PlusCircle } from "lucide-react";
+import Image from "next/image";
 
 type ContentTag = { tag_name: string; tag_type: string };
 type ContentCard = { id: string; type: string; media_url: string; thumbnail_url?: string; caption?: string; status: string; published_at?: string; tags: ContentTag[]; products: any[] };
@@ -53,8 +54,12 @@ export default function AdminContentPage() {
           {(cards ?? []).map((card) => (
             <div key={card.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="relative aspect-[4/5] bg-gray-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={card.media_url || card.thumbnail_url} alt={card.caption ?? ""} className="w-full h-full object-cover" />
+                <Image
+                  src={card.media_url || card.thumbnail_url || ""}
+                  alt={card.caption ?? ""}
+                  fill
+                  className="object-cover"
+                />
                 <span className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full font-semibold ${card.status === "PUBLISHED" ? "bg-green-500 text-white" : "bg-gray-800/70 text-white"}`}>
                   {card.status}
                 </span>

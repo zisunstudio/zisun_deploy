@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -28,6 +28,7 @@ async def admin_list_products(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     include_inactive: bool = Query(False),
+    search: Optional[str] = Query(None, description="Search by product name or variant SKU"),
     db: AsyncSession = Depends(get_async_db),
 ):
     stmt = (
@@ -39,11 +40,18 @@ async def admin_list_products(
         )
         .where(Product.deleted_at.is_(None))
         .order_by(Product.created_at.desc())
-        .offset((page - 1) * limit)
-        .limit(limit)
     )
     if not include_inactive:
         stmt = stmt.where(Product.is_active.is_(True))
+    if search:
+        search_term = f"%{search}%"
+        stmt = stmt.outerjoin(Product.variants).where(
+            or_(
+                Product.name.ilike(search_term),
+                ProductVariant.sku.ilike(search_term),
+            )
+        ).distinct()
+    stmt = stmt.offset((page - 1) * limit).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -144,11 +152,54 @@ async def admin_update_variant_stock(
     return {"variant_id": str(variant_id), "stock": body.stock}
 
 
+class BulkStockItem(BaseModel):
+    sku: str
+    new_stock: int
+
+
 @router.post("/bulk-stock")
 async def admin_bulk_stock_update(
+    items: List[BulkStockItem],
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Accept JSON array [{sku, new_stock}]; validate all skus exist and stock>=0; apply atomically."""
+    if not items:
+        raise HTTPException(422, "Empty list")
+
+    errors = []
+    for item in items:
+        if item.new_stock < 0:
+            errors.append(f"SKU {item.sku}: stock cannot be negative")
+    if errors:
+        raise HTTPException(422, {"errors": errors})
+
+    # Validate all SKUs exist before applying any changes (atomic)
+    updates = []
+    for item in items:
+        stmt = select(ProductVariant).where(ProductVariant.sku == item.sku.strip())
+        result = await db.execute(stmt)
+        variant = result.scalar_one_or_none()
+        if not variant:
+            await db.rollback()
+            raise HTTPException(422, f"SKU not found: {item.sku}")
+        updates.append((variant, item.new_stock, item.sku.strip()))
+
+    # All valid — apply atomically
+    results = []
+    for variant, new_stock, sku in updates:
+        variant.stock = new_stock
+        results.append({"sku": sku, "new_stock": new_stock})
+
+    await db.commit()
+    return {"updated": len(results), "rows": results}
+
+
+@router.post("/bulk-stock-csv")
+async def admin_bulk_stock_update_csv(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_async_db),
 ):
+    """CSV upload variant: accepts file with 'sku' and 'new_stock' columns."""
     content = await file.read()
     reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
     rows = list(reader)
@@ -158,7 +209,7 @@ async def admin_bulk_stock_update(
     if "sku" not in rows[0] or "new_stock" not in rows[0]:
         raise HTTPException(422, "CSV must have 'sku' and 'new_stock' columns")
 
-    updates = []
+    updates_parsed = []
     errors = []
     for row in rows:
         try:
@@ -166,7 +217,7 @@ async def admin_bulk_stock_update(
             if new_stock < 0:
                 errors.append(f"SKU {row['sku']}: stock cannot be negative")
                 continue
-            updates.append({"sku": row["sku"].strip(), "new_stock": new_stock})
+            updates_parsed.append({"sku": row["sku"].strip(), "new_stock": new_stock})
         except ValueError:
             errors.append(
                 f"SKU {row['sku']}: invalid stock value '{row['new_stock']}'"
@@ -177,7 +228,7 @@ async def admin_bulk_stock_update(
 
     # Apply all or reject all
     results = []
-    for upd in updates:
+    for upd in updates_parsed:
         stmt = select(ProductVariant).where(ProductVariant.sku == upd["sku"])
         result = await db.execute(stmt)
         variant = result.scalar_one_or_none()
