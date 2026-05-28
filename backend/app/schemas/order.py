@@ -5,10 +5,39 @@ import uuid
 
 from app.models.order import OrderStatus, PaymentStatus
 
-# Cart & Checkout
+# ── Cart request / response schemas ──────────────────────────────────────────
+
 class CartItemRequest(BaseModel):
     variant_id: uuid.UUID
     quantity: int = Field(..., gt=0)
+
+
+class CartItemResponse(BaseModel):
+    id: uuid.UUID
+    product_variant_id: uuid.UUID
+    quantity: int
+    unit_price: int  # effective price (base + delta) in paise
+    product_name: Optional[str] = None
+    image_url: Optional[str] = None
+    size: Optional[str] = None
+    color: Optional[str] = None
+    sku: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CartResponse(BaseModel):
+    id: uuid.UUID
+    items: List[CartItemResponse] = []
+    cart_total: int = 0  # in paise
+
+    class Config:
+        from_attributes = True
+
+class UpdateCartItemRequest(BaseModel):
+    quantity: int = Field(..., ge=0)  # 0 = remove item
+
 
 class CheckoutInitiateRequest(BaseModel):
     address_id: uuid.UUID
