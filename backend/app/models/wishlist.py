@@ -1,4 +1,5 @@
-from typing import List
+import uuid
+from typing import List, Optional
 from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -8,11 +9,10 @@ from .base import BaseModel
 class Wishlist(BaseModel):
     __tablename__ = "wishlists"
 
-    user_id: Mapped[str] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
 
-    user: Mapped["User"] = relationship("User")
     items: Mapped[List["WishlistItem"]] = relationship(
         "WishlistItem",
         back_populates="wishlist",
@@ -27,12 +27,12 @@ class WishlistItem(BaseModel):
         UniqueConstraint("wishlist_id", "product_variant_id", name="uq_wishlist_items"),
     )
 
-    wishlist_id: Mapped[str] = mapped_column(
+    wishlist_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("wishlists.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    product_variant_id: Mapped[str] = mapped_column(
+    product_variant_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("product_variants.id"), nullable=False
     )
 
     wishlist: Mapped["Wishlist"] = relationship("Wishlist", back_populates="items")
-    variant: Mapped["ProductVariant"] = relationship("ProductVariant")
+    variant: Mapped[Optional["ProductVariant"]] = relationship("ProductVariant")

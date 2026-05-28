@@ -84,7 +84,7 @@ class ProductBase(BaseModel):
     name: str = Field(..., min_length=1)
     description: Optional[str] = None
     base_price: int = Field(..., ge=0)
-    category_id: Optional[str] = None
+    category_id: Optional[uuid.UUID] = None
     vendor_id: Optional[str] = None
 
 
@@ -96,7 +96,7 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     base_price: Optional[int] = Field(None, ge=0)
-    category_id: Optional[str] = None
+    category_id: Optional[uuid.UUID] = None
 
 
 class ProductResponse(ProductBase):

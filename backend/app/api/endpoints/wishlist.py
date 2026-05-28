@@ -25,9 +25,11 @@ async def get_wishlist(
     """Return the authenticated user's wishlist with all items."""
     svc = WishlistService(db)
     wishlist = await svc.get_wishlist(user_id=current_user.id)
-    # Inject total_items count
-    wishlist.total_items = len(wishlist.items)  # type: ignore[attr-defined]
-    return wishlist
+    return WishlistResponse(
+        id=wishlist.id,
+        items=wishlist.items,
+        total_items=len(wishlist.items),
+    )
 
 
 @router.post("/items", response_model=WishlistItemResponse, status_code=201, tags=["Wishlist"])

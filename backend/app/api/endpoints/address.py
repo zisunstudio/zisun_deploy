@@ -1,9 +1,8 @@
-"""Address API endpoints — CRUD + set-default + pincode serviceability check."""
-import re
+"""Address API endpoints — CRUD + set-default."""
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
@@ -12,8 +11,6 @@ from app.schemas.address import AddressCreate, AddressResponse, AddressUpdate
 from app.services.address import AddressService
 
 router = APIRouter()
-
-_PINCODE_RE = re.compile(r"^\d{6}$")
 
 
 # ── Addresses ─────────────────────────────────────────────────────────────────
@@ -77,17 +74,3 @@ async def set_default_address(
     svc = AddressService(db)
     return await svc.set_default(user_id=current_user.id, address_id=address_id)
 
-
-# ── Pincode serviceability check ──────────────────────────────────────────────
-
-
-@router.get("/checkout/pincode/{pincode}/check", tags=["Checkout"])
-async def check_pincode(pincode: str):
-    """
-    Check if a pincode is serviceable.
-    Phase 2: any valid 6-digit pincode returns serviceable=true.
-    Real Shiprocket integration in Phase 4.
-    """
-    if not _PINCODE_RE.match(pincode):
-        raise HTTPException(status_code=400, detail="Pincode must be exactly 6 digits")
-    return {"serviceable": True, "estimated_days": "3-7", "pincode": pincode}

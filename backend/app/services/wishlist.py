@@ -19,12 +19,12 @@ class WishlistService:
 
     async def get_or_create_wishlist(self, user_id: uuid.UUID) -> Wishlist:
         """Return the user's wishlist, creating it if it doesn't exist."""
-        stmt = select(Wishlist).where(Wishlist.user_id == str(user_id))
+        stmt = select(Wishlist).where(Wishlist.user_id == user_id)
         result = await self.db.execute(stmt)
         wishlist = result.scalar_one_or_none()
 
         if wishlist is None:
-            wishlist = Wishlist(user_id=str(user_id))
+            wishlist = Wishlist(user_id=user_id)
             self.db.add(wishlist)
             await self.db.flush()
 
@@ -39,18 +39,28 @@ class WishlistService:
                     ProductVariant.product
                 ).selectinload(Product.media)
             )
-            .where(Wishlist.user_id == str(user_id))
+            .where(Wishlist.user_id == user_id)
         )
         result = await self.db.execute(stmt)
         wishlist = result.scalar_one_or_none()
 
         if wishlist is None:
-            # Auto-create empty wishlist
-            wishlist = Wishlist(user_id=str(user_id))
+            wishlist = Wishlist(user_id=user_id)
             self.db.add(wishlist)
             await self.db.commit()
             await self.db.refresh(wishlist)
-            wishlist.items = []  # type: ignore[assignment]
+            # Re-fetch with eager load so items list is present
+            stmt2 = (
+                select(Wishlist)
+                .options(
+                    selectinload(Wishlist.items).selectinload(WishlistItem.variant).selectinload(
+                        ProductVariant.product
+                    ).selectinload(Product.media)
+                )
+                .where(Wishlist.id == wishlist.id)
+            )
+            result2 = await self.db.execute(stmt2)
+            wishlist = result2.scalar_one()
 
         return wishlist
 
@@ -73,8 +83,8 @@ class WishlistService:
 
         # Check if already in wishlist
         existing_stmt = select(WishlistItem).where(
-            WishlistItem.wishlist_id == str(wishlist.id),
-            WishlistItem.product_variant_id == str(variant_id),
+            WishlistItem.wishlist_id == wishlist.id,
+            WishlistItem.product_variant_id == variant_id,
         )
         existing_result = await self.db.execute(existing_stmt)
         existing_item = existing_result.scalar_one_or_none()
@@ -83,8 +93,8 @@ class WishlistService:
             return existing_item
 
         item = WishlistItem(
-            wishlist_id=str(wishlist.id),
-            product_variant_id=str(variant_id),
+            wishlist_id=wishlist.id,
+            product_variant_id=variant_id,
         )
         self.db.add(item)
         await self.db.commit()
@@ -104,7 +114,7 @@ class WishlistService:
         """Remove a variant from the wishlist; raises 404 if not found."""
         stmt = (
             select(Wishlist)
-            .where(Wishlist.user_id == str(user_id))
+            .where(Wishlist.user_id == user_id)
         )
         result = await self.db.execute(stmt)
         wishlist = result.scalar_one_or_none()
@@ -113,8 +123,8 @@ class WishlistService:
             raise HTTPException(status_code=404, detail="Wishlist not found")
 
         item_stmt = select(WishlistItem).where(
-            WishlistItem.wishlist_id == str(wishlist.id),
-            WishlistItem.product_variant_id == str(variant_id),
+            WishlistItem.wishlist_id == wishlist.id,
+            WishlistItem.product_variant_id == variant_id,
         )
         item_result = await self.db.execute(item_stmt)
         item = item_result.scalar_one_or_none()
@@ -129,7 +139,7 @@ class WishlistService:
         """Return True if the variant is in the user's wishlist."""
         stmt = (
             select(Wishlist)
-            .where(Wishlist.user_id == str(user_id))
+            .where(Wishlist.user_id == user_id)
         )
         result = await self.db.execute(stmt)
         wishlist = result.scalar_one_or_none()
@@ -138,8 +148,8 @@ class WishlistService:
             return False
 
         item_stmt = select(WishlistItem).where(
-            WishlistItem.wishlist_id == str(wishlist.id),
-            WishlistItem.product_variant_id == str(variant_id),
+            WishlistItem.wishlist_id == wishlist.id,
+            WishlistItem.product_variant_id == variant_id,
         )
         item_result = await self.db.execute(item_stmt)
         return item_result.scalar_one_or_none() is not None
