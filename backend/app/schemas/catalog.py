@@ -1,8 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 import uuid
 import enum
+
+_MAX_PRICE_PAISE = 100_000_000  # 1 crore rupees in paise
 
 
 class SortBy(str, enum.Enum):
@@ -32,6 +34,13 @@ class ProductVariantBase(BaseModel):
     color: Optional[str] = None
     stock: int = Field(default=0, ge=0)
     price_delta: int = Field(default=0)
+
+    @field_validator("price_delta")
+    @classmethod
+    def price_delta_within_bounds(cls, v: int) -> int:
+        if abs(v) > _MAX_PRICE_PAISE:
+            raise ValueError(f"price_delta {v} exceeds maximum allowed value of {_MAX_PRICE_PAISE} paise")
+        return v
 
 
 class ProductVariantCreate(ProductVariantBase):
@@ -86,6 +95,13 @@ class ProductBase(BaseModel):
     base_price: int = Field(..., ge=0)
     category_id: Optional[uuid.UUID] = None
     vendor_id: Optional[str] = None
+
+    @field_validator("base_price")
+    @classmethod
+    def base_price_within_bounds(cls, v: int) -> int:
+        if v > _MAX_PRICE_PAISE:
+            raise ValueError(f"base_price {v} exceeds maximum allowed value of {_MAX_PRICE_PAISE} paise")
+        return v
 
 
 class ProductCreate(ProductBase):

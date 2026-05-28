@@ -97,7 +97,8 @@ export default function BottomSheet({ isOpen, onClose, productId }: BottomSheetP
               <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
               <button
                 onClick={onClose}
-                className="absolute right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+                aria-label="Close"
+                className="absolute right-4 w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>

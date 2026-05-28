@@ -8,7 +8,7 @@ from typing import Any
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -120,6 +120,11 @@ def decode_token(token: str) -> dict[str, Any]:
         ) from exc
 
 
+async def revoke_token_jti(redis, jti: str, expires_in: int) -> None:
+    """Store a revoked JTI in Redis with a TTL matching the token's remaining lifetime."""
+    await redis.set(f"jti:{jti}", "1", ex=expires_in)
+
+
 # ── Password / OTP helpers ────────────────────────────────────────────────────
 
 
@@ -152,6 +157,7 @@ def _db_dependency():
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: AsyncSession = _db_dependency(),
 ) -> Any:
@@ -172,6 +178,13 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type",
         )
+
+    # JTI blocklist check — reject revoked tokens
+    jti = payload.get("jti")
+    if jti:
+        redis = getattr(request.app.state, "redis", None)
+        if redis and await redis.get(f"jti:{jti}"):
+            raise HTTPException(status_code=401, detail="Token has been revoked")
 
     user_id: str = payload.get("sub", "")
     result = await db.execute(select(User).where(User.id == user_id))
@@ -201,6 +214,7 @@ def require_role(*roles: str):
 
 
 async def get_current_user_optional(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: AsyncSession = _db_dependency(),
 ) -> Any:
@@ -213,6 +227,14 @@ async def get_current_user_optional(
         payload = decode_token(credentials.credentials)
         if payload.get("type") != "access":
             return None
+
+        # JTI blocklist check
+        jti = payload.get("jti")
+        if jti:
+            redis = getattr(request.app.state, "redis", None)
+            if redis and await redis.get(f"jti:{jti}"):
+                return None
+
         user_id: str = payload.get("sub", "")
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()

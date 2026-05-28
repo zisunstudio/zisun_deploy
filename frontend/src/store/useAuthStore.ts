@@ -27,11 +27,21 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   setAuth: (user, accessToken) => {
     setAccessToken(accessToken);
     set({ user });
+    if (typeof window !== "undefined") {
+      import("@sentry/nextjs").then(({ setUser }) => {
+        setUser({ id: user?.id, username: user?.phone });
+      });
+    }
   },
 
   clearAuth: () => {
     setAccessToken(null);
     set({ user: null });
+    if (typeof window !== "undefined") {
+      import("@sentry/nextjs").then(({ setUser }) => {
+        setUser(null);
+      });
+    }
   },
 
   setPendingPhone: (phone) => set({ pendingPhone: phone }),

@@ -5,6 +5,10 @@ from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "asyncio: mark test as async")
+
+
 @pytest.fixture
 def fake_redis():
     """In-memory Redis that behaves identically to the real client."""

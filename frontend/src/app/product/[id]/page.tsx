@@ -97,18 +97,23 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <div className="absolute top-12 left-0 right-0 flex justify-between px-5">
             <button
               onClick={() => router.back()}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
+              aria-label="Go back"
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
             >
               <ChevronLeft className="w-4 h-4 text-foreground" />
             </button>
             <div className="flex gap-2">
               <button
                 onClick={handleWishlistToggle}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
+                aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
               >
                 <Heart className={`w-4 h-4 ${inWishlist ? "fill-red-500 text-red-500" : "text-foreground"}`} />
               </button>
-              <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow">
+              <button
+                aria-label="Share"
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
+              >
                 <Share2 className="w-4 h-4 text-foreground" />
               </button>
             </div>

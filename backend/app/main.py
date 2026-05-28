@@ -14,8 +14,10 @@ from app.core.redis import get_redis_client, close_redis
 from app.core.security import _load_keys
 from app.api.v1 import api_router
 from app.api.admin.v1 import admin_router
+from app.api.endpoints.health import router as health_router
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -62,17 +64,19 @@ app = FastAPI(
 )
 
 # Middleware order matters — outermost runs first on request, last on response
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[str(o) for o in settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(health_router)
 app.include_router(api_router,   prefix=settings.API_V1_STR)
 app.include_router(admin_router, prefix=settings.ADMIN_V1_STR)
 
@@ -91,19 +95,3 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "error": {"code": "INTERNAL_ERROR", "message": "An unexpected error occurred"},
         },
     )
-
-
-# ── Health check ──────────────────────────────────────────────────────────────
-@app.get("/health", tags=["Health"])
-async def health_check(request: Request):
-    checks: dict = {"api": "ok"}
-
-    # Redis
-    try:
-        await request.app.state.redis.ping()
-        checks["redis"] = "ok"
-    except Exception:
-        checks["redis"] = "degraded"
-
-    overall = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
-    return {"status": overall, "service": settings.PROJECT_NAME, "checks": checks}

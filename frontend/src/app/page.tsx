@@ -129,6 +129,7 @@ export default function HomePage() {
                   <button
                     key={i}
                     onClick={() => setActiveDot(i)}
+                    aria-label={`Go to slide ${i + 1}`}
                     className={`rounded-full transition-all duration-300 ${
                       activeDot === i ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40"
                     }`}
@@ -183,6 +184,8 @@ export default function HomePage() {
             <button
               key={id}
               onClick={() => handleNavClick(id, href)}
+              aria-label={label}
+              aria-current={isActive ? "page" : undefined}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 relative transition-colors ${
                 isActive ? "text-primary" : "text-gray-400"
               }`}
