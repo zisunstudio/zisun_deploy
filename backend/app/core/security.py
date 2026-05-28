@@ -198,3 +198,26 @@ def require_role(*roles: str):
         return current_user
 
     return _check
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = _db_dependency(),
+) -> Any:
+    """Like get_current_user but returns None instead of raising 401."""
+    if credentials is None:
+        return None
+    try:
+        from app.models.user import User  # local import to break circular dep
+
+        payload = decode_token(credentials.credentials)
+        if payload.get("type") != "access":
+            return None
+        user_id: str = payload.get("sub", "")
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None or user.deleted_at is not None:
+            return None
+        return user
+    except HTTPException:
+        return None

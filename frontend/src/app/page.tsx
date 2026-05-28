@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -12,7 +12,9 @@ import CartDrawer from "@/components/CartDrawer";
 import { CategoryCard } from "@/components/CategoryCard";
 import { CategoryCardSkeleton } from "@/components/skeletons/Skeleton";
 import { useCartStore } from "@/store/useCartStore";
-import { useCategories } from "@/lib/queries/catalog";
+import { useCategories, useFeed } from "@/lib/queries/catalog";
+import { FeedCard } from "@/components/FeedCard";
+import { trackEvent } from "@/lib/queries/analytics";
 
 const TRUST_BADGES = [
   { Icon: Truck, title: "Free Shipping", subtitle: "On orders above ₹999" },
@@ -31,6 +33,15 @@ export default function HomePage() {
   const toggleCart = useCartStore((state) => state.toggleCart);
   const cartItemsCount = useCartStore((state) => state.items.length);
   const { data: categories, isLoading: loadingCategories } = useCategories();
+  const { data: feedData } = useFeed(1);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  // Track hero feed item view
+  useEffect(() => {
+    const firstItem = feedData?.items?.[0];
+    if (!firstItem) return;
+    trackEvent("content_viewed", { item_id: firstItem.id });
+  }, [feedData]);
 
   const NAV_ITEMS = [
     { Icon: Home, label: "Home", id: "home", href: "/" },

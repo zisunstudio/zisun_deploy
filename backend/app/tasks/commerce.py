@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -88,6 +89,33 @@ async def _cleanup_zombie_orders():
 
         await db.commit()
         logger.info("Zombie cleanup: cancelled %d orders", len(orders))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: _release_locks_for_order (used by admin status endpoint)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _release_locks_for_order(db, order_id: uuid.UUID) -> None:
+    """Release all ACTIVE inventory locks for an order and restore stock."""
+    locks = (
+        await db.execute(
+            select(InventoryLock).where(
+                InventoryLock.order_id == order_id,
+                InventoryLock.status == LockStatus.ACTIVE,
+            )
+        )
+    ).scalars().all()
+    for lock in locks:
+        variant = (
+            await db.execute(
+                select(ProductVariant)
+                .where(ProductVariant.id == lock.product_variant_id)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if variant:
+            variant.stock += lock.reserved_qty
+        lock.status = LockStatus.RELEASED
 
 
 # ─────────────────────────────────────────────────────────────────────────────

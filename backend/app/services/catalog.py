@@ -242,8 +242,8 @@ class CatalogService:
 
     async def get_feed(self, page: int = 1, limit: int = 20, redis=None) -> list:
         """
-        Curated feed of active products with images.
-        Results are cached in Redis for 300 s.
+        Curated feed. Phase 4: tries published ContentCards first, falls back
+        to active products (Phase 2 behaviour). Results cached in Redis 300 s.
         """
         cache_redis = redis or self.redis
         cache_key = f"feed:page:{page}:limit:{limit}"
@@ -256,8 +256,72 @@ class CatalogService:
             except Exception as exc:
                 logger.warning("Redis cache read failed: %s", exc)
 
-        # Active products that have at least one IMAGE media — for Phase 2
-        # we just return all active products ordered by newest
+        # ── Phase 4: ContentCard-driven feed ──────────────────────────────
+        try:
+            from app.models.content import ContentCard, ContentStatus, ContentProduct
+
+            stmt = (
+                select(ContentCard)
+                .options(
+                    selectinload(ContentCard.products)
+                    .selectinload(ContentProduct.product)
+                    .selectinload(Product.media),
+                    selectinload(ContentCard.tags),
+                )
+                .where(ContentCard.status == ContentStatus.PUBLISHED)
+                .order_by(ContentCard.published_at.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
+            result = await self.db.execute(stmt)
+            cards = result.scalars().all()
+
+            if cards:
+                feed = []
+                for card in cards:
+                    active_products = [
+                        cp.product
+                        for cp in card.products
+                        if cp.product
+                        and cp.product.is_active
+                        and not getattr(cp.product, "deleted_at", None)
+                    ]
+                    if not active_products:
+                        continue
+                    feed.append(
+                        {
+                            "id": str(card.id),
+                            "type": card.type.value,
+                            "media_url": card.media_url,
+                            "thumbnail_url": card.thumbnail_url,
+                            "caption": card.caption,
+                            "products": [
+                                {
+                                    "id": str(p.id),
+                                    "name": p.name,
+                                    "base_price": p.base_price,
+                                    "media": [
+                                        {"url": m.url, "cdn_url": m.cdn_url}
+                                        for m in p.media[:1]
+                                    ],
+                                }
+                                for p in active_products
+                            ],
+                        }
+                    )
+                if feed:
+                    if cache_redis:
+                        try:
+                            await cache_redis.set(
+                                cache_key, json.dumps(feed), ex=300
+                            )
+                        except Exception as exc:
+                            logger.warning("Redis cache write failed: %s", exc)
+                    return feed
+        except Exception as exc:
+            logger.warning("ContentCard feed failed, falling back to products: %s", exc)
+
+        # ── Fallback: product-based feed (Phase 2) ────────────────────────
         result_dict = await self.list_products(page=page, limit=limit, sort_by="newest")
         products = result_dict["items"]
 
@@ -271,7 +335,11 @@ class CatalogService:
                 "is_active": p.is_active,
                 "category_id": str(p.category_id) if p.category_id else None,
                 "media": [
-                    {"url": m.url, "cdn_url": m.cdn_url, "type": m.type.value if hasattr(m.type, "value") else str(m.type)}
+                    {
+                        "url": m.url,
+                        "cdn_url": m.cdn_url,
+                        "type": m.type.value if hasattr(m.type, "value") else str(m.type),
+                    }
                     for m in p.media
                 ],
                 "variants": [
@@ -282,7 +350,9 @@ class CatalogService:
                         "color": v.color,
                         "stock": v.stock,
                         "price_delta": v.price_delta,
-                        "effective_price": getattr(v, "effective_price", p.base_price + v.price_delta),
+                        "effective_price": getattr(
+                            v, "effective_price", p.base_price + v.price_delta
+                        ),
                         "is_active": v.is_active,
                     }
                     for v in p.variants
