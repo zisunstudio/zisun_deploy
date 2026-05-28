@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
@@ -58,11 +59,15 @@ export default function BottomSheet({ isOpen, onClose }: BottomSheetProps) {
             <div className="px-6 pb-8 pt-2">
               {/* Product info */}
               <div className="flex gap-4 mb-6">
-                <img
-                  src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200"
-                  alt="Silk Resort Shirt"
-                  className="w-24 h-32 object-cover rounded-xl"
-                />
+                <div className="relative w-24 h-32 rounded-xl overflow-hidden flex-shrink-0">
+                  <Image
+                    src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200"
+                    alt="Silk Resort Shirt"
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                  />
+                </div>
                 <div className="flex-1 py-1">
                   <h3 className="font-serif text-xl font-bold text-foreground mb-1">
                     Silk Resort Shirt

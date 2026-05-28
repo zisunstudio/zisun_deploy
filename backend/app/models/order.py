@@ -89,6 +89,7 @@ class Address(BaseModel):
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     line1: Mapped[str] = mapped_column(String(255), nullable=False)
+    line2: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     state: Mapped[str] = mapped_column(String(100), nullable=False)
     pincode: Mapped[str] = mapped_column(String(20), nullable=False)

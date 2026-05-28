@@ -2,7 +2,8 @@
 from .base import Base, BaseModel
 from .user import User, UserRole
 from .auth import RefreshToken
-from .catalog import Category, Product, ProductVariant
+from .catalog import Category, Product, ProductVariant, ProductMedia
+from .wishlist import Wishlist, WishlistItem
 from .cart import Cart, CartItem
 from .order import (
     Address,
@@ -19,7 +20,8 @@ __all__ = [
     "User", "UserRole",
     "RefreshToken",
     "Address",
-    "Category", "Product", "ProductVariant",
+    "Category", "Product", "ProductVariant", "ProductMedia",
+    "Wishlist", "WishlistItem",
     "Cart", "CartItem",
     "Order", "OrderItem",
     "Payment", "PaymentStatus",
