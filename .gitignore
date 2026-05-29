@@ -1,3 +1,10 @@
+# TLS certificates and private keys — never commit
+nginx/ssl/*.pem
+nginx/ssl/*.crt
+nginx/ssl/*.key
+scripts/keys/
+certbot/
+
 # Environments
 venv/
 backend/venv/

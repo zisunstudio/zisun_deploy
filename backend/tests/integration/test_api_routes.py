@@ -129,6 +129,38 @@ class TestCheckoutRoutes:
         resp = await app_client.get("/api/v1/checkout/pincode/ABCDEF/check")
         assert resp.status_code == 400
 
+    async def test_verify_payment_bad_signature(self, app_client):
+        from unittest.mock import patch
+        from app.core.config import settings
+        # With a real key_secret set, a tampered signature must be rejected
+        with patch.object(settings, "RAZORPAY_KEY_SECRET", "test_secret"):
+            resp = await app_client.post(
+                "/api/v1/checkout/verify-payment",
+                json={
+                    "razorpay_payment_id": "pay_test123",
+                    "razorpay_order_id": "order_test456",
+                    "razorpay_signature": "totally_wrong_signature",
+                },
+            )
+        assert resp.status_code == 400
+        assert "signature" in resp.json()["detail"].lower()
+
+    async def test_verify_payment_dev_mode_no_secret(self, app_client, mock_db):
+        # Dev mode: RAZORPAY_KEY_SECRET is empty — signature check skipped,
+        # order lookup returns 404 since mock_db has no real order
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        resp = await app_client.post(
+            "/api/v1/checkout/verify-payment",
+            json={
+                "razorpay_payment_id": "pay_dev",
+                "razorpay_order_id": "mock_order_abc",
+                "razorpay_signature": "any",
+            },
+        )
+        assert resp.status_code == 404
+
 
 # ── WhatsApp webhook ──────────────────────────────────────────────────────────
 

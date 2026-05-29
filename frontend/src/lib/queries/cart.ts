@@ -90,3 +90,17 @@ export function useInitiateCheckout() {
       ),
   });
 }
+
+export function useVerifyPayment() {
+  return useMutation({
+    mutationFn: (payload: {
+      razorpay_payment_id: string;
+      razorpay_order_id: string;
+      razorpay_signature: string;
+    }) =>
+      api.post<{ success: boolean; order_id: string }>(
+        "/checkout/verify-payment",
+        payload
+      ),
+  });
+}

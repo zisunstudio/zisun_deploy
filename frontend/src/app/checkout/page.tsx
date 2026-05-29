@@ -10,7 +10,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import Image from "next/image";
-import { useCart, useInitiateCheckout } from "@/lib/queries/cart";
+import { useCart, useInitiateCheckout, useVerifyPayment } from "@/lib/queries/cart";
 import { useAddresses, useCreateAddress } from "@/lib/queries/address";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -78,6 +78,7 @@ export default function CheckoutPage() {
   const { data: cart, isLoading: cartLoading } = useCart();
   const { data: addresses } = useAddresses();
   const initiateCheckout = useInitiateCheckout();
+  const verifyPayment = useVerifyPayment();
   const createAddress = useCreateAddress();
 
   const [step, setStep] = useState<Step>("cart");
@@ -170,10 +171,27 @@ export default function CheckoutPage() {
         order_id: razorpay_order_id,
         prefill: { contact: user?.phone },
         theme: { color: "#5C3317" },
-        handler: async (_response: any) => {
-          setConfirmedOrderId(order_id);
-          setStep("confirmation");
-          showToast("Payment successful!", "success");
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            const verifyRes = await verifyPayment.mutateAsync({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            setConfirmedOrderId(verifyRes.data.order_id);
+            setStep("confirmation");
+            showToast("Payment successful!", "success");
+          } catch {
+            showToast(
+              "Payment verification failed. Please contact support with your payment ID: " +
+                response.razorpay_payment_id,
+              "error"
+            );
+          }
         },
         modal: {
           ondismiss: () => showToast("Payment cancelled", "warning"),
