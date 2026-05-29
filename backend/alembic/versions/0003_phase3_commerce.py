@@ -14,6 +14,24 @@ branch_labels = None
 depends_on = None
 
 
+def _alter_if_not_uuid(table: str, column: str) -> None:
+    """Run ALTER COLUMN ... TYPE UUID only when the column isn't already UUID."""
+    op.execute(
+        f"""
+        DO $$ BEGIN
+          IF (
+            SELECT data_type
+            FROM information_schema.columns
+            WHERE table_name = '{table}' AND column_name = '{column}'
+          ) != 'uuid' THEN
+            ALTER TABLE {table}
+              ALTER COLUMN {column} TYPE UUID USING {column}::uuid;
+          END IF;
+        END $$;
+        """
+    )
+
+
 def upgrade() -> None:
     # ── orders: add razorpay_order_id ─────────────────────────────────────
     op.add_column(
@@ -22,78 +40,36 @@ def upgrade() -> None:
     )
     op.create_index("ix_orders_razorpay_order_id", "orders", ["razorpay_order_id"], unique=True)
 
-    # ── outbox_events: change payload from TEXT to JSONB ──────────────────
-    # The column was created as JSONB in migration 0001 already, but the ORM
-    # had it typed as String. If it is TEXT in an existing DB, convert it:
+    # ── outbox_events: ensure payload is JSONB (already JSONB in fresh DBs) ─
     op.execute(
-        "ALTER TABLE outbox_events "
-        "ALTER COLUMN payload TYPE JSONB USING payload::jsonb"
+        """
+        DO $$ BEGIN
+          IF (
+            SELECT data_type
+            FROM information_schema.columns
+            WHERE table_name = 'outbox_events' AND column_name = 'payload'
+          ) = 'text' THEN
+            ALTER TABLE outbox_events
+              ALTER COLUMN payload TYPE JSONB USING payload::jsonb;
+          END IF;
+        END $$;
+        """
     )
 
-    # ── Fix FK columns that may have been created as TEXT in some envs ────
-    # carts.user_id
-    op.execute(
-        "ALTER TABLE carts "
-        "ALTER COLUMN user_id TYPE UUID USING user_id::uuid"
-    )
-
-    # cart_items.cart_id, product_variant_id
-    op.execute(
-        "ALTER TABLE cart_items "
-        "ALTER COLUMN cart_id TYPE UUID USING cart_id::uuid"
-    )
-    op.execute(
-        "ALTER TABLE cart_items "
-        "ALTER COLUMN product_variant_id TYPE UUID USING product_variant_id::uuid"
-    )
-
-    # orders.user_id, address_id
-    op.execute(
-        "ALTER TABLE orders "
-        "ALTER COLUMN user_id TYPE UUID USING user_id::uuid"
-    )
-    op.execute(
-        "ALTER TABLE orders "
-        "ALTER COLUMN address_id TYPE UUID USING address_id::uuid"
-    )
-
-    # order_items.order_id, product_variant_id
-    op.execute(
-        "ALTER TABLE order_items "
-        "ALTER COLUMN order_id TYPE UUID USING order_id::uuid"
-    )
-    op.execute(
-        "ALTER TABLE order_items "
-        "ALTER COLUMN product_variant_id TYPE UUID USING product_variant_id::uuid"
-    )
-
-    # payments.order_id
-    op.execute(
-        "ALTER TABLE payments "
-        "ALTER COLUMN order_id TYPE UUID USING order_id::uuid"
-    )
-
-    # inventory_locks.product_variant_id, order_id
-    op.execute(
-        "ALTER TABLE inventory_locks "
-        "ALTER COLUMN product_variant_id TYPE UUID USING product_variant_id::uuid"
-    )
-    op.execute(
-        "ALTER TABLE inventory_locks "
-        "ALTER COLUMN order_id TYPE UUID USING order_id::uuid"
-    )
-
-    # fulfillments.order_id
-    op.execute(
-        "ALTER TABLE fulfillments "
-        "ALTER COLUMN order_id TYPE UUID USING order_id::uuid"
-    )
-
-    # addresses.user_id
-    op.execute(
-        "ALTER TABLE addresses "
-        "ALTER COLUMN user_id TYPE UUID USING user_id::uuid"
-    )
+    # ── Fix FK columns that may have been TEXT in some envs ───────────────
+    # Each call is a no-op when the column is already UUID (fresh DB).
+    _alter_if_not_uuid("carts", "user_id")
+    _alter_if_not_uuid("cart_items", "cart_id")
+    _alter_if_not_uuid("cart_items", "product_variant_id")
+    _alter_if_not_uuid("orders", "user_id")
+    _alter_if_not_uuid("orders", "address_id")
+    _alter_if_not_uuid("order_items", "order_id")
+    _alter_if_not_uuid("order_items", "product_variant_id")
+    _alter_if_not_uuid("payments", "order_id")
+    _alter_if_not_uuid("inventory_locks", "product_variant_id")
+    _alter_if_not_uuid("inventory_locks", "order_id")
+    _alter_if_not_uuid("fulfillments", "order_id")
+    _alter_if_not_uuid("addresses", "user_id")
 
 
 def downgrade() -> None:
