@@ -38,14 +38,9 @@ class TestWhatsAppService:
         )
         assert result is False
 
-    async def test_send_order_confirmation_whatsapp_called_when_configured(self, monkeypatch):
+    async def test_send_order_confirmation_whatsapp_called_when_configured(self):
         """When WhatsApp credentials are set, the WhatsApp API endpoint is called."""
-        monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "fake-token")
-        monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "12345")
-        monkeypatch.setenv("TWILIO_ACCOUNT_SID", "")
-        monkeypatch.setenv("TWILIO_AUTH_TOKEN", "")
-
-        from app.services import whatsapp as wa_module
+        from app.services.whatsapp import send_order_confirmation
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -53,11 +48,18 @@ class TestWhatsAppService:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch("httpx.AsyncClient") as MockClient:
+        # settings is deferred-imported inside the function, so patch at the source module
+        mock_settings = MagicMock()
+        mock_settings.WHATSAPP_ACCESS_TOKEN = "fake-token"
+        mock_settings.WHATSAPP_PHONE_NUMBER_ID = "12345"
+        mock_settings.TWILIO_ACCOUNT_SID = ""
+        mock_settings.TWILIO_AUTH_TOKEN = ""
+
+        with patch("app.core.config.settings", mock_settings), \
+             patch("httpx.AsyncClient") as MockClient:
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            from app.services.whatsapp import send_order_confirmation
             result = await send_order_confirmation(
                 phone="+919876543210",
                 order_id="order-whatsapp-test",
@@ -71,12 +73,11 @@ class TestWhatsAppService:
     async def test_otp_never_logged_as_plaintext(self, capfd):
         """Verify raw OTP is never printed to stdout."""
         from app.services.auth import AuthService
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         mock_db = AsyncMock()
         mock_redis = AsyncMock()
 
-        # Setup redis to pass rate limit and lockout checks
         mock_redis.exists = AsyncMock(return_value=False)
         mock_redis.incr = AsyncMock(return_value=1)
         mock_redis.expire = AsyncMock()
@@ -85,14 +86,12 @@ class TestWhatsAppService:
 
         svc = AuthService(db=mock_db, redis=mock_redis)
 
-        with patch("app.services.auth.send_sms_otp", AsyncMock()) if True else None:
-            try:
-                from app.core.security import generate_otp, hash_secret
-                with patch("app.core.security.generate_otp", return_value="654321"):
-                    with patch("app.services.auth.send_sms_otp", AsyncMock()):
-                        await svc.send_otp("+919876543210")
-            except Exception:
-                pass
+        try:
+            with patch("app.core.security.generate_otp", return_value="654321"), \
+                 patch.object(svc, "_send_sms", new_callable=AsyncMock):
+                await svc.send_otp("+919876543210")
+        except Exception:
+            pass
 
         captured = capfd.readouterr()
         # The raw OTP "654321" should NOT appear in stdout

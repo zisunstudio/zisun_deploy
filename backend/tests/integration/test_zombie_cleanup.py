@@ -18,9 +18,14 @@ class TestZombieCleanup:
         old_order.status = OrderStatus.PAYMENT_PENDING
         old_order.created_at = datetime.now(timezone.utc) - timedelta(minutes=35)
 
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [old_order]
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        # Two execute calls: (1) zombie orders query, (2) inventory locks query
+        orders_result = MagicMock()
+        orders_result.scalars.return_value.all.return_value = [old_order]
+
+        locks_result = MagicMock()
+        locks_result.scalars.return_value.all.return_value = []  # no locks
+
+        mock_db.execute = AsyncMock(side_effect=[orders_result, locks_result])
         mock_db.commit = AsyncMock()
         mock_db.add = MagicMock()
 

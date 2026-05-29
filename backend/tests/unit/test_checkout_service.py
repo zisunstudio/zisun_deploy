@@ -94,6 +94,7 @@ class TestCheckoutService:
             with patch.object(mock_db, "execute", new_callable=AsyncMock) as mock_exec:
                 result_mock = MagicMock()
                 result_mock.scalar_one.return_value = variant
+                result_mock.scalar_one_or_none.return_value = variant  # initiate_checkout uses scalar_one_or_none
                 mock_exec.return_value = result_mock
 
                 with pytest.raises(HTTPException) as exc:

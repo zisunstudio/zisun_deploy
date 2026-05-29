@@ -86,17 +86,24 @@ class TestCatalogService:
         from app.services.catalog import CatalogService
         svc = CatalogService(mock_db)
 
-        mock_count = MagicMock()
-        mock_count.scalar_one.return_value = 0
+        # FTS: count=0 triggers ILIKE fallback — need 4 execute calls total:
+        # 1) FTS count (→0), 2) FTS data (empty), 3) ILIKE count (→0), 4) ILIKE data (empty)
+        def _make_result(count_val=0, items=None):
+            m = MagicMock()
+            m.scalar_one.return_value = count_val
+            m.scalars.return_value.all.return_value = items or []
+            return m
 
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = []
-
-        # search_products calls execute multiple times (FTS count, FTS data, or fallback)
-        mock_db.execute = AsyncMock(side_effect=[mock_count, mock_result])
+        mock_db.execute = AsyncMock(side_effect=[
+            _make_result(0),    # FTS count
+            _make_result(),     # FTS data (empty list)
+            _make_result(0),    # ILIKE count
+            _make_result(),     # ILIKE data (empty list)
+        ])
 
         result = await svc.search_products(q="dress", page=1, limit=10)
         assert result is not None
+        assert result["total"] == 0
 
     async def test_get_product_by_id_not_found_raises_404(self, mock_db):
         from app.services.catalog import CatalogService
