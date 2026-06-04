@@ -15,6 +15,7 @@ admin_router = APIRouter()
 from app.api.admin.endpoints import products as admin_products
 from app.api.admin.endpoints import orders as admin_orders
 from app.api.admin.endpoints import content as admin_content
+from app.api.admin.endpoints import categories as admin_categories
 
 admin_router.include_router(
     admin_products.router,
@@ -33,6 +34,12 @@ admin_router.include_router(
     prefix="/content",
     tags=["Admin — Content"],
     dependencies=[Depends(require_role("admin"))],
+)
+admin_router.include_router(
+    admin_categories.router,
+    prefix="/categories",
+    tags=["Admin — Categories"],
+    dependencies=[Depends(require_role("admin", "operations"))],
 )
 
 

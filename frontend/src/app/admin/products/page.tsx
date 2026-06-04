@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { formatPrice } from "@/lib/queries/catalog";
 import Image from "next/image";
@@ -64,7 +66,15 @@ export default function AdminProductsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Products</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+        <Link
+          href="/admin/products/new"
+          className="flex items-center gap-2 bg-[#5C3317] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4a2a12]"
+        >
+          <Plus className="w-4 h-4" /> New Product
+        </Link>
+      </div>
       {isLoading ? (
         <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />)}</div>
       ) : (
@@ -109,10 +119,14 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
+                        <Link
+                          href={`/admin/products/${p.id}/edit`}
+                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold hover:bg-blue-200"
+                        >Edit</Link>
                         <button
                           onClick={() => openEdit(p)}
-                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold hover:bg-blue-200"
-                        >Edit</button>
+                          className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-semibold hover:bg-gray-200"
+                        >Quick</button>
                         {p.is_active && (
                           <button
                             onClick={() => { if (confirm(`Deactivate "${p.name}"?`)) softDelete.mutate(p.id); }}

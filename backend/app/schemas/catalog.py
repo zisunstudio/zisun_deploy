@@ -52,6 +52,7 @@ class ProductVariantUpdate(BaseModel):
     color: Optional[str] = None
     stock: Optional[int] = Field(None, ge=0)
     price_delta: Optional[int] = None
+    is_active: Optional[bool] = None
 
 
 class ProductVariantResponse(ProductVariantBase):
@@ -151,3 +152,36 @@ class SearchResponse(BaseModel):
 
 # ── Resolve forward references ─────────────────────────────────────────────────
 CategoryDetail.model_rebuild()
+
+
+# ── Admin catalogue schemas ────────────────────────────────────────────────────
+
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: Optional[str] = Field(None, max_length=255)
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    slug: Optional[str] = Field(None, max_length=255)
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class MediaConfirmRequest(BaseModel):
+    key: str
+    cdn_url: str
+    type: str = "IMAGE"
+    display_order: int = 0
+
+
+class MediaReorderItem(BaseModel):
+    id: uuid.UUID
+    display_order: int
+
+
+class MediaReorderRequest(BaseModel):
+    items: list[MediaReorderItem]

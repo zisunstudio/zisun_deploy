@@ -52,3 +52,15 @@ def generate_upload_presigned_url(
         else upload_url
     )
     return {"upload_url": upload_url, "cdn_url": cdn_url, "key": key}
+
+
+def delete_r2_object(key: str) -> None:
+    """Delete an object from R2/S3. Silent no-op in dev mode."""
+    if not settings.R2_ACCESS_KEY:
+        logger.info("DEV MODE — skipping R2 delete for key: %s", key)
+        return
+    try:
+        client = get_s3_client()
+        client.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+    except Exception as exc:
+        logger.warning("R2 delete failed for key %s: %s", key, exc)
