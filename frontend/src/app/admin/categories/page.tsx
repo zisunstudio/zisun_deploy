@@ -79,8 +79,8 @@ export default function AdminCategoriesPage() {
     if (!form.name.trim()) { setError("Name is required"); return; }
     const payload = {
       name: form.name.trim(),
-      description: form.description || null,
-      image_url: form.image_url || null,
+      description: form.description || undefined,
+      image_url: form.image_url || undefined,
       slug: form.slug || undefined,
     };
     if (modal === "create") {

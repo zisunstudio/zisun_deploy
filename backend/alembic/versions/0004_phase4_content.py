@@ -16,10 +16,29 @@ depends_on = None
 
 def upgrade() -> None:
     # ── Enums ──────────────────────────────────────────────────────────────
-    op.execute("CREATE TYPE contentstatus AS ENUM ('DRAFT', 'PUBLISHED')")
-    op.execute("CREATE TYPE contenttype AS ENUM ('IMAGE', 'VIDEO')")
     op.execute(
-        "CREATE TYPE tagtype AS ENUM ('occasion', 'season', 'price_band', 'category')"
+        """
+        DO $$ BEGIN
+            CREATE TYPE contentstatus AS ENUM ('DRAFT', 'PUBLISHED');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+        """
+    )
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE contenttype AS ENUM ('IMAGE', 'VIDEO');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+        """
+    )
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE tagtype AS ENUM ('occasion', 'season', 'price_band', 'category');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+        """
     )
 
     # ── content_cards ──────────────────────────────────────────────────────
