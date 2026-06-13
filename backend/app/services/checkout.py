@@ -1,7 +1,7 @@
 import uuid
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Tuple
+from typing import Tuple, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.cart import Cart, CartItem
 from app.models.catalog import ProductVariant, Product
-from app.models.order import Order, OrderItem, OrderStatus, InventoryLock, LockStatus, OutboxEvent
+from app.models.order import Order, OrderItem, OrderStatus, InventoryLock, LockStatus, OutboxEvent, PaymentMethod
 
 logger = logging.getLogger(__name__)
 
@@ -175,18 +175,23 @@ class CheckoutService:
         self,
         user_id: uuid.UUID,
         address_id: uuid.UUID,
-        idempotency_key: str | None = None,
-    ) -> Tuple[Order, str]:
+        payment_method: PaymentMethod = PaymentMethod.RAZORPAY,
+        coupon_code: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> Tuple[Order, Optional[str]]:
         """
         Full checkout flow:
           1. Validate cart is non-empty
           2. Server-side price recalc from DB (with FOR UPDATE row locks)
-          3. Create PAYMENT_PENDING Order + OrderItems + InventoryLocks
-          4. Call real Razorpay (or mock if keys absent)
-          5. Persist razorpay_order_id on Order
-          6. Clear cart
-          Returns (order, razorpay_order_id)
+          3. Apply coupon discount if provided
+          4. Create PAYMENT_PENDING Order + OrderItems + InventoryLocks + CouponUsage
+          5. For Razorpay: call API (or mock if keys absent)
+          6. For COD: set cod_amount_due, skip Razorpay
+          7. Clear cart
+          Returns (order, razorpay_order_id_or_None)
         """
+        from app.services.coupon import CouponService, COD_MAX_ORDER_VALUE_PAISE
+
         cart = await self.get_or_create_cart(user_id)
 
         if not cart.items:
@@ -206,9 +211,9 @@ class CheckoutService:
             existing_result = await self.db.execute(existing_stmt)
             existing_order = existing_result.scalar_one_or_none()
             if existing_order:
-                return existing_order, existing_order.razorpay_order_id or f"mock_order_{existing_order.id}"
+                return existing_order, existing_order.razorpay_order_id
 
-        total_amount = 0
+        gross_total = 0
         item_snapshots = []  # list of (cart_item, fresh_variant, unit_price)
 
         # Acquire per-variant FOR UPDATE locks and recalculate server-side price
@@ -234,21 +239,45 @@ class CheckoutService:
             if fresh_variant.product:
                 unit_price = fresh_variant.product.base_price + fresh_variant.price_delta
             else:
-                unit_price = fresh_variant.price_delta  # fallback (should not happen)
+                unit_price = fresh_variant.price_delta
 
-            total_amount += unit_price * item.quantity
+            gross_total += unit_price * item.quantity
             item_snapshots.append((item, fresh_variant, unit_price))
 
             # Decrement stock immediately (lock held)
             fresh_variant.stock -= item.quantity
 
+        # Validate coupon and compute discount
+        coupon_obj = None
+        discount_amount = 0
+        if coupon_code:
+            coupon_svc = CouponService(self.db)
+            coupon_obj, discount_amount = await coupon_svc.validate_coupon(
+                coupon_code, user_id, gross_total
+            )
+
+        net_total = max(0, gross_total - discount_amount)
+
+        # COD limit check
+        if payment_method == PaymentMethod.COD and net_total > COD_MAX_ORDER_VALUE_PAISE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cash on Delivery is not available for orders above ₹{COD_MAX_ORDER_VALUE_PAISE // 100}",
+            )
+
         # Create order
         order = Order(
             user_id=user_id,
             status=OrderStatus.PAYMENT_PENDING,
-            total_amount=total_amount,
+            total_amount=net_total,
             address_id=address_id,
+            payment_method=payment_method,
+            discount_amount=discount_amount,
+            coupon_id=coupon_obj.id if coupon_obj else None,
         )
+        if payment_method == PaymentMethod.COD:
+            order.cod_amount_due = net_total
+
         self.db.add(order)
         await self.db.flush()  # get order.id
 
@@ -272,26 +301,34 @@ class CheckoutService:
             )
             self.db.add(lock)
 
-        # Call Razorpay (or use mock)
-        razorpay_order_id: str
-        client = _razorpay_client()
-        if client:
-            try:
-                rz_order = client.order.create({
-                    "amount": total_amount,
-                    "currency": "INR",
-                    "receipt": str(order.id),
-                })
-                razorpay_order_id = rz_order["id"]
-                logger.info("Razorpay order created: %s", razorpay_order_id)
-            except Exception as exc:
-                logger.error("Razorpay order creation failed: %s — falling back to mock", exc)
-                razorpay_order_id = f"mock_order_{order.id}"
-        else:
-            razorpay_order_id = f"mock_order_{order.id}"
-            logger.warning("DEV MODE — mock Razorpay order: %s", razorpay_order_id)
+        # Record coupon usage atomically
+        if coupon_obj:
+            coupon_svc = CouponService(self.db)
+            await coupon_svc.record_usage(coupon_obj.id, user_id, order.id)
 
-        order.razorpay_order_id = razorpay_order_id
+        # Payment gateway
+        razorpay_order_id: Optional[str] = None
+        if payment_method == PaymentMethod.RAZORPAY:
+            client = _razorpay_client()
+            if client:
+                try:
+                    rz_order = client.order.create({
+                        "amount": net_total,
+                        "currency": "INR",
+                        "receipt": str(order.id),
+                    })
+                    razorpay_order_id = rz_order["id"]
+                    logger.info("Razorpay order created: %s", razorpay_order_id)
+                except Exception as exc:
+                    logger.error("Razorpay order creation failed: %s — falling back to mock", exc)
+                    razorpay_order_id = f"mock_order_{order.id}"
+            else:
+                razorpay_order_id = f"mock_order_{order.id}"
+                logger.warning("DEV MODE — mock Razorpay order: %s", razorpay_order_id)
+
+            order.razorpay_order_id = razorpay_order_id
+        else:
+            logger.info("COD order %s — skipping Razorpay", order.id)
 
         # Clear cart items
         for cart_item, _, __ in item_snapshots:

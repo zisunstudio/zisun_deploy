@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.api.endpoints import auth, catalog, cart, orders, wishlist, address, checkout, analytics
-from app.api.endpoints import whatsapp
+from app.api.endpoints import whatsapp, reviews, coupon
 
 api_router = APIRouter()
 
@@ -12,5 +12,7 @@ api_router.include_router(wishlist.router,  prefix="/wishlist",   tags=["Wishlis
 api_router.include_router(address.router,   prefix="/addresses",  tags=["Addresses"])
 api_router.include_router(checkout.router,  prefix="/checkout",   tags=["Checkout"])
 api_router.include_router(analytics.router, prefix="/analytics",  tags=["Analytics"])
+api_router.include_router(reviews.router,   prefix="/reviews",    tags=["Reviews"])
+api_router.include_router(coupon.router,    prefix="/coupons",    tags=["Coupons"])
 # WhatsApp webhook mounted at prefix="" so routes are /webhooks/whatsapp
 api_router.include_router(whatsapp.router,  prefix="",            tags=["WhatsApp"])

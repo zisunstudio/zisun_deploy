@@ -42,6 +42,8 @@ class Product(BaseModel):
     vendor_id: Mapped[Optional[str]] = mapped_column(String(255))
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    avg_rating: Mapped[float] = mapped_column(default=0.0, nullable=False)
+    review_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"

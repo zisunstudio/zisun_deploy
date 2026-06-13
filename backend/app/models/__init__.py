@@ -13,7 +13,11 @@ from .order import (
     Fulfillment,
     OutboxEvent,
     OrderStatus,
+    PaymentMethod,
 )
+from .coupon import Coupon, CouponUsage, CouponType
+from .review import Review, ReviewStatus
+from .ml import ProductEmbedding, SearchQuery
 from .content import ContentCard, ContentTag, ContentProduct, ContentStatus, ContentType, TagType
 from .analytics import AnalyticsEvent
 
@@ -31,6 +35,10 @@ __all__ = [
     "Fulfillment",
     "OutboxEvent",
     "OrderStatus",
+    "PaymentMethod",
+    "Coupon", "CouponUsage", "CouponType",
+    "Review", "ReviewStatus",
+    "ProductEmbedding", "SearchQuery",
     "ContentCard", "ContentTag", "ContentProduct", "ContentStatus", "ContentType", "TagType",
     "AnalyticsEvent",
 ]

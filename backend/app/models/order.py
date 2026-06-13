@@ -8,6 +8,11 @@ from datetime import datetime
 from .base import BaseModel
 
 
+class PaymentMethod(str, enum.Enum):
+    RAZORPAY = "RAZORPAY"
+    COD = "COD"
+
+
 class OrderStatus(str, enum.Enum):
     CREATED = "CREATED"
     PAYMENT_PENDING = "PAYMENT_PENDING"
@@ -42,6 +47,14 @@ class Order(BaseModel):
     address_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("addresses.id"), nullable=False)
     razorpay_order_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
     region: Mapped[Optional[str]] = mapped_column(String(100))
+    payment_method: Mapped[PaymentMethod] = mapped_column(
+        Enum(PaymentMethod, name="paymentmethod"),
+        default=PaymentMethod.RAZORPAY,
+        nullable=False,
+    )
+    cod_amount_due: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    coupon_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("coupons.id"), nullable=True)
+    discount_amount: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="orders")
     items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="order")

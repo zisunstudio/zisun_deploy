@@ -123,10 +123,16 @@ async def initiate_checkout(
 ):
     svc = CheckoutService(db)
     order, razorpay_order_id = await svc.initiate_checkout(
-        current_user.id, body.address_id
+        user_id=current_user.id,
+        address_id=body.address_id,
+        payment_method=body.payment_method,
+        coupon_code=body.coupon_code,
     )
     return CheckoutResponse(
         order_id=order.id,
         razorpay_order_id=razorpay_order_id,
         amount=order.total_amount,
+        discount_amount=order.discount_amount,
+        payment_method=order.payment_method.value,
+        is_cod=(order.payment_method.value == "COD"),
     )

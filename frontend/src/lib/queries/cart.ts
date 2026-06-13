@@ -75,18 +75,39 @@ export function useUpdateCartQuantity() {
   });
 }
 
+export interface CheckoutPayload {
+  address_id: string;
+  payment_method?: "RAZORPAY" | "COD";
+  coupon_code?: string;
+}
+
+export interface CheckoutResponse {
+  order_id: string;
+  razorpay_order_id?: string | null;
+  amount: number;
+  discount_amount: number;
+  currency: string;
+  payment_method: string;
+  is_cod: boolean;
+}
+
 export function useInitiateCheckout() {
   return useMutation({
-    mutationFn: (address_id: string) =>
-      api.post<{
-        order_id: string;
-        razorpay_order_id: string;
-        amount: number;
-        currency: string;
-      }>(
+    mutationFn: (payload: CheckoutPayload) =>
+      api.post<CheckoutResponse>(
         "/cart/checkout/initiate",
-        { address_id },
+        payload,
         { headers: { "X-Idempotency-Key": crypto.randomUUID() } }
+      ),
+  });
+}
+
+export function useApplyCoupon() {
+  return useMutation({
+    mutationFn: ({ code, order_total }: { code: string; order_total: number }) =>
+      api.post<{ code: string; discount_amount: number; final_total: number; message: string }>(
+        "/coupons/apply",
+        { code, order_total }
       ),
   });
 }

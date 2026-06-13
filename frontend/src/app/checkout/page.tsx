@@ -10,7 +10,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import Image from "next/image";
-import { useCart, useInitiateCheckout, useVerifyPayment } from "@/lib/queries/cart";
+import { useCart, useInitiateCheckout, useVerifyPayment, useApplyCoupon } from "@/lib/queries/cart";
 import { useAddresses, useCreateAddress } from "@/lib/queries/address";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -80,19 +80,18 @@ export default function CheckoutPage() {
   const initiateCheckout = useInitiateCheckout();
   const verifyPayment = useVerifyPayment();
   const createAddress = useCreateAddress();
+  const applyCoupon = useApplyCoupon();
 
   const [step, setStep] = useState<Step>("cart");
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
-    null
-  );
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [newAddress, setNewAddress] = useState({
-    line1: "",
-    city: "",
-    state: "",
-    pincode: "",
-  });
+  const [newAddress, setNewAddress] = useState({ line1: "", city: "", state: "", pincode: "" });
+  const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string; discount_amount: number; final_total: number; message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -132,6 +131,18 @@ export default function CheckoutPage() {
     );
   }
 
+  async function handleApplyCoupon() {
+    if (!couponCode.trim()) return;
+    const cartTotal = appliedCoupon ? appliedCoupon.final_total : (cart?.cart_total ?? 0);
+    try {
+      const res = await applyCoupon.mutateAsync({ code: couponCode.trim().toUpperCase(), order_total: cartTotal });
+      setAppliedCoupon(res.data);
+      showToast(res.data.message, "success");
+    } catch (err: any) {
+      showToast(err?.response?.data?.detail ?? "Invalid coupon", "error");
+    }
+  }
+
   async function handlePayment() {
     if (!selectedAddressId) {
       showToast("Please select an address", "warning");
@@ -139,8 +150,20 @@ export default function CheckoutPage() {
     }
 
     try {
-      const res = await initiateCheckout.mutateAsync(selectedAddressId);
-      const { order_id, razorpay_order_id, amount } = res.data;
+      const res = await initiateCheckout.mutateAsync({
+        address_id: selectedAddressId,
+        payment_method: paymentMethod,
+        coupon_code: appliedCoupon?.code,
+      });
+      const { order_id, razorpay_order_id, amount, is_cod } = res.data;
+
+      // COD flow — no Razorpay modal
+      if (is_cod) {
+        showToast("Order placed! Pay on delivery.", "success");
+        setConfirmedOrderId(order_id);
+        setStep("confirmation");
+        return;
+      }
 
       const RAZORPAY_KEY = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
@@ -417,10 +440,8 @@ export default function CheckoutPage() {
 
         {/* Step 3: Payment / Order Summary */}
         {step === "payment" && (
-          <div className="pt-4">
-            <h2 className="font-semibold text-foreground mb-3">
-              Order Summary
-            </h2>
+          <div className="pt-4 space-y-3">
+            <h2 className="font-semibold text-foreground">Order Summary</h2>
             <div className="bg-white rounded-xl p-4 shadow-sm space-y-2">
               {cart.items.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
@@ -432,15 +453,75 @@ export default function CheckoutPage() {
                   </span>
                 </div>
               ))}
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Coupon ({appliedCoupon.code})</span>
+                  <span>- {formatPrice(appliedCoupon.discount_amount)}</span>
+                </div>
+              )}
               <div className="border-t border-gray-100 pt-2 flex justify-between font-bold text-foreground">
                 <span>Total</span>
                 <span className="text-primary">
-                  {formatPrice(cart.cart_total)}
+                  {formatPrice(appliedCoupon ? appliedCoupon.final_total : cart.cart_total)}
                 </span>
               </div>
             </div>
+
+            {/* Coupon input */}
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-xs font-semibold text-gray-600 mb-2">Coupon Code</p>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 border rounded-lg px-3 py-2 text-sm uppercase"
+                  placeholder="e.g. ZISUN10"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  disabled={!!appliedCoupon}
+                />
+                {appliedCoupon ? (
+                  <button
+                    onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
+                    className="text-sm text-red-500 font-semibold px-3"
+                  >Remove</button>
+                ) : (
+                  <button
+                    onClick={handleApplyCoupon}
+                    disabled={applyCoupon.isPending || !couponCode.trim()}
+                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                  >
+                    {applyCoupon.isPending ? "…" : "Apply"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Payment method */}
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-xs font-semibold text-gray-600 mb-2">Payment Method</p>
+              <div className="flex gap-2">
+                {(["RAZORPAY", "COD"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setPaymentMethod(m)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${
+                      paymentMethod === m
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    {m === "RAZORPAY" ? "Pay Online" : "Cash on Delivery"}
+                  </button>
+                ))}
+              </div>
+              {paymentMethod === "COD" && (
+                <p className="text-xs text-amber-600 mt-2">
+                  COD available for orders up to ₹5,000. Pay when delivered.
+                </p>
+              )}
+            </div>
+
             {selectedAddressId && addresses && (
-              <div className="mt-3 bg-gray-50 rounded-xl p-3 flex items-center gap-2">
+              <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
                 <p className="text-sm text-muted">
                   Delivering to:{" "}
@@ -519,7 +600,9 @@ export default function CheckoutPage() {
               <CreditCard className="w-5 h-5" />
               {initiateCheckout.isPending
                 ? "Processing..."
-                : `Pay ${formatPrice(cart.cart_total)}`}
+                : paymentMethod === "COD"
+                ? `Place COD Order — ${formatPrice(appliedCoupon ? appliedCoupon.final_total : cart.cart_total)}`
+                : `Pay ${formatPrice(appliedCoupon ? appliedCoupon.final_total : cart.cart_total)}`}
             </button>
           )}
         </div>
