@@ -1,0 +1,38 @@
+import uuid
+from typing import List, Optional
+from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .base import BaseModel
+
+
+class Wishlist(BaseModel):
+    __tablename__ = "wishlists"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+
+    items: Mapped[List["WishlistItem"]] = relationship(
+        "WishlistItem",
+        back_populates="wishlist",
+        cascade="all, delete-orphan",
+    )
+
+
+class WishlistItem(BaseModel):
+    __tablename__ = "wishlist_items"
+
+    __table_args__ = (
+        UniqueConstraint("wishlist_id", "product_variant_id", name="uq_wishlist_items"),
+    )
+
+    wishlist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("wishlists.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    product_variant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_variants.id"), nullable=False
+    )
+
+    wishlist: Mapped["Wishlist"] = relationship("Wishlist", back_populates="items")
+    variant: Mapped[Optional["ProductVariant"]] = relationship("ProductVariant")

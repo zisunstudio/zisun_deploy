@@ -1,28 +1,47 @@
-# Use official Python runtime as a parent image
-FROM python:3.12-slim
+# ── Stage 1: dependency builder ───────────────────────────────────────────────
+FROM python:3.12-slim AS builder
 
-# Set working directory
+WORKDIR /build
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# System deps for psycopg2 compile
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev gcc && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ── Stage 2: runtime ──────────────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
+
 WORKDIR /app
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
-# Install system dependencies (needed for pg_config and building some python packages)
-RUN apt-get update \
-    && apt-get -y install libpq-dev gcc \
-    && apt-get clean
+# Runtime libs only (no gcc)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl redis-tools && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
 
-# Copy the current directory contents into the container at /app
-COPY . .
+# Create non-root user
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --shell /bin/bash --create-home appuser
 
-# Expose port 8000 for the FastAPI application
+# Copy application code
+COPY --chown=appuser:appgroup . .
+
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
+USER appuser
+
 EXPOSE 8000
 
-# Run Uvicorn worker
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/entrypoint.sh"]

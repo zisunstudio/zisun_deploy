@@ -1,36 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ShoppingBag, Search, User, Truck, RefreshCcw,
   ShieldCheck, Star, Home, Grid3X3, Heart, ChevronRight,
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import BottomSheet from "@/components/BottomSheet";
 import CartDrawer from "@/components/CartDrawer";
+import { CategoryCard } from "@/components/CategoryCard";
+import { CategoryCardSkeleton } from "@/components/skeletons/Skeleton";
 import { useCartStore } from "@/store/useCartStore";
-
-const CATEGORIES = [
-  {
-    name: "Co-ords",
-    count: 32,
-    image: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    name: "Tops",
-    count: 48,
-    image: "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    name: "Dresses",
-    count: 64,
-    image: "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    name: "Sets",
-    count: 28,
-    image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=400&auto=format&fit=crop",
-  },
-];
+import { useCategories, useFeed } from "@/lib/queries/catalog";
+import { FeedCard, FeedItem } from "@/components/FeedCard";
+import { trackEvent } from "@/lib/queries/analytics";
 
 const TRUST_BADGES = [
   { Icon: Truck, title: "Free Shipping", subtitle: "On orders above ₹999" },
@@ -39,35 +24,83 @@ const TRUST_BADGES = [
   { Icon: Star, title: "Trusted by", subtitle: "10K+ customers" },
 ];
 
-const NAV_ITEMS = [
-  { Icon: Home, label: "Home", id: "home" },
-  { Icon: Grid3X3, label: "Shop", id: "shop" },
-  { Icon: Heart, label: "Wishlist", id: "wishlist" },
-  { Icon: ShoppingBag, label: "Cart", id: "cart" },
-  { Icon: User, label: "Profile", id: "profile" },
-];
+const HERO_IMAGE = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop";
 
 export default function HomePage() {
+  const router = useRouter();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("home");
   const [activeDot, setActiveDot] = useState(0);
+  const [feedPage, setFeedPage] = useState(1);
+  const [allFeedItems, setAllFeedItems] = useState<FeedItem[]>([]);
+  const [hasMore, setHasMore] = useState(true);
   const toggleCart = useCartStore((state) => state.toggleCart);
   const cartItemsCount = useCartStore((state) => state.items.length);
+  const { data: categories, isLoading: loadingCategories } = useCategories();
+  const { data: feedData } = useFeed(feedPage);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const feedParentRef = useRef<HTMLDivElement>(null);
 
-  const handleNavClick = (id: string) => {
+  // Accumulate feed pages
+  useEffect(() => {
+    if (!feedData?.items) return;
+    setAllFeedItems((prev) => {
+      const existingIds = new Set(prev.map((i) => i.id));
+      const newItems = feedData.items.filter((i: FeedItem) => !existingIds.has(i.id));
+      return [...prev, ...newItems];
+    });
+    if (feedData.items.length < (feedData.limit ?? 20)) {
+      setHasMore(false);
+    }
+  }, [feedData]);
+
+  // Track hero feed item view
+  useEffect(() => {
+    const firstItem = allFeedItems[0];
+    if (!firstItem) return;
+    trackEvent("content_viewed", { item_id: firstItem.id });
+  }, [allFeedItems]);
+
+  // Virtualizer for the feed section
+  const virtualizer = useVirtualizer({
+    count: allFeedItems.length,
+    getScrollElement: () => feedParentRef.current,
+    estimateSize: () => (typeof window !== "undefined" ? window.innerHeight : 700),
+    overscan: 2,
+  });
+
+  // Load more when near the end
+  const handleFeedScroll = useCallback(() => {
+    const el = feedParentRef.current;
+    if (!el || !hasMore) return;
+    const nearEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - el.clientHeight * 1.5;
+    if (nearEnd) {
+      setFeedPage((p) => p + 1);
+    }
+  }, [hasMore]);
+
+  const NAV_ITEMS = [
+    { Icon: Home, label: "Home", id: "home", href: "/" },
+    { Icon: Grid3X3, label: "Shop", id: "shop", href: "/shop" },
+    { Icon: Heart, label: "Wishlist", id: "wishlist", href: "/wishlist" },
+    { Icon: ShoppingBag, label: "Cart", id: "cart", href: null },
+    { Icon: User, label: "Profile", id: "profile", href: "/profile" },
+  ];
+
+  function handleNavClick(id: string, href: string | null) {
     if (id === "cart") {
       toggleCart();
     } else {
       setActiveNav(id);
+      if (href) router.push(href);
     }
-  };
+  }
 
   return (
     <div className="h-full w-full flex flex-col bg-background">
-      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto no-scrollbar relative">
 
-        {/* Header — absolute over hero image */}
+        {/* Header — absolute over hero */}
         <header className="absolute top-0 w-full px-5 pt-5 z-10 flex justify-between items-start">
           <div>
             <h1 className="font-serif text-2xl font-bold text-[#1A0F0A] leading-none tracking-wide">
@@ -78,55 +111,72 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex gap-2 mt-0.5">
-            <button className="w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/70">
+            <button
+              onClick={() => router.push("/search")}
+              className="w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/70"
+              aria-label="Search"
+            >
               <Search className="w-4 h-4 text-foreground" />
             </button>
-            <button className="w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/70">
+            <button
+              onClick={() => router.push("/profile")}
+              className="w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/70"
+              aria-label="Profile"
+            >
               <User className="w-4 h-4 text-foreground" />
             </button>
           </div>
         </header>
 
-        {/* Hero Section */}
-        <div className="relative h-[72vh]">
-          <img
-            src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop"
-            alt="Summer Collection '24"
-            className="w-full h-full object-cover object-[50%_20%]"
-          />
-          {/* Soft gradient only at bottom for text legibility */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
-
-          {/* Hero text + CTA */}
-          <div className="absolute bottom-10 left-5 z-10">
-            <h2 className="font-serif text-[2.6rem] font-bold text-white leading-tight mb-1 drop-shadow-sm">
-              Summer<br />Collection &#39;24
-            </h2>
-            <p className="text-white/80 text-sm mb-5">Elevate your everyday aesthetic.</p>
-            <button
-              onClick={() => setIsSheetOpen(true)}
-              className="bg-[#5C3317] text-white px-7 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm hover:bg-[#4A2810] transition-colors shadow-lg"
-            >
-              Shop the Look
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Pagination dots */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-            {[0, 1, 2, 3].map((i) => (
-              <button
-                key={i}
-                onClick={() => setActiveDot(i)}
-                className={`rounded-full transition-all duration-300 ${
-                  activeDot === i ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40"
-                }`}
+        {/* Hero */}
+        <div ref={heroRef} className="relative h-[72vh]">
+          {allFeedItems[0] ? (
+            <div className="absolute inset-0">
+              <FeedCard item={allFeedItems[0]} />
+            </div>
+          ) : (
+            <>
+              <Image
+                src={HERO_IMAGE}
+                alt="Summer Collection '24"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-[50%_20%]"
               />
-            ))}
-          </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
+
+              <div className="absolute bottom-10 left-5 z-10">
+                <h2 className="font-serif text-[2.6rem] font-bold text-white leading-tight mb-1 drop-shadow-sm">
+                  Summer<br />Collection &#39;24
+                </h2>
+                <p className="text-white/80 text-sm mb-5">Elevate your everyday aesthetic.</p>
+                <button
+                  onClick={() => setIsSheetOpen(true)}
+                  className="bg-[#5C3317] text-white px-7 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm hover:bg-[#4A2810] transition-colors shadow-lg"
+                >
+                  Shop the Look
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                {[0, 1, 2, 3].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveDot(i)}
+                    aria-label={`Go to slide ${i + 1}`}
+                    className={`rounded-full transition-all duration-300 ${
+                      activeDot === i ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Trust Badges Card — floats over hero bottom edge */}
+        {/* Trust badges */}
         <div className="mx-4 -mt-5 relative z-10 bg-white rounded-2xl shadow-md px-3 py-4 grid grid-cols-4 gap-1">
           {TRUST_BADGES.map(({ Icon, title, subtitle }) => (
             <div key={title} className="flex flex-col items-center text-center gap-1">
@@ -139,44 +189,75 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Shop by Category */}
+        {/* Shop by Category — real data */}
         <div className="mt-6 px-5">
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-serif text-xl font-bold text-foreground">Shop by Category</h3>
-            <button className="text-primary text-sm font-medium flex items-center gap-0.5 hover:underline">
+            <button
+              onClick={() => router.push("/shop")}
+              className="text-primary text-sm font-medium flex items-center gap-0.5 hover:underline"
+            >
               View all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-            {CATEGORIES.map(({ name, count, image }) => (
-              <div key={name} className="flex-shrink-0 w-[138px] cursor-pointer group">
-                <div className="w-[138px] h-[172px] rounded-2xl overflow-hidden bg-gray-100">
-                  <img
-                    src={image}
-                    alt={name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <p className="text-foreground font-semibold text-sm mt-2 leading-tight">{name}</p>
-                <p className="text-muted text-xs">{count} items</p>
-              </div>
-            ))}
+            {loadingCategories
+              ? Array(4).fill(0).map((_, i) => <CategoryCardSkeleton key={i} />)
+              : categories?.map((cat) => <CategoryCard key={cat.id} category={cat} />)
+            }
           </div>
         </div>
 
-        {/* Spacer for fixed bottom nav */}
+        {/* Virtualized Feed */}
+        {allFeedItems.length > 1 && (
+          <div className="mt-6 px-5">
+            <h3 className="font-serif text-xl font-bold text-foreground mb-3">Latest Drops</h3>
+          </div>
+        )}
+        {allFeedItems.length > 1 && (
+          <div
+            ref={feedParentRef}
+            onScroll={handleFeedScroll}
+            style={{ height: "100vh", overflow: "auto" }}
+            className="no-scrollbar"
+          >
+            <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const feedItem = allFeedItems[virtualItem.index];
+                return (
+                  <div
+                    key={virtualItem.key}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: `${virtualItem.size}px`,
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    <FeedCard item={feedItem} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="h-20" />
       </div>
 
-      {/* Bottom Navigation */}
+      {/* Bottom nav */}
       <nav className="h-16 bg-white border-t border-gray-100 flex items-center justify-around px-1 flex-shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-        {NAV_ITEMS.map(({ Icon, label, id }) => {
+        {NAV_ITEMS.map(({ Icon, label, id, href }) => {
           const isCart = id === "cart";
           const isActive = activeNav === id && !isCart;
           return (
             <button
               key={id}
-              onClick={() => handleNavClick(id)}
+              onClick={() => handleNavClick(id, href)}
+              aria-label={label}
+              aria-current={isActive ? "page" : undefined}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 relative transition-colors ${
                 isActive ? "text-primary" : "text-gray-400"
               }`}
@@ -189,9 +270,7 @@ export default function HomePage() {
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] ${isActive ? "font-semibold" : "font-medium"}`}>
-                {label}
-              </span>
+              <span className={`text-[10px] ${isActive ? "font-semibold" : "font-medium"}`}>{label}</span>
               {isActive && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-[2.5px] bg-primary rounded-full" />
               )}
@@ -200,7 +279,6 @@ export default function HomePage() {
         })}
       </nav>
 
-      {/* Overlays */}
       <BottomSheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} />
       <CartDrawer />
     </div>
