@@ -37,13 +37,16 @@ class CheckoutService:
 
     async def get_or_create_cart(self, user_id: uuid.UUID) -> Cart:
         """Return the user's cart (with items + variants + products eagerly loaded)."""
-        stmt = (
-            select(Cart)
-            .options(
-                selectinload(Cart.items).selectinload(CartItem.variant).selectinload(ProductVariant.product)
-            )
-            .where(Cart.user_id == user_id)
+        # Eager-load items → variant → product → media so response building
+        # (_build_cart_response reads product.media) never triggers an async
+        # lazy load, which would raise MissingGreenlet and 500 GET /cart.
+        _load = (
+            selectinload(Cart.items)
+            .selectinload(CartItem.variant)
+            .selectinload(ProductVariant.product)
+            .selectinload(Product.media)
         )
+        stmt = select(Cart).options(_load).where(Cart.user_id == user_id)
         result = await self.db.execute(stmt)
         cart = result.scalar_one_or_none()
 
@@ -53,11 +56,7 @@ class CheckoutService:
             await self.db.commit()
             # Reload with relationships
             result2 = await self.db.execute(
-                select(Cart)
-                .options(
-                    selectinload(Cart.items).selectinload(CartItem.variant).selectinload(ProductVariant.product)
-                )
-                .where(Cart.id == cart.id)
+                select(Cart).options(_load).where(Cart.id == cart.id)
             )
             cart = result2.scalar_one()
 
