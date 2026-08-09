@@ -179,8 +179,8 @@ export default function CheckoutPage() {
         });
       }
 
-      // Dev mode: skip Razorpay modal when key is missing or order is mock
-      if (!RAZORPAY_KEY || razorpay_order_id.startsWith("mock_order_")) {
+      // Dev mode: skip Razorpay modal when key is missing, no gateway order, or mock
+      if (!RAZORPAY_KEY || !razorpay_order_id || razorpay_order_id.startsWith("mock_order_")) {
         showToast("Dev mode: payment simulated", "success");
         setConfirmedOrderId(order_id);
         setStep("confirmation");
