@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
@@ -120,6 +120,7 @@ async def initiate_checkout(
     body: CheckoutInitiateRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user=Depends(get_current_user),
+    idempotency_key: Optional[str] = Header(default=None, alias="X-Idempotency-Key"),
 ):
     svc = CheckoutService(db)
     order, razorpay_order_id = await svc.initiate_checkout(
@@ -127,6 +128,7 @@ async def initiate_checkout(
         address_id=body.address_id,
         payment_method=body.payment_method,
         coupon_code=body.coupon_code,
+        idempotency_key=idempotency_key,
     )
     return CheckoutResponse(
         order_id=order.id,

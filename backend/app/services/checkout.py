@@ -198,14 +198,15 @@ class CheckoutService:
             raise HTTPException(status_code=400, detail="Cart is empty")
 
         # Idempotency: if there's already a PAYMENT_PENDING order for this user
-        # with the same idempotency key, return it
+        # with the same idempotency key, return it (prevents duplicate orders /
+        # double stock decrement / double Razorpay order on retries & double-taps)
         if idempotency_key:
             existing_stmt = (
                 select(Order)
                 .where(
                     Order.user_id == user_id,
                     Order.status == OrderStatus.PAYMENT_PENDING,
-                    Order.razorpay_order_id == idempotency_key,
+                    Order.idempotency_key == idempotency_key,
                 )
             )
             existing_result = await self.db.execute(existing_stmt)
@@ -274,6 +275,7 @@ class CheckoutService:
             payment_method=payment_method,
             discount_amount=discount_amount,
             coupon_id=coupon_obj.id if coupon_obj else None,
+            idempotency_key=idempotency_key,
         )
         if payment_method == PaymentMethod.COD:
             order.cod_amount_due = net_total
