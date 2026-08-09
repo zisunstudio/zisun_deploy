@@ -43,6 +43,10 @@ class ContentService:
                 selectinload(ContentCard.products).selectinload(ContentProduct.product),
             )
             .where(ContentCard.id == card_id)
+            # populate_existing: refresh identity-mapped instances so a mutation
+            # (link/unlink/publish) returns fresh relationship data in the same
+            # session instead of a stale, previously-loaded collection.
+            .execution_options(populate_existing=True)
         )
         result = await self.db.execute(stmt)
         card = result.scalar_one_or_none()

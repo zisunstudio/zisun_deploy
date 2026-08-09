@@ -46,6 +46,7 @@ class Order(BaseModel):
     total_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     address_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("addresses.id"), nullable=False)
     razorpay_order_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
     region: Mapped[Optional[str]] = mapped_column(String(100))
     payment_method: Mapped[PaymentMethod] = mapped_column(
         Enum(PaymentMethod, name="paymentmethod"),

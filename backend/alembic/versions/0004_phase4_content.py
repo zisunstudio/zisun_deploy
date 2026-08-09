@@ -52,7 +52,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "type",
-            sa.Enum("IMAGE", "VIDEO", name="contenttype", create_type=False),
+            postgresql.ENUM("IMAGE", "VIDEO", name="contenttype", create_type=False),
             nullable=False,
             server_default="IMAGE",
         ),
@@ -61,7 +61,7 @@ def upgrade() -> None:
         sa.Column("caption", sa.String(500), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("DRAFT", "PUBLISHED", name="contentstatus", create_type=False),
+            postgresql.ENUM("DRAFT", "PUBLISHED", name="contentstatus", create_type=False),
             nullable=False,
             server_default="DRAFT",
         ),
@@ -105,7 +105,7 @@ def upgrade() -> None:
         sa.Column("tag_name", sa.String(100), nullable=False),
         sa.Column(
             "tag_type",
-            sa.Enum(
+            postgresql.ENUM(
                 "occasion", "season", "price_band", "category",
                 name="tagtype",
                 create_type=False,
