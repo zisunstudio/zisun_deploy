@@ -1,6 +1,10 @@
+import logging
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import model_validator
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -88,6 +92,13 @@ class Settings(BaseSettings):
                 "SENTRY_DSN": self.SENTRY_DSN,
                 "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
                 "REDIS_URL": self.REDIS_URL,
+                # Without these, storage.py hands out localhost:9000 upload URLs
+                # and /media/... CDN paths that no product image ever reaches.
+                "R2_ENDPOINT_URL": self.R2_ENDPOINT_URL,
+                "R2_ACCESS_KEY": self.R2_ACCESS_KEY,
+                "R2_SECRET_KEY": self.R2_SECRET_KEY,
+                "R2_BUCKET_NAME": self.R2_BUCKET_NAME,
+                "CLOUDFLARE_CDN_BASE_URL": self.CLOUDFLARE_CDN_BASE_URL,
             }
             missing = [k for k, v in required.items() if not v]
             if missing:
@@ -95,6 +106,24 @@ class Settings(BaseSettings):
                     f"Missing required production environment variables: {', '.join(missing)}"
                 )
         return self
+
+    def dev_fallback(self, feature: str) -> None:
+        """Gate a code path that degrades to a no-op when a credential is absent.
+
+        Development keeps its convenient stubs; production refuses them. The
+        boot validator above should already have caught the missing value —
+        this is the second line of defence for whatever slips past it (a secret
+        unset after boot, a new credential nobody added to `required`). Failing
+        here costs one 500; not failing here ships goods against an unverified
+        payment signature.
+        """
+        if self.is_production:
+            raise RuntimeError(
+                f"{feature} is not configured, but ENVIRONMENT=production. "
+                "Refusing to fall back to development behaviour — set the "
+                "missing secret (see DEPLOYMENT.md §1.4) and redeploy."
+            )
+        logger.warning("DEV MODE — %s is not configured", feature)
 
     @property
     def sync_database_uri(self) -> str:

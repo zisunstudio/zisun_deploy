@@ -1,0 +1,149 @@
+"""Production must never fall back to dev-mode stubs.
+
+Two layers are tested here:
+  1. Boot — Settings() refuses to construct when a production secret is absent.
+  2. Runtime — every code path that no-ops on a missing credential raises
+     instead when ENVIRONMENT=production, so a secret that goes missing after
+     boot can't quietly wave a payment through or 404 every product image.
+"""
+import pytest
+
+from app.core.config import Settings
+
+
+PROD_ENV = {
+    "ENVIRONMENT": "production",
+    "JWT_PRIVATE_KEY": "-----BEGIN PRIVATE KEY-----x",
+    "JWT_PUBLIC_KEY": "-----BEGIN PUBLIC KEY-----x",
+    "RAZORPAY_KEY_ID": "rzp_live_x",
+    "RAZORPAY_KEY_SECRET": "secret_x",
+    "RAZORPAY_WEBHOOK_SECRET": "whsec_x",
+    "TWILIO_ACCOUNT_SID": "AC_x",
+    "TWILIO_AUTH_TOKEN": "tok_x",
+    "TWILIO_FROM_NUMBER": "+15550000000",
+    "SENTRY_DSN": "https://x@sentry.io/1",
+    "POSTGRES_PASSWORD": "pw_x",
+    "REDIS_URL": "rediss://x",
+    "R2_ENDPOINT_URL": "https://x.r2.cloudflarestorage.com",
+    "R2_ACCESS_KEY": "ak_x",
+    "R2_SECRET_KEY": "sk_x",
+    "R2_BUCKET_NAME": "zisun-media",
+    "CLOUDFLARE_CDN_BASE_URL": "https://cdn.zisun.in",
+}
+
+
+def _settings(monkeypatch, **overrides) -> Settings:
+    """Build Settings from a full production env with `overrides` applied."""
+    for key, value in {**PROD_ENV, **overrides}.items():
+        monkeypatch.setenv(key, value)
+    # _env_file would otherwise reintroduce values we deliberately blanked.
+    return Settings(_env_file=None)
+
+
+class TestBootValidation:
+    def test_full_production_env_boots(self, monkeypatch):
+        assert _settings(monkeypatch).is_production is True
+
+    @pytest.mark.parametrize(
+        "missing",
+        [
+            "RAZORPAY_KEY_ID",
+            "RAZORPAY_KEY_SECRET",
+            "RAZORPAY_WEBHOOK_SECRET",
+            "R2_ENDPOINT_URL",
+            "R2_ACCESS_KEY",
+            "R2_SECRET_KEY",
+            "R2_BUCKET_NAME",
+            "CLOUDFLARE_CDN_BASE_URL",
+        ],
+    )
+    def test_missing_secret_refuses_to_boot(self, monkeypatch, missing):
+        with pytest.raises(Exception) as exc:
+            _settings(monkeypatch, **{missing: ""})
+        assert missing in str(exc.value)
+
+    def test_development_tolerates_empty_secrets(self, monkeypatch):
+        s = _settings(monkeypatch, ENVIRONMENT="development", RAZORPAY_KEY_SECRET="", R2_ACCESS_KEY="")
+        assert s.is_production is False
+
+
+class TestDevFallbackGuard:
+    def test_raises_in_production(self, monkeypatch):
+        s = _settings(monkeypatch)
+        with pytest.raises(RuntimeError, match="ENVIRONMENT=production"):
+            s.dev_fallback("Razorpay payment signature verification")
+
+    def test_permits_in_development(self, monkeypatch):
+        s = _settings(monkeypatch, ENVIRONMENT="development")
+        assert s.dev_fallback("anything") is None
+
+
+class TestPaymentSignatureFailsClosed:
+    """An empty RAZORPAY_KEY_SECRET in prod must not verify every payment."""
+
+    def test_prod_missing_secret_raises(self, monkeypatch):
+        from app.api.endpoints import checkout
+
+        monkeypatch.setattr(
+            checkout, "settings", _settings(monkeypatch, RAZORPAY_KEY_SECRET="")
+        )
+        with pytest.raises(RuntimeError):
+            checkout._verify_payment_signature("order_x", "pay_x", "forged")
+
+    def test_dev_missing_secret_still_skips(self, monkeypatch):
+        from app.api.endpoints import checkout
+
+        monkeypatch.setattr(
+            checkout,
+            "settings",
+            _settings(monkeypatch, ENVIRONMENT="development", RAZORPAY_KEY_SECRET=""),
+        )
+        assert checkout._verify_payment_signature("order_x", "pay_x", "anything") is True
+
+
+class TestWebhookSignatureFailsClosed:
+    def test_prod_missing_webhook_secret_raises(self, monkeypatch):
+        from app.api.endpoints import orders
+
+        monkeypatch.setattr(
+            orders, "settings", _settings(monkeypatch, RAZORPAY_WEBHOOK_SECRET="")
+        )
+        with pytest.raises(RuntimeError):
+            orders.verify_razorpay_signature(b'{"event":"payment.captured"}', "forged")
+
+    def test_dev_missing_webhook_secret_still_skips(self, monkeypatch):
+        from app.api.endpoints import orders
+
+        monkeypatch.setattr(
+            orders,
+            "settings",
+            _settings(monkeypatch, ENVIRONMENT="development", RAZORPAY_WEBHOOK_SECRET=""),
+        )
+        assert orders.verify_razorpay_signature(b"{}", "anything") is True
+
+
+class TestR2FailsClosed:
+    def test_prod_missing_key_raises_on_upload(self, monkeypatch):
+        from app.core import storage
+
+        monkeypatch.setattr(storage, "settings", _settings(monkeypatch, R2_ACCESS_KEY=""))
+        with pytest.raises(RuntimeError):
+            storage.generate_upload_presigned_url("media/x.jpg", "image/jpeg")
+
+    def test_prod_missing_key_raises_on_delete(self, monkeypatch):
+        from app.core import storage
+
+        monkeypatch.setattr(storage, "settings", _settings(monkeypatch, R2_ACCESS_KEY=""))
+        with pytest.raises(RuntimeError):
+            storage.delete_r2_object("media/x.jpg")
+
+    def test_dev_returns_placeholder_urls(self, monkeypatch):
+        from app.core import storage
+
+        monkeypatch.setattr(
+            storage,
+            "settings",
+            _settings(monkeypatch, ENVIRONMENT="development", R2_ACCESS_KEY=""),
+        )
+        out = storage.generate_upload_presigned_url("media/x.jpg", "image/jpeg")
+        assert out["cdn_url"] == "/media/media/x.jpg"

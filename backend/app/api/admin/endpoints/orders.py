@@ -188,10 +188,9 @@ async def admin_refund_order(
         )
         refund_id = refund.get("id") if isinstance(refund, dict) else None
     else:
-        import logging as _logging
-        _logging.getLogger(__name__).warning(
-            "Razorpay keys not configured — skipping live refund for order %s", order_id
-        )
+        # Without this guard the order below is marked REFUNDED and the customer
+        # is told their money is on the way, while no refund was ever requested.
+        settings.dev_fallback("Razorpay refunds")
 
     order.payment.status = PaymentStatus.REFUNDED
 

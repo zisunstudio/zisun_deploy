@@ -209,7 +209,9 @@ async def _razorpay_daily_reconciliation():
         from app.core.config import settings as _settings
 
         if not _settings.RAZORPAY_KEY_ID or not _settings.RAZORPAY_KEY_SECRET:
-            logger.info("Razorpay keys not set — skipping reconciliation")
+            # Silently skipping means settlement discrepancies go unnoticed
+            # indefinitely — in production this must page, not log at INFO.
+            _settings.dev_fallback("Razorpay daily reconciliation")
             return
 
         rz = razorpay.Client(

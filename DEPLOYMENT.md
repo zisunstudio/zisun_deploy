@@ -63,12 +63,28 @@ fly secrets set --app zisun-api \
   SENTRY_DSN="https://...@sentry.io/..."
 ```
 
-**Two that silently degrade if missing — set them before taking real orders:**
+**These no longer degrade silently — they now stop the app from booting.**
 
-- **`R2_*`** — without these, media uploads return *placeholder* URLs and appear to
-  succeed. Product images will be broken.
-- **`RAZORPAY_*`** — without these, checkout falls back to a `mock_order_*` id and
-  the frontend skips the payment modal. Orders would be created **without payment**.
+With `ENVIRONMENT=production` (set in `backend/fly.toml`), `Settings` refuses to
+construct if any of `JWT_*`, `RAZORPAY_*`, `TWILIO_*`, `SENTRY_DSN`,
+`POSTGRES_PASSWORD`, `REDIS_URL`, `R2_*`, or `CLOUDFLARE_CDN_BASE_URL` is empty.
+The machine exits, the Fly health check fails, and the rolling deploy is held —
+the old release keeps serving. The startup log names the missing variables.
+
+That is deliberate: the alternative was worse.
+
+- **`R2_*`** — media uploads used to return *placeholder* URLs and appear to
+  succeed. Product images would be permanently broken, and the bad `/media/...`
+  path is written into the DB.
+- **`RAZORPAY_*`** — checkout used to fall back to a `mock_order_*` id and the
+  signature verifier returned `True` for *any* signature. Orders would be
+  created and fulfilled **without payment**.
+
+Each of those code paths also fails closed at runtime now (`settings.dev_fallback`),
+so a secret unset *after* boot raises instead of reverting to the dev stub.
+
+If a deploy fails on this: the fix is to set the secret, never to unset
+`ENVIRONMENT`.
 
 ### 1.5 GitHub repo settings
 

@@ -57,10 +57,11 @@ def _verify_payment_signature(
     """
     Verify Razorpay payment signature.
     HMAC-SHA256(razorpay_order_id + "|" + razorpay_payment_id, key_secret)
-    Skips verification in dev mode (no key_secret configured).
+    Skips verification in dev mode (no key_secret configured); raises in
+    production rather than accepting an unverifiable payment.
     """
     if not settings.RAZORPAY_KEY_SECRET:
-        logger.warning("RAZORPAY_KEY_SECRET not set — skipping payment signature check in dev mode")
+        settings.dev_fallback("Razorpay payment signature verification")
         return True
     expected = hmac.new(
         settings.RAZORPAY_KEY_SECRET.encode(),

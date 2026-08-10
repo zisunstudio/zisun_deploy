@@ -35,9 +35,14 @@ router = APIRouter()
 # ─────────────────────────────────────────────────────────────────────────────
 
 def verify_razorpay_signature(payload_body: bytes, signature: str) -> bool:
-    """Return True if the webhook signature is valid (or if no secret is configured)."""
+    """Return True if the webhook signature is valid.
+
+    With no secret configured this returns True so dev can post fake webhooks;
+    in production an unset secret raises instead — an unauthenticated webhook
+    endpoint marks arbitrary orders PAID.
+    """
     if not settings.RAZORPAY_WEBHOOK_SECRET:
-        logger.warning("RAZORPAY_WEBHOOK_SECRET not configured — skipping HMAC in dev mode")
+        settings.dev_fallback("Razorpay webhook signature verification")
         return True
     expected = hmac.new(
         settings.RAZORPAY_WEBHOOK_SECRET.encode(),

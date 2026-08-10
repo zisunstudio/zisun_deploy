@@ -16,15 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 def _razorpay_client():
-    """Return a live Razorpay client or None if credentials are absent (dev mode)."""
+    """Return a live Razorpay client, or None if credentials are absent/unusable.
+
+    Callers must treat None as fatal in production — see create_order.
+    """
+    from app.core.config import settings
+    if not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
+        return None
     try:
-        from app.core.config import settings
-        if settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET:
-            import razorpay  # noqa: PLC0415
-            return razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        import razorpay  # noqa: PLC0415
+        return razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
     except Exception as exc:
-        logger.warning("Razorpay client init failed: %s — using mock mode", exc)
-    return None
+        logger.warning("Razorpay client init failed: %s", exc)
+        return None
 
 
 class CheckoutService:
@@ -310,7 +314,17 @@ class CheckoutService:
         # Payment gateway
         razorpay_order_id: Optional[str] = None
         if payment_method == PaymentMethod.RAZORPAY:
+            from app.core.config import settings  # deferred: avoids circular import
+
+            # A mock_order_* id in production is an order Razorpay never saw:
+            # the webhook can never match it, so it strands in PAYMENT_PENDING
+            # holding stock — or worse, gets waved through by a verifier that
+            # has no secret to check against. Fail the checkout instead.
             client = _razorpay_client()
+            if client is None and settings.is_production:
+                logger.error("Razorpay unavailable — refusing to create order %s", order.id)
+                raise HTTPException(503, "Payment gateway unavailable. Please try again.")
+
             if client:
                 try:
                     rz_order = client.order.create({
@@ -321,7 +335,9 @@ class CheckoutService:
                     razorpay_order_id = rz_order["id"]
                     logger.info("Razorpay order created: %s", razorpay_order_id)
                 except Exception as exc:
-                    logger.error("Razorpay order creation failed: %s — falling back to mock", exc)
+                    logger.error("Razorpay order creation failed: %s", exc)
+                    if settings.is_production:
+                        raise HTTPException(503, "Payment gateway unavailable. Please try again.")
                     razorpay_order_id = f"mock_order_{order.id}"
             else:
                 razorpay_order_id = f"mock_order_{order.id}"

@@ -26,10 +26,12 @@ def generate_upload_presigned_url(
     """Return {upload_url, cdn_url, key}.
 
     In development (R2_ACCESS_KEY not set) returns placeholder URLs so the
-    rest of the flow can be exercised without real cloud credentials.
+    rest of the flow can be exercised without real cloud credentials. In
+    production a missing key raises — a placeholder URL would be persisted as
+    a product's media path and silently 404 for every customer.
     """
     if not settings.R2_ACCESS_KEY:
-        # Dev mode: return placeholder
+        settings.dev_fallback("Cloudflare R2 media uploads")
         return {
             "upload_url": f"http://localhost:9000/{settings.R2_BUCKET_NAME}/{key}",
             "cdn_url": f"/media/{key}",
@@ -55,9 +57,9 @@ def generate_upload_presigned_url(
 
 
 def delete_r2_object(key: str) -> None:
-    """Delete an object from R2/S3. Silent no-op in dev mode."""
+    """Delete an object from R2/S3. No-op in dev mode; raises in production."""
     if not settings.R2_ACCESS_KEY:
-        logger.info("DEV MODE — skipping R2 delete for key: %s", key)
+        settings.dev_fallback("Cloudflare R2 media deletes")
         return
     try:
         client = get_s3_client()
