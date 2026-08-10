@@ -433,7 +433,8 @@ async def admin_bulk_stock_update(
         results.append({"sku": sku, "new_stock": new_stock})
 
     await db.commit()
-    return {"updated": len(results), "rows": results}
+    # `errors` is always present so clients can read it unconditionally.
+    return {"updated": len(results), "rows": results, "errors": []}
 
 
 # ── POST /bulk-stock-csv — CSV bulk update ────────────────────────────────────
@@ -479,4 +480,189 @@ async def admin_bulk_stock_update_csv(
         results.append({"sku": upd["sku"], "new_stock": upd["new_stock"]})
 
     await db.commit()
-    return {"updated": len(results), "rows": results}
+    # `errors` is always present so clients can read it unconditionally.
+    return {"updated": len(results), "rows": results, "errors": []}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bulk product import (create products + variants + first image from CSV)
+# ─────────────────────────────────────────────────────────────────────────────
+
+BULK_IMPORT_REQUIRED_COLUMNS = {"name", "base_price_paise", "sku", "stock"}
+BULK_IMPORT_TEMPLATE = (
+    "name,description,base_price_paise,category_slug,sku,size,color,stock,"
+    "price_delta_paise,image_url\n"
+    "Indigo Cotton Kurta,Handwoven South Indian cotton. Breathable everyday wear.,"
+    "149900,kurtas,ZSN-KUR-IND-S,S,Indigo,12,0,\n"
+    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-M,M,Indigo,18,0,\n"
+    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-L,L,Indigo,10,0,\n"
+)
+
+
+@router.get("/bulk-import-template")
+async def admin_bulk_import_template():
+    """Return the CSV template for bulk product import.
+
+    One row per VARIANT. Rows sharing the same `name` are grouped into a single
+    product; product-level fields (description, base_price_paise, category_slug,
+    image_url) are taken from that product's first row.
+    """
+    return {
+        "columns": [
+            "name", "description", "base_price_paise", "category_slug",
+            "sku", "size", "color", "stock", "price_delta_paise", "image_url",
+        ],
+        "required": sorted(BULK_IMPORT_REQUIRED_COLUMNS),
+        "notes": (
+            "Prices are INTEGER PAISE (₹1,499 = 149900). One row per variant; "
+            "rows with the same name become one product. All-or-nothing: if any "
+            "row is invalid the whole import is rejected."
+        ),
+        "template_csv": BULK_IMPORT_TEMPLATE,
+    }
+
+
+@router.post("/bulk-import-csv", status_code=201)
+async def admin_bulk_import_products_csv(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Create products + variants (+ optional first image) from a CSV.
+
+    All-or-nothing: every row is validated before anything is written, so a
+    malformed catalogue can never leave a half-imported product behind.
+    """
+    try:
+        content = (await file.read()).decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(422, "CSV must be UTF-8 encoded")
+
+    reader = csv.DictReader(io.StringIO(content))
+    rows = list(reader)
+    if not rows:
+        raise HTTPException(422, "Empty CSV")
+
+    present = {(c or "").strip() for c in (reader.fieldnames or [])}
+    missing = BULK_IMPORT_REQUIRED_COLUMNS - present
+    if missing:
+        raise HTTPException(422, f"CSV missing required column(s): {', '.join(sorted(missing))}")
+
+    def _cell(row: dict, key: str) -> str:
+        return (row.get(key) or "").strip()
+
+    # ── Pass 1: validate every row, collect all errors ────────────────────────
+    errors: List[str] = []
+    seen_skus: set[str] = set()
+    parsed: List[dict] = []
+
+    for idx, row in enumerate(rows, start=2):  # start=2 → header is line 1
+        name = _cell(row, "name")
+        sku = _cell(row, "sku")
+        if not name:
+            errors.append(f"Row {idx}: 'name' is required")
+        if not sku:
+            errors.append(f"Row {idx}: 'sku' is required")
+        if sku and sku in seen_skus:
+            errors.append(f"Row {idx}: duplicate SKU '{sku}' within the CSV")
+        if sku:
+            seen_skus.add(sku)
+
+        def _int(field: str, *, required: bool, default: int = 0) -> Optional[int]:
+            raw = _cell(row, field)
+            if not raw:
+                if required:
+                    errors.append(f"Row {idx}: '{field}' is required")
+                    return None
+                return default
+            try:
+                return int(raw)
+            except ValueError:
+                errors.append(f"Row {idx}: '{field}' must be a whole number, got '{raw}'")
+                return None
+
+        base_price = _int("base_price_paise", required=True)
+        stock = _int("stock", required=True)
+        price_delta = _int("price_delta_paise", required=False)
+
+        if base_price is not None and base_price < 0:
+            errors.append(f"Row {idx}: base_price_paise cannot be negative")
+        if stock is not None and stock < 0:
+            errors.append(f"Row {idx}: stock cannot be negative")
+
+        parsed.append({
+            "line": idx, "name": name, "sku": sku,
+            "description": _cell(row, "description") or None,
+            "category_slug": _cell(row, "category_slug") or None,
+            "size": _cell(row, "size") or None,
+            "color": _cell(row, "color") or None,
+            "image_url": _cell(row, "image_url") or None,
+            "base_price": base_price, "stock": stock, "price_delta": price_delta,
+        })
+
+    if errors:
+        raise HTTPException(422, {"errors": errors})
+
+    # ── Pass 2: check SKUs and categories against the DB ──────────────────────
+    existing = (
+        await db.execute(select(ProductVariant.sku).where(ProductVariant.sku.in_(seen_skus)))
+    ).scalars().all()
+    for sku in sorted(set(existing)):
+        errors.append(f"SKU already exists: '{sku}'")
+
+    wanted_slugs = {p["category_slug"] for p in parsed if p["category_slug"]}
+    slug_to_id: dict = {}
+    if wanted_slugs:
+        from app.models.catalog import Category  # noqa: PLC0415
+        found = (
+            await db.execute(select(Category).where(Category.slug.in_(wanted_slugs)))
+        ).scalars().all()
+        slug_to_id = {c.slug: c.id for c in found}
+        for slug in sorted(wanted_slugs - set(slug_to_id)):
+            errors.append(f"Unknown category_slug: '{slug}'")
+
+    if errors:
+        raise HTTPException(422, {"errors": errors})
+
+    # ── Pass 3: write. Grouped by product name, first row wins for product fields ──
+    groups: dict = {}
+    for p in parsed:
+        groups.setdefault(p["name"], []).append(p)
+
+    created_products, created_variants = [], 0
+    for name, variant_rows in groups.items():
+        head = variant_rows[0]
+        product = Product(
+            name=name,
+            description=head["description"],
+            base_price=head["base_price"],
+            category_id=slug_to_id.get(head["category_slug"]) if head["category_slug"] else None,
+            is_active=True,
+        )
+        db.add(product)
+        await db.flush()  # need product.id
+
+        for vr in variant_rows:
+            db.add(ProductVariant(
+                product_id=product.id, sku=vr["sku"], size=vr["size"], color=vr["color"],
+                stock=vr["stock"], price_delta=vr["price_delta"], is_active=True,
+            ))
+            created_variants += 1
+
+        image_url = next((vr["image_url"] for vr in variant_rows if vr["image_url"]), None)
+        if image_url:
+            db.add(ProductMedia(
+                product_id=product.id, url=image_url, cdn_url=image_url,
+                type=MediaType.IMAGE, display_order=0,
+            ))
+
+        created_products.append({
+            "id": str(product.id), "name": name, "variants": len(variant_rows),
+        })
+
+    await db.commit()
+    return {
+        "created_products": len(created_products),
+        "created_variants": created_variants,
+        "products": created_products,
+        "errors": [],
+    }

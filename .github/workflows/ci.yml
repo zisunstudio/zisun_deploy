@@ -198,12 +198,15 @@ jobs:
       - name: Check dependencies for known vulnerabilities
         run: safety check -r requirements.txt --continue-on-error
 
-  # ── Deploy ─────────────────────────────────────────────────────────────────
+  # ── Deploy (LEGACY — superseded by .github/workflows/fly-deploy.yml) ───────
+  # Deployment moved to Fly.io. This registry-push + SSH job is kept for
+  # reference but disabled, so it can't race the Fly deploy or fail the run on
+  # missing DEPLOY_HOST/REGISTRY secrets. Delete once Fly is confirmed stable.
   deploy:
-    name: Deploy — Build, push, and health-check
+    name: Deploy — legacy SSH (disabled)
     runs-on: ubuntu-latest
     needs: [backend-test, frontend-test, migration-check]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
 
     steps:
       - uses: actions/checkout@v4

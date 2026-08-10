@@ -11,7 +11,7 @@ export default function AdminInventoryPage() {
   const [editingVariant, setEditingVariant] = useState<{ productId: string; variantId: string } | null>(null);
   const [newStock, setNewStock] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [csvResult, setCsvResult] = useState<{ updated: number; errors: string[] } | null>(null);
+  const [csvResult, setCsvResult] = useState<{ updated: number; errors?: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: products, isLoading } = useQuery({
@@ -32,10 +32,10 @@ export default function AdminInventoryPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await adminApi.post("/inventory/bulk-update", formData, {
+      const res = await adminApi.post("/products/bulk-stock-csv", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      return res.data as { updated: number; errors: string[] };
+      return res.data as { updated: number; errors?: string[] };
     },
     onSuccess: (data) => {
       setCsvResult(data);
@@ -46,7 +46,7 @@ export default function AdminInventoryPage() {
   });
 
   function downloadTemplate() {
-    const csv = "sku,stock\nSKU-001,10\nSKU-002,25";
+    const csv = "sku,new_stock\nSKU-001,10\nSKU-002,25";
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -119,7 +119,7 @@ export default function AdminInventoryPage() {
       {/* Bulk CSV Upload */}
       <div className="mt-8 bg-white rounded-xl border border-gray-200 p-5">
         <h2 className="font-semibold text-gray-900 mb-1">Bulk Stock Update via CSV</h2>
-        <p className="text-xs text-gray-500 mb-4">Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded">sku</code>, <code className="bg-gray-100 px-1 rounded">stock</code>. Each row updates the matching variant&#39;s stock level.</p>
+        <p className="text-xs text-gray-500 mb-4">Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded">sku</code>, <code className="bg-gray-100 px-1 rounded">new_stock</code>. Each row updates the matching variant&#39;s stock level.</p>
         <div className="flex flex-wrap gap-3 items-center">
           <button
             onClick={downloadTemplate}
@@ -148,9 +148,9 @@ export default function AdminInventoryPage() {
         {csvResult && (
           <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
             <p className="font-semibold text-green-800">{csvResult.updated} variant(s) updated successfully.</p>
-            {csvResult.errors.length > 0 && (
+            {(csvResult.errors?.length ?? 0) > 0 && (
               <ul className="mt-2 list-disc list-inside text-red-600 space-y-0.5">
-                {csvResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                {(csvResult.errors ?? []).map((err, i) => <li key={i}>{err}</li>)}
               </ul>
             )}
           </div>

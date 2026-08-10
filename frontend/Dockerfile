@@ -20,6 +20,16 @@ COPY . .
 # Next.js telemetry disable
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# NEXT_PUBLIC_* are inlined into the client bundle at BUILD time — they cannot be
+# supplied as runtime secrets. They must be passed with --build-arg, or the
+# deployed site ships with an empty API URL and every request fails.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_RAZORPAY_KEY_ID
+ARG NEXT_PUBLIC_SENTRY_DSN
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_RAZORPAY_KEY_ID=$NEXT_PUBLIC_RAZORPAY_KEY_ID
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+
 # Build Next.js application
 RUN npm run build
 

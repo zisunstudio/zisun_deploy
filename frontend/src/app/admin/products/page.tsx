@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
+import { BulkProductImport } from "@/components/admin/BulkProductImport";
 import { formatPrice } from "@/lib/queries/catalog";
 import Image from "next/image";
 
@@ -179,6 +180,8 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
+
+      <BulkProductImport />
     </div>
   );
 }

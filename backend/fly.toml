@@ -1,0 +1,68 @@
+# ZISUN backend — Fly.io
+# Deploy:  fly deploy --config backend/fly.toml --dockerfile backend/Dockerfile
+# Secrets: see DEPLOYMENT.md (never commit real values here)
+
+app = "zisun-api"
+primary_region = "bom"          # Mumbai — closest to the customer base
+
+[build]
+  dockerfile = "Dockerfile"
+  # The runtime stage is the last stage, but pin it so a new stage added later
+  # can't silently change what ships.
+  [build.args]
+    BUILD_TARGET = "runtime"
+
+# Migrations run ONCE here, before any new machine serves traffic.
+# entrypoint.sh sees SKIP_MIGRATIONS=1 and won't re-run them per machine.
+[deploy]
+  release_command = "alembic upgrade head"
+  strategy = "rolling"
+
+[env]
+  ENVIRONMENT = "production"
+  PORT = "8000"
+  SKIP_MIGRATIONS = "1"
+  SKIP_DEPS_WAIT = "1"          # managed PG/Redis: the app validates its own connections
+  UVICORN_WORKERS = "2"
+
+# Three process groups from ONE image. Without `worker`/`beat`, the Celery jobs
+# (zombie-order cleanup, inventory-lock release, outbox -> WhatsApp) would never
+# run in production — orders would strand in PAYMENT_PENDING holding stock.
+# entrypoint.sh execs any passed command; an empty value runs the API server.
+[processes]
+  app    = ""
+  worker = "celery -A app.celery_app worker --loglevel=warning --concurrency=2"
+  beat   = "celery -A app.celery_app beat --loglevel=warning"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  processes = ["app"]           # only the web group takes HTTP traffic
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1      # keep 1 warm: a cold start on checkout is lost revenue
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+# Fly's health check gates rolling deploys: a bad release never takes traffic.
+[[http_service.checks]]
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "30s"
+  method = "GET"
+  path = "/health"
+
+[[vm]]
+  processes = ["app", "worker"]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Beat is a single lightweight scheduler. Run exactly ONE — two beats would
+# double-fire every periodic task.
+[[vm]]
+  processes = ["beat"]
+  size = "shared-cpu-1x"
+  memory = "256mb"
