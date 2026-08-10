@@ -199,7 +199,24 @@ Set on the **web** service:
 Changing one requires a **rebuild**, not a restart. A redeploy without a rebuild
 keeps the old value baked in.
 
-### 1.9 Domains
+### 1.9 Pin PORT to match the domain's target port
+
+Railway injects `PORT=8080` unless you set it. Both images listen on whatever
+`PORT` says — `entrypoint.sh` uses `${PORT:-8000}`, and Next.js standalone reads
+`process.env.PORT`. So the container happily binds 8080 while the generated
+domain routes to 3000/8000, and every request returns **502 Application failed
+to respond** on top of a completely green build and healthy logs.
+
+Set `PORT` explicitly so the two cannot drift:
+
+| Service | `PORT` | Domain target port |
+|---|---|---|
+| api | `8000` | 8000 |
+| web | `3000` | 3000 |
+
+Worker and beat need neither — they take no inbound traffic.
+
+### 1.10 Domains
 
 Per service → **Settings** → **Networking** → **Custom Domain**. Railway issues
 the certificate and gives you a `CNAME` target.
