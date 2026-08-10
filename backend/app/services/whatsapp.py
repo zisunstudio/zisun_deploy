@@ -53,11 +53,14 @@ async def send_order_confirmation(
                 logger.error("WhatsApp send failed for order %s: %s", order_id, exc)
 
     # ── SMS via Twilio ────────────────────────────────────────────────────
-    if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN:
+    # has_twilio_auth, not TWILIO_AUTH_TOKEN: with API-key auth the token is
+    # empty, and checking it directly would skip this fallback silently —
+    # customers would simply never receive an order confirmation.
+    if settings.TWILIO_ACCOUNT_SID and settings.has_twilio_auth:
         try:
-            from twilio.rest import Client as TwilioClient  # noqa: PLC0415
+            from app.core.twilio import get_twilio_client  # noqa: PLC0415
 
-            twilio = TwilioClient(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            twilio = get_twilio_client()
             twilio.messages.create(
                 body=msg,
                 from_=settings.TWILIO_FROM_NUMBER,

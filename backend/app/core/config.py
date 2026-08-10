@@ -39,8 +39,14 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # ── Twilio ────────────────────────────────────────────────────────────────
+    # Authenticate with EITHER an API key (SK... + secret, preferred: scoped and
+    # revocable without rotating everything) OR the account's auth token.
+    # TWILIO_ACCOUNT_SID (AC...) is required either way — an API key identifies
+    # the credential, not the account it acts on.
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_API_KEY_SID: str = ""
+    TWILIO_API_KEY_SECRET: str = ""
     TWILIO_FROM_NUMBER: str = ""
 
     # ── WhatsApp Business API ─────────────────────────────────────────────────
@@ -88,7 +94,6 @@ class Settings(BaseSettings):
                 "RAZORPAY_KEY_SECRET": self.RAZORPAY_KEY_SECRET,
                 "RAZORPAY_WEBHOOK_SECRET": self.RAZORPAY_WEBHOOK_SECRET,
                 "TWILIO_ACCOUNT_SID": self.TWILIO_ACCOUNT_SID,
-                "TWILIO_AUTH_TOKEN": self.TWILIO_AUTH_TOKEN,
                 "TWILIO_FROM_NUMBER": self.TWILIO_FROM_NUMBER,
                 "SENTRY_DSN": self.SENTRY_DSN,
                 "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
@@ -102,11 +107,24 @@ class Settings(BaseSettings):
                 "CLOUDFLARE_CDN_BASE_URL": self.CLOUDFLARE_CDN_BASE_URL,
             }
             missing = [k for k, v in required.items() if not v]
+            # Either auth style is acceptable, so neither can be checked flatly.
+            if not self.has_twilio_auth:
+                missing.append(
+                    "TWILIO_AUTH_TOKEN (or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)"
+                )
             if missing:
                 raise ValueError(
                     f"Missing required production environment variables: {', '.join(missing)}"
                 )
         return self
+
+    @property
+    def has_twilio_auth(self) -> bool:
+        """True when Twilio can be authenticated by either supported method."""
+        return bool(
+            self.TWILIO_AUTH_TOKEN
+            or (self.TWILIO_API_KEY_SID and self.TWILIO_API_KEY_SECRET)
+        )
 
     def dev_fallback(self, feature: str) -> None:
         """Gate a code path that degrades to a no-op when a credential is absent.

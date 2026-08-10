@@ -189,8 +189,8 @@ class AuthService:
             return
 
         try:
-            from twilio.rest import Client
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            from app.core.twilio import get_twilio_client
+            client = get_twilio_client()
             client.messages.create(
                 body=f"Your ZISUN code: {otp}. Valid 5 min. Do not share.",
                 from_=settings.TWILIO_FROM_NUMBER,

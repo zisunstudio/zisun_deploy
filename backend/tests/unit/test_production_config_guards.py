@@ -203,3 +203,62 @@ class TestCeleryRedisTLS:
     def test_plaintext_url_untouched(self, monkeypatch):
         given = "redis://redis.railway.internal:6379/0"
         assert self._url(monkeypatch, given) == given
+
+
+class TestTwilioAuthStyles:
+    """An API key (SK...) and the account auth token are not interchangeable."""
+
+    def test_api_key_alone_satisfies_boot(self, monkeypatch):
+        s = _settings(
+            monkeypatch,
+            TWILIO_AUTH_TOKEN="",
+            TWILIO_API_KEY_SID="SK00000000000000000000000000000000",
+            TWILIO_API_KEY_SECRET="secret_x",
+        )
+        assert s.has_twilio_auth is True
+
+    def test_auth_token_alone_satisfies_boot(self, monkeypatch):
+        s = _settings(monkeypatch, TWILIO_API_KEY_SID="", TWILIO_API_KEY_SECRET="")
+        assert s.has_twilio_auth is True
+
+    def test_api_key_sid_without_secret_is_rejected(self, monkeypatch):
+        with pytest.raises(Exception, match="TWILIO_AUTH_TOKEN"):
+            _settings(
+                monkeypatch,
+                TWILIO_AUTH_TOKEN="",
+                TWILIO_API_KEY_SID="SK00000000000000000000000000000000",
+                TWILIO_API_KEY_SECRET="",
+            )
+
+    def test_neither_credential_refuses_to_boot(self, monkeypatch):
+        with pytest.raises(Exception, match="TWILIO_AUTH_TOKEN"):
+            _settings(monkeypatch, TWILIO_AUTH_TOKEN="", TWILIO_API_KEY_SID="", TWILIO_API_KEY_SECRET="")
+
+    def test_api_key_uses_three_argument_client(self, monkeypatch):
+        """Two-arg form with an SK key would target /Accounts/SK.../Messages."""
+        import sys, types
+        from app.core import twilio as mod
+
+        captured = {}
+
+        class _FakeClient:
+            def __init__(self, *args):
+                captured["args"] = args
+
+        fake = types.ModuleType("twilio.rest")
+        fake.Client = _FakeClient
+        monkeypatch.setitem(sys.modules, "twilio", types.ModuleType("twilio"))
+        monkeypatch.setitem(sys.modules, "twilio.rest", fake)
+
+        monkeypatch.setattr(mod, "settings", _settings(
+            monkeypatch,
+            TWILIO_ACCOUNT_SID="ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            TWILIO_AUTH_TOKEN="",
+            TWILIO_API_KEY_SID="SK00000000000000000000000000000000",
+            TWILIO_API_KEY_SECRET="secret_x",
+        ))
+        mod.get_twilio_client()
+        assert captured["args"] == (
+            "SK00000000000000000000000000000000", "secret_x",
+            "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
