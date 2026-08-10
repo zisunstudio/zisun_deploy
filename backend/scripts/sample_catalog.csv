@@ -1,0 +1,6 @@
+name,description,base_price_paise,category_slug,sku,size,color,stock,price_delta_paise,image_url
+Indigo Cotton Kurta,"Handwoven South Indian cotton kurta. Breathable, everyday workwear cut for the Bengaluru–Chennai–Kochi climate. Natural indigo dye, pre-shrunk.",149900,,ZSN-KUR-IND-XS,XS,Indigo,6,0,
+Indigo Cotton Kurta,,149900,,ZSN-KUR-IND-S,S,Indigo,12,0,
+Indigo Cotton Kurta,,149900,,ZSN-KUR-IND-M,M,Indigo,18,0,
+Indigo Cotton Kurta,,149900,,ZSN-KUR-IND-L,L,Indigo,14,0,
+Indigo Cotton Kurta,,149900,,ZSN-KUR-IND-XL,XL,Indigo,8,10000,
