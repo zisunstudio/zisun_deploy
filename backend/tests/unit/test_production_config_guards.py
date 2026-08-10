@@ -177,3 +177,29 @@ class TestDatabaseUriEncoding:
         url = sa.engine.make_url(s.sync_database_uri)
         assert url.host == "db.example.supabase.co"
         assert url.password == "p@ss/w:rd#1"
+
+
+class TestCeleryRedisTLS:
+    """Celery raises at import on a rediss:// URL lacking ssl_cert_reqs."""
+
+    def _url(self, monkeypatch, redis_url):
+        from app import celery_app as mod
+
+        monkeypatch.setattr(mod.settings, "REDIS_URL", redis_url, raising=False)
+        return mod._redis_url()
+
+    def test_tls_url_gets_cert_requirement(self, monkeypatch):
+        url = self._url(monkeypatch, "rediss://default:pw@x.upstash.io:6379")
+        assert url.endswith("?ssl_cert_reqs=required")
+
+    def test_existing_query_string_is_preserved(self, monkeypatch):
+        url = self._url(monkeypatch, "rediss://default:pw@x.upstash.io:6379/0?foo=1")
+        assert url == "rediss://default:pw@x.upstash.io:6379/0?foo=1&ssl_cert_reqs=required"
+
+    def test_explicit_setting_is_not_overridden(self, monkeypatch):
+        given = "rediss://default:pw@x.upstash.io:6379?ssl_cert_reqs=none"
+        assert self._url(monkeypatch, given) == given
+
+    def test_plaintext_url_untouched(self, monkeypatch):
+        given = "redis://redis.railway.internal:6379/0"
+        assert self._url(monkeypatch, given) == given

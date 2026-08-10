@@ -3,10 +3,35 @@ from celery.schedules import crontab
 
 from app.core.config import settings
 
+
+def _redis_url() -> str:
+    """Celery refuses a `rediss://` URL that doesn't say how to verify the cert.
+
+    Managed Redis (Upstash, Fly, Heroku) hands out TLS URLs. Passed through
+    untouched, Celery raises at IMPORT time:
+
+        ValueError: A rediss:// URL must have parameter ssl_cert_reqs and this
+        must be set to CERT_REQUIRED, CERT_OPTIONAL, or CERT_NONE
+
+    which kills the worker and beat containers before any task runs — and it
+    happens identically in the broker and the result backend. `required`
+    (CERT_REQUIRED) is the safe default: these providers present valid certs,
+    so there is no reason to weaken verification.
+
+    Plain `redis://` (local dev, Railway's private network) is left alone.
+    """
+    url = settings.REDIS_URL
+    if url.startswith("rediss://") and "ssl_cert_reqs" not in url:
+        url += ("&" if "?" in url else "?") + "ssl_cert_reqs=required"
+    return url
+
+
+_REDIS_URL = _redis_url()
+
 celery_app = Celery(
     "zisun",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=_REDIS_URL,
+    backend=_REDIS_URL,
     include=["app.tasks.commerce"],
 )
 
