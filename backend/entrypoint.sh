@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# Dependency waits are BOUNDED. On managed hosts (Fly + Neon/Supabase + Upstash)
-# pg_isready/redis-cli may never succeed even though the app can connect fine
-# (TLS `rediss://`, connection poolers, private networking). An unbounded loop
-# would hang the boot forever, so we retry a fixed number of times and then
-# start anyway — /health reports per-dependency status either way.
+# Dependency waits are BOUNDED. On managed hosts (Railway's private network is
+# IPv6-only; Upstash/Supabase sit behind TLS and connection poolers)
+# pg_isready/redis-cli may never succeed even though the app can connect fine.
+# An unbounded loop would hang the boot forever, so we retry a fixed number of
+# times and then start anyway — /health reports per-dependency status either way.
 WAIT_RETRIES="${WAIT_RETRIES:-30}"
 
 if [ "${SKIP_DEPS_WAIT:-0}" != "1" ]; then
@@ -46,8 +46,9 @@ if [ "${SKIP_DEPS_WAIT:-0}" != "1" ]; then
   esac
 fi
 
-# On Fly, migrations run once via `release_command` in fly.toml, BEFORE new
-# machines boot. Running them here too would race across machines, so Fly sets
+# On Railway, migrations run once via the api service's preDeployCommand
+# (backend/railway.json), BEFORE the new container takes traffic. Running them
+# here too would race across the api/worker/beat services, so all three set
 # SKIP_MIGRATIONS=1. Docker Compose leaves it unset and migrates here.
 if [ "${SKIP_MIGRATIONS:-0}" = "1" ]; then
   echo "==> SKIP_MIGRATIONS=1 — migrations handled by release_command."
@@ -57,9 +58,9 @@ else
   echo "==> Migrations complete."
 fi
 
-# If a command was passed (Fly process groups: worker/beat, or `docker run ... celery`)
-# run that instead of the API server. Without this, ENTRYPOINT would swallow the
-# command and every process group would start a web server.
+# If a command was passed (the worker/beat services' startCommand, or
+# `docker run ... celery`) run that instead of the API server. Without this,
+# ENTRYPOINT would swallow the command and every service would start a web server.
 if [ "$#" -gt 0 ]; then
   echo "==> Starting: $*"
   exec "$@"

@@ -1,5 +1,15 @@
 # Migrating ZISUN to `zisunstudio/zisun_deploy` + deploying on Fly
 
+> **STATUS — historical. Steps 1–2 are done; Step 3 onward is superseded.**
+>
+> The GitHub migration completed: `zisunstudio/zisun_deploy` holds `main`, SSH
+> auth is set up, and pushes work. Those steps are kept for the record.
+>
+> **The Fly.io sections no longer apply.** Deployment moved to Railway —
+> `fly.toml` and the `Fly Deploy` workflow have been deleted from the repo.
+> Mumbai (`bom`) had no Fly capacity, which is what prompted the move.
+> **See `DEPLOYMENT.md` for the current, authoritative deploy process.**
+
 Moving the codebase from `v22kumar/ZISUN` to the new **zisunstudio** GitHub account
 and deploying to Fly.io from there.
 

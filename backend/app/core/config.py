@@ -121,7 +121,7 @@ class Settings(BaseSettings):
             raise RuntimeError(
                 f"{feature} is not configured, but ENVIRONMENT=production. "
                 "Refusing to fall back to development behaviour — set the "
-                "missing secret (see DEPLOYMENT.md §1.4) and redeploy."
+                "missing variable (see DEPLOYMENT.md) and redeploy."
             )
         logger.warning("DEV MODE — %s is not configured", feature)
 
