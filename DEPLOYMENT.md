@@ -13,6 +13,15 @@ Plus two Railway plugins — **Postgres** and **Redis** — and one external
 dependency, **Tigris** object storage for product media (Railway has no
 object store of its own).
 
+Live project: **loyal-respect**, environment `production`, region
+`asia-southeast1`.
+
+| | URL |
+|---|---|
+| API | `https://zisun-api-production.up.railway.app` |
+| Storefront | `https://zisun-web-production.up.railway.app` |
+| Media | `https://zisun-media.fly.storage.tigris.dev` |
+
 The api/worker/beat services share a single `backend/Dockerfile`. They differ
 only in `startCommand`, which `entrypoint.sh` execs.
 
@@ -31,11 +40,24 @@ same repo. For each service, under **Settings**:
 | Setting | api | worker | beat | web |
 |---|---|---|---|---|
 | Root Directory | `backend` | `backend` | `backend` | `frontend` |
-| Config-as-code path | `railway.json` | `railway.worker.json` | `railway.beat.json` | `railway.json` |
+| Config-as-code path | `backend/railway.json` | `backend/railway.worker.json` | `backend/railway.beat.json` | `frontend/railway.json` |
 | Watch Paths | `backend/**` | `backend/**` | `backend/**` | `frontend/**` |
+| Region | `asia-southeast1` | `asia-southeast1` | `asia-southeast1` | `asia-southeast1` |
+
+**The config path is relative to the repo root, not to the Root Directory.**
+`railway.json` looks right and is not — Railway silently finds no config, falls
+back to the Railpack builder, fails to detect a language in the monorepo root,
+and the build dies with "could not determine how to build the app". The
+Dockerfile is never consulted. Use `backend/railway.json`.
 
 **Set the Watch Paths.** Without them every push rebuilds all four services —
 four builds and four restarts for a CSS tweak.
+
+**Set the Region on every service, databases included.** Railway defaults to US
+West (`sfo`). Serving India from there adds a Pacific round trip to every
+request, and — far worse — puts the app on a different continent from its own
+Postgres, so *each individual query* pays that crossing. `asia-southeast1`
+(Singapore) is the closest Railway offers; there is no India region.
 
 ### 1.2 Add Postgres and Redis
 
