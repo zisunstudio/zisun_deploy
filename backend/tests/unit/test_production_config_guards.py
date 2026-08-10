@@ -147,3 +147,33 @@ class TestR2FailsClosed:
         )
         out = storage.generate_upload_presigned_url("media/x.jpg", "image/jpeg")
         assert out["cdn_url"] == "/media/media/x.jpg"
+
+
+class TestDatabaseUriEncoding:
+    """Managed providers hand out passwords with URI-significant characters."""
+
+    def test_at_sign_in_password_does_not_corrupt_host(self, monkeypatch):
+        s = _settings(
+            monkeypatch,
+            POSTGRES_USER="postgres",
+            POSTGRES_PASSWORD="Zisun@020422",
+            POSTGRES_SERVER="db.example.supabase.co",
+            POSTGRES_PORT="5432",
+            POSTGRES_DB="postgres",
+        )
+        for uri in (s.sync_database_uri, s.async_database_uri):
+            assert "Zisun%40020422" in uri
+            # The raw form would yield host `020422@db.example.supabase.co`.
+            assert uri.endswith("@db.example.supabase.co:5432/postgres")
+
+    def test_sqlalchemy_parses_the_encoded_uri_back(self, monkeypatch):
+        sa = pytest.importorskip("sqlalchemy")
+        s = _settings(
+            monkeypatch,
+            POSTGRES_USER="postgres",
+            POSTGRES_PASSWORD="p@ss/w:rd#1",
+            POSTGRES_SERVER="db.example.supabase.co",
+        )
+        url = sa.engine.make_url(s.sync_database_uri)
+        assert url.host == "db.example.supabase.co"
+        assert url.password == "p@ss/w:rd#1"

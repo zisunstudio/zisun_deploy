@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import model_validator
@@ -126,16 +127,28 @@ class Settings(BaseSettings):
         logger.warning("DEV MODE — %s is not configured", feature)
 
     @property
+    def _db_credentials(self) -> str:
+        """`user:password`, percent-encoded for safe URI interpolation.
+
+        Managed Postgres providers generate passwords containing `@`, `/`, `:`
+        and `#`. Interpolated raw, a password like `Zisun@020422` makes
+        SQLAlchemy parse the password as `Zisun` and the host as
+        `020422@db.example.com` — the connection then fails with a DNS error
+        naming a host nobody configured, which is a miserable thing to debug.
+        """
+        return f"{quote_plus(self.POSTGRES_USER)}:{quote_plus(self.POSTGRES_PASSWORD)}"
+
+    @property
     def sync_database_uri(self) -> str:
         return (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"postgresql://{self._db_credentials}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
     @property
     def async_database_uri(self) -> str:
         return (
-            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"postgresql+asyncpg://{self._db_credentials}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
