@@ -9,9 +9,14 @@ Four Railway services, all built from this one repo:
 | `zisun-beat` | `backend` | `railway.beat.json` | Celery beat scheduler |
 | `zisun-web` | `frontend` | `railway.json` | Next.js standalone server |
 
-Plus two Railway plugins — **Postgres** and **Redis** — and one external
-dependency, **Tigris** object storage for product media (Railway has no
-object store of its own).
+Railway runs **only the four app containers**. Every stateful dependency is
+external, chosen for cost:
+
+| Dependency | Provider | Why not Railway |
+|---|---|---|
+| Postgres | **Supabase** | Free tier |
+| Redis | **Upstash** | Cheaper at this volume |
+| Object storage | **Tigris** | Railway has none |
 
 Live project: **loyal-respect**, environment `production`, region
 `asia-southeast1`.
@@ -59,12 +64,28 @@ request, and — far worse — puts the app on a different continent from its ow
 Postgres, so *each individual query* pays that crossing. `asia-southeast1`
 (Singapore) is the closest Railway offers; there is no India region.
 
-### 1.2 Add Postgres and Redis
+### 1.2 External data stores
 
-**New** → **Database** → **Add PostgreSQL**, then again for **Redis**.
+Both live outside Railway, so both cross the public internet. Two traps.
 
-Both attach to the project's private network. Nothing is publicly exposed
-unless you explicitly add a TCP proxy, which you should not.
+**Supabase — the direct host is IPv6-only.** `db.<ref>.supabase.co` publishes
+an AAAA record and no A record. Railway services default to IPv4-only egress,
+so you must enable **IPv6 egress** on api, worker and beat or every connection
+fails. The IPv4-friendly alternative is the **session-mode pooler**
+(`aws-0-<region>.pooler.supabase.com:5432`, user `postgres.<ref>`).
+
+> Use the **session** pooler, never transaction mode on port `6543`. asyncpg
+> caches prepared statements; PgBouncer in transaction mode recycles the
+> connection underneath it, producing
+> `prepared statement "__asyncpg_stmt_1__" already exists` — intermittently,
+> under load, on the checkout path.
+
+**Upstash — use the `rediss://` scheme.** The console shows a `redis://` URL
+with a `--tls` flag; that flag is redis-cli-only and means nothing to redis-py
+or Celery, which would then open a plaintext connection to a TLS-only port.
+`app/celery_app.py` appends `ssl_cert_reqs=required` automatically — without it
+Celery raises at import and the worker and beat containers crash-loop while
+Railway still reports the deploy as SUCCESS.
 
 ### 1.3 Generate JWT keys
 
@@ -87,26 +108,29 @@ Set these on **all three backend services** (api, worker and beat — the Celery
 processes hit the same DB, Redis and gateways). Railway's *shared variables* at
 project level are the least error-prone way to do it.
 
-Postgres and Redis use **reference variables** so a credential rotation on the
-plugin propagates without edits here:
+Connection details are literal values — the stores are external, so Railway's
+`${{Postgres.*}}` reference variables do not apply:
 
 ```bash
-POSTGRES_SERVER=${{Postgres.PGHOST}}
-POSTGRES_PORT=${{Postgres.PGPORT}}
-POSTGRES_DB=${{Postgres.PGDATABASE}}
-POSTGRES_USER=${{Postgres.PGUSER}}
-POSTGRES_PASSWORD=${{Postgres.PGPASSWORD}}
-REDIS_URL=${{Redis.REDIS_URL}}
+POSTGRES_SERVER=db.<ref>.supabase.co     # or the session pooler host
+POSTGRES_PORT=5432
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres                   # or postgres.<ref> via the pooler
+POSTGRES_PASSWORD=...
+REDIS_URL=rediss://default:...@....upstash.io:6379   # rediss, not redis
 ```
 
 > The app reads discrete `POSTGRES_*` vars, **not** `DATABASE_URL`.
+> A password containing `@ / : #` is percent-encoded automatically
+> (`Settings._db_credentials`); do not pre-encode it here.
 
-The rest are literal values:
+The rest:
 
 ```bash
 ENVIRONMENT=production
-SKIP_MIGRATIONS=1          # api runs them via preDeployCommand; see 1.6
-SKIP_DEPS_WAIT=1           # Railway's private DNS is IPv6-only; the app validates its own connections
+PORT=8000                  # must match the domain's target port; see 1.10
+SKIP_MIGRATIONS=1          # api runs them via preDeployCommand; see 1.7
+SKIP_DEPS_WAIT=1           # managed hosts behind TLS/poolers; the app validates its own connections
 UVICORN_WORKERS=2
 DB_POOL_SIZE=3
 DB_MAX_OVERFLOW=5
@@ -158,7 +182,27 @@ variable removed *after* boot raises instead of reverting to the dev stub.
 If a deploy fails on this, the fix is to set the variable — never to unset
 `ENVIRONMENT`.
 
-### 1.6 Migrations run on exactly one service
+### 1.6 Supabase auto-enables RLS on every table
+
+Supabase installs an event trigger, `ensure_rls`, that runs
+`ALTER TABLE ... ENABLE ROW LEVEL SECURITY` after every `CREATE TABLE` in the
+`public` schema. Alembic's migrations create their tables there, so all of them
+get RLS enabled with **no policies defined**.
+
+This is currently harmless: Alembic connects as `postgres`, so `postgres` owns
+those tables, and Postgres exempts table owners from RLS unless
+`FORCE ROW LEVEL SECURITY` is set. The app uses the same role.
+
+**It stops being harmless the moment the app connects as anything else** — a
+least-privilege application role, or Supabase's `anon`/`authenticated`/
+`service_role`. RLS with no policies does not raise a permission error; it
+returns **zero rows**. The catalogue reads as empty, orders disappear on
+fetch, carts silently forget. Nothing in the logs says why.
+
+If you ever change `POSTGRES_USER`, first add policies for that role or add a
+migration that disables RLS on the application tables. Decide it deliberately.
+
+### 1.7 Migrations run on exactly one service
 
 `backend/railway.json` (the **api** service only) carries:
 
@@ -174,7 +218,7 @@ All three backend services set `SKIP_MIGRATIONS=1` so `entrypoint.sh` does not
 also migrate on boot — three containers racing `alembic upgrade head` against
 one database is how you get a half-applied schema.
 
-### 1.7 Keep beat at one replica
+### 1.8 Keep beat at one replica
 
 `railway.beat.json` pins `"numReplicas": 1`. **Do not raise it.** Two schedulers
 double-fire every periodic task: duplicate WhatsApp messages to customers and
@@ -182,7 +226,7 @@ double stock restoration on lock expiry.
 
 The api and worker services can scale horizontally; beat cannot.
 
-### 1.8 Frontend build variables
+### 1.9 Frontend build variables
 
 `NEXT_PUBLIC_*` are **inlined into the client bundle at build time**. Railway
 exposes service variables to the Dockerfile as build args, and
@@ -199,7 +243,7 @@ Set on the **web** service:
 Changing one requires a **rebuild**, not a restart. A redeploy without a rebuild
 keeps the old value baked in.
 
-### 1.9 Pin PORT to match the domain's target port
+### 1.10 Pin PORT to match the domain's target port
 
 Railway injects `PORT=8080` unless you set it. Both images listen on whatever
 `PORT` says — `entrypoint.sh` uses `${PORT:-8000}`, and Next.js standalone reads
@@ -216,7 +260,7 @@ Set `PORT` explicitly so the two cannot drift:
 
 Worker and beat need neither — they take no inbound traffic.
 
-### 1.10 Domains
+### 1.11 Domains
 
 Per service → **Settings** → **Networking** → **Custom Domain**. Railway issues
 the certificate and gives you a `CNAME` target.
@@ -287,8 +331,11 @@ reversible) *before* redeploying the older build.
 rotation, optional S3 upload) — that is for self-hosted deploys only. **It does
 not run on Railway.**
 
-Railway Postgres takes its own backups; check the plugin's **Backups** tab and
-confirm the schedule and retention match what losing that data would cost you.
+Backups are **Supabase's**, and on the free tier they are thinner than a paid
+managed Postgres: daily snapshots with short retention and no point-in-time
+recovery. Read what your plan actually provides in Supabase → Database →
+Backups, and decide whether losing up to a day of orders is acceptable. If it
+is not, that is the argument for a paid tier — not a reason to skip backups.
 
 **Verify a backup exists and can be restored before launch.** This is the one
 failure with no recovery path.
