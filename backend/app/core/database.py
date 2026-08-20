@@ -5,6 +5,23 @@ from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
 
 # ── Async engine (FastAPI routes) ─────────────────────────────────────────────
+def _async_connect_args() -> dict:
+    """asyncpg options that a transaction-mode pooler requires.
+
+    PgBouncer/Supavisor in transaction mode may route each statement to a
+    different backend, so a prepared statement created on one is absent on the
+    next. asyncpg caches aggressively by default and fails with
+    `prepared statement "__asyncpg_stmt_N__" does not exist` — intermittently,
+    only under concurrency, which makes it a nightmare to reproduce.
+
+    Both caches must be off: statement_cache_size covers asyncpg's own cache,
+    prepared_statement_cache_size covers SQLAlchemy's dialect-level one.
+    """
+    if not settings.DB_PGBOUNCER_MODE:
+        return {}
+    return {"statement_cache_size": 0, "prepared_statement_cache_size": 0}
+
+
 async_engine = create_async_engine(
     settings.async_database_uri,
     echo=False,
@@ -12,6 +29,7 @@ async_engine = create_async_engine(
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_pre_ping=True,
     pool_recycle=3600,
+    connect_args=_async_connect_args(),
 )
 AsyncSessionLocal = async_sessionmaker(
     bind=async_engine,

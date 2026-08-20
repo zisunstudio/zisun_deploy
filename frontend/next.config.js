@@ -30,10 +30,14 @@ const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
   images: {
+    // Allowlist ONLY the media host. `hostname: "**"` turns next/image into an
+    // open proxy: anyone can pass an arbitrary URL through our domain, and on a
+    // per-transformation billing plan we pay for strangers' images.
+    // Adding a CDN or a second bucket means adding an entry here, deliberately.
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**", // Temporarily allow all for scaffold testing
+        hostname: "zisun-media.fly.storage.tigris.dev",
       },
     ],
   },

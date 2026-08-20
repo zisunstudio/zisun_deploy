@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = "5432"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
+    # Set to 1 when POSTGRES_SERVER is a TRANSACTION-mode pooler (PgBouncer,
+    # Supabase Supavisor on :6543). Such a pooler hands a different backend
+    # connection to each statement, so a prepared statement created on one is
+    # missing on the next — asyncpg then fails with
+    # `prepared statement "__asyncpg_stmt_1__" does not exist`, intermittently
+    # and only under concurrency. Disables statement caching to suit.
+    # Leave 0 for a direct connection or SESSION-mode pooling (:5432), where
+    # caching is both safe and a meaningful speed-up.
+    DB_PGBOUNCER_MODE: int = 0
 
     # ── Redis ─────────────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -62,6 +71,12 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
+    # Cash-on-delivery only. Set to 1 to launch before Razorpay KYC clears:
+    # online payment is hidden at checkout and the RAZORPAY_* credentials stop
+    # being required to boot. Unset it (or set 0) and the full fail-closed
+    # behaviour returns — no Razorpay code is removed or bypassed, so this is a
+    # one-variable round trip in either direction.
+    PAYMENTS_COD_ONLY: int = 0
 
     # ── Cloudflare R2 ────────────────────────────────────────────────────────
     R2_ENDPOINT_URL: str = ""
@@ -90,12 +105,8 @@ class Settings(BaseSettings):
             required = {
                 "JWT_PRIVATE_KEY": self.JWT_PRIVATE_KEY,
                 "JWT_PUBLIC_KEY": self.JWT_PUBLIC_KEY,
-                "RAZORPAY_KEY_ID": self.RAZORPAY_KEY_ID,
-                "RAZORPAY_KEY_SECRET": self.RAZORPAY_KEY_SECRET,
-                "RAZORPAY_WEBHOOK_SECRET": self.RAZORPAY_WEBHOOK_SECRET,
                 "TWILIO_ACCOUNT_SID": self.TWILIO_ACCOUNT_SID,
                 "TWILIO_FROM_NUMBER": self.TWILIO_FROM_NUMBER,
-                "SENTRY_DSN": self.SENTRY_DSN,
                 "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
                 "REDIS_URL": self.REDIS_URL,
                 # Without these, storage.py hands out localhost:9000 upload URLs
@@ -112,9 +123,32 @@ class Settings(BaseSettings):
                 missing.append(
                     "TWILIO_AUTH_TOKEN (or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)"
                 )
+            # Razorpay is required only when online payment can actually be
+            # selected. Under PAYMENTS_COD_ONLY no checkout path reaches the
+            # gateway, so demanding live keys would block launch on KYC alone.
+            if not self.PAYMENTS_COD_ONLY:
+                missing += [
+                    k for k, v in {
+                        "RAZORPAY_KEY_ID": self.RAZORPAY_KEY_ID,
+                        "RAZORPAY_KEY_SECRET": self.RAZORPAY_KEY_SECRET,
+                        "RAZORPAY_WEBHOOK_SECRET": self.RAZORPAY_WEBHOOK_SECRET,
+                    }.items() if not v
+                ]
             if missing:
                 raise ValueError(
                     f"Missing required production environment variables: {', '.join(missing)}"
+                )
+            # Sentry is observability, not a dependency of taking money. A
+            # missing DSN must never be the reason a storefront is offline.
+            if not self.SENTRY_DSN:
+                logger.warning(
+                    "SENTRY_DSN is not set — running in production with no error "
+                    "tracking. Crashes will surface only in container logs."
+                )
+            if self.PAYMENTS_COD_ONLY:
+                logger.warning(
+                    "PAYMENTS_COD_ONLY=1 — online payment is DISABLED and Razorpay "
+                    "credentials are not enforced. Unset it once KYC is approved."
                 )
         return self
 

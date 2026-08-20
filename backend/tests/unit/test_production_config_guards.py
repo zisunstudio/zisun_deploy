@@ -262,3 +262,45 @@ class TestTwilioAuthStyles:
             "SK00000000000000000000000000000000", "secret_x",
             "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         )
+
+
+class TestCodOnlyMode:
+    """Razorpay KYC must not be able to hold the whole storefront offline."""
+
+    def _no_razorpay(self):
+        return {"RAZORPAY_KEY_ID": "", "RAZORPAY_KEY_SECRET": "", "RAZORPAY_WEBHOOK_SECRET": ""}
+
+    def test_cod_only_boots_without_razorpay(self, monkeypatch):
+        s = _settings(monkeypatch, PAYMENTS_COD_ONLY="1", **self._no_razorpay())
+        assert s.PAYMENTS_COD_ONLY == 1
+
+    def test_razorpay_still_required_when_cod_only_is_off(self, monkeypatch):
+        with pytest.raises(Exception, match="RAZORPAY_KEY_ID"):
+            _settings(monkeypatch, PAYMENTS_COD_ONLY="0", **self._no_razorpay())
+
+    def test_missing_sentry_dsn_no_longer_blocks_boot(self, monkeypatch):
+        """Error tracking must never gate revenue."""
+        s = _settings(monkeypatch, SENTRY_DSN="")
+        assert s.SENTRY_DSN == ""
+        assert s.is_production is True
+
+    def test_cod_only_does_not_relax_other_guards(self, monkeypatch):
+        with pytest.raises(Exception, match="R2_ACCESS_KEY"):
+            _settings(monkeypatch, PAYMENTS_COD_ONLY="1", R2_ACCESS_KEY="", **self._no_razorpay())
+
+
+class TestPgBouncerMode:
+    def test_disabled_by_default(self, monkeypatch):
+        assert _settings(monkeypatch).DB_PGBOUNCER_MODE == 0
+
+    def test_connect_args_empty_when_off(self, monkeypatch):
+        from app.core import database as db
+        monkeypatch.setattr(db, "settings", _settings(monkeypatch, DB_PGBOUNCER_MODE="0"))
+        assert db._async_connect_args() == {}
+
+    def test_both_caches_disabled_in_pooler_mode(self, monkeypatch):
+        from app.core import database as db
+        monkeypatch.setattr(db, "settings", _settings(monkeypatch, DB_PGBOUNCER_MODE="1"))
+        args = db._async_connect_args()
+        assert args["statement_cache_size"] == 0
+        assert args["prepared_statement_cache_size"] == 0

@@ -27,6 +27,24 @@ _PINCODE_RE = re.compile(r"^\d{6}$")
 # GET /checkout/pincode/{pincode}/check
 # ─────────────────────────────────────────────────────────────────────────────
 
+@router.get("/payment-methods", tags=["Checkout"])
+async def available_payment_methods():
+    """Which payment methods checkout may offer.
+
+    The storefront is fully client-rendered, so it cannot read server config at
+    build time — it asks here instead. `initiate_checkout` enforces the same
+    rule server-side; this endpoint only stops the UI offering an option that
+    would be rejected.
+    """
+    if settings.PAYMENTS_COD_ONLY:
+        return {"methods": ["COD"], "razorpay_key_id": None, "cod_only": True}
+    return {
+        "methods": ["RAZORPAY", "COD"],
+        "razorpay_key_id": settings.RAZORPAY_KEY_ID or None,
+        "cod_only": False,
+    }
+
+
 @router.get("/pincode/{pincode}/check", tags=["Checkout"])
 async def check_pincode(pincode: str):
     """

@@ -194,6 +194,18 @@ class CheckoutService:
           Returns (order, razorpay_order_id_or_None)
         """
         from app.services.coupon import CouponService, COD_MAX_ORDER_VALUE_PAISE
+        from app.core.config import settings  # deferred: avoids circular import
+
+        # Enforced server-side, not just hidden in the UI: a client can post any
+        # payment_method it likes. Under COD-only the Razorpay credentials are
+        # not required to boot, so a RAZORPAY order here would reach a gateway
+        # we have no keys for and strand in PAYMENT_PENDING holding stock.
+        if settings.PAYMENTS_COD_ONLY and payment_method != PaymentMethod.COD:
+            raise HTTPException(
+                status_code=400,
+                detail="Online payment is temporarily unavailable. "
+                       "Please choose Cash on Delivery.",
+            )
 
         cart = await self.get_or_create_cart(user_id)
 
