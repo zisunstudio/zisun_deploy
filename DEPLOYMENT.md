@@ -74,11 +74,28 @@ so you must enable **IPv6 egress** on api, worker and beat or every connection
 fails. The IPv4-friendly alternative is the **session-mode pooler**
 (`aws-0-<region>.pooler.supabase.com:5432`, user `postgres.<ref>`).
 
-> Use the **session** pooler, never transaction mode on port `6543`. asyncpg
-> caches prepared statements; PgBouncer in transaction mode recycles the
-> connection underneath it, producing
-> `prepared statement "__asyncpg_stmt_1__" already exists` — intermittently,
-> under load, on the checkout path.
+> **Transaction mode on `6543` requires `DB_PGBOUNCER_MODE=1`.** asyncpg caches
+> prepared statements; PgBouncer in transaction mode recycles the connection
+> underneath it, producing `prepared statement "__asyncpg_stmt_1__" already
+> exists` — intermittently, under load, on the checkout path. Setting
+> `DB_PGBOUNCER_MODE=1` turns off both asyncpg's cache and SQLAlchemy's, which
+> is what makes `6543` safe (`app/core/database.py`). Forget the variable and
+> you get the failure above; there is no error at boot to warn you.
+>
+> Session mode (`5432`, same host, also IPv4) keeps statement caching and is
+> faster, at the cost of a connection per client. Either works. What does not
+> work is `6543` with `DB_PGBOUNCER_MODE=0`.
+
+Both pooler ports use the tenant-qualified user `postgres.<project-ref>` and the
+database name `postgres` — not the `zisun_db` the local compose file uses.
+
+`scripts/check_connections.py` asserts all of this — DNS family, port/mode
+agreement, user form, TLS scheme — against whatever env you hand it, before a
+deploy depends on it:
+
+```bash
+cd backend && python scripts/check_connections.py
+```
 
 **Upstash — use the `rediss://` scheme.** The console shows a `redis://` URL
 with a `--tls` flag; that flag is redis-cli-only and means nothing to redis-py
@@ -112,22 +129,26 @@ Connection details are literal values — the stores are external, so Railway's
 `${{Postgres.*}}` reference variables do not apply:
 
 ```bash
-POSTGRES_SERVER=db.<ref>.supabase.co     # or the session pooler host
-POSTGRES_PORT=5432
+POSTGRES_SERVER=aws-0-<region>.pooler.supabase.com   # IPv4; direct host is IPv6-only
+POSTGRES_PORT=6543                       # 6543 transaction | 5432 session
 POSTGRES_DB=postgres
-POSTGRES_USER=postgres                   # or postgres.<ref> via the pooler
+POSTGRES_USER=postgres.<ref>             # tenant-qualified, for either pooler port
 POSTGRES_PASSWORD=...
+DB_PGBOUNCER_MODE=1                      # REQUIRED on 6543; leave 0 on 5432
 REDIS_URL=rediss://default:...@....upstash.io:6379   # rediss, not redis
 ```
 
-> The app reads discrete `POSTGRES_*` vars, **not** `DATABASE_URL`.
+> The app reads discrete `POSTGRES_*` vars, **not** `DATABASE_URL` — there is no
+> `DATABASE_URL` support anywhere in the codebase, and setting one has no effect.
 > A password containing `@ / : #` is percent-encoded automatically
-> (`Settings._db_credentials`); do not pre-encode it here.
+> (`Settings._db_credentials`), so **paste it raw**. Pre-encoding it here sends
+> a literal `%40` as the password and authentication fails.
 
 The rest:
 
 ```bash
 ENVIRONMENT=production
+LAUNCH_MODE=browse         # pre-launch only; see 1.5.1. Omit for a full storefront.
 PORT=8000                  # must match the domain's target port; see 1.10
 SKIP_MIGRATIONS=1          # api runs them via preDeployCommand; see 1.7
 SKIP_DEPS_WAIT=1           # managed hosts behind TLS/poolers; the app validates its own connections
@@ -162,10 +183,14 @@ SENTRY_DSN=https://...@sentry.io/...
 **These do not degrade silently — they stop the app from booting.**
 
 With `ENVIRONMENT=production`, `Settings` refuses to construct if any of
-`JWT_*`, `RAZORPAY_*`, `TWILIO_*`, `SENTRY_DSN`, `POSTGRES_PASSWORD`,
-`REDIS_URL`, `R2_*` or `CLOUDFLARE_CDN_BASE_URL` is empty. The container exits
-non-zero, the healthcheck never passes, and Railway keeps the previous
-deployment serving. The deploy log names the missing variables.
+`JWT_*`, `RAZORPAY_*`, `TWILIO_*`, `POSTGRES_PASSWORD`, `REDIS_URL`, `R2_*` or
+`CLOUDFLARE_CDN_BASE_URL` is empty. The container exits non-zero, the
+healthcheck never passes, and Railway keeps the previous deployment serving.
+The deploy log names the missing variables.
+
+`SENTRY_DSN` is **not** on that list. It logs a warning and boots. Error
+tracking is how you find out the storefront is broken; it is not a reason for
+the storefront to be down.
 
 That is deliberate — the alternative was worse:
 
@@ -181,6 +206,47 @@ variable removed *after* boot raises instead of reverting to the dev stub.
 
 If a deploy fails on this, the fix is to set the variable — never to unset
 `ENVIRONMENT`.
+
+### 1.5.1 `LAUNCH_MODE=browse` — going live before the gateway does
+
+Razorpay KYC gates `RAZORPAY_*`, and those are boot-required, so an unapproved
+merchant account holds the *entire storefront* offline — including the
+catalogue, which needs nothing from Razorpay. `LAUNCH_MODE=browse` breaks that
+deadlock:
+
+| | `LAUNCH_MODE` unset | `LAUNCH_MODE=browse` |
+|---|---|---|
+| `RAZORPAY_*` required to boot | yes | no |
+| `TWILIO_*` required to boot | yes | no |
+| Catalogue, prices, sizes, images | public | public |
+| `POST /cart/checkout/initiate` | works | **503** |
+| `POST /checkout/verify-payment` | works | **503** |
+| `GET /checkout/payment-methods` | lists methods | `{"methods": [], "checkout_enabled": false}` |
+| `R2_*`, `CLOUDFLARE_CDN_BASE_URL`, `JWT_*`, DB, Redis | required | **still required** |
+
+It relaxes exactly the credentials whose features it switches off, and nothing
+else — a browse-only launch with broken product images is not a launch.
+
+Enforcement is server-side in two places: a route dependency
+(`app/core/launch.py`) and a guard inside `CheckoutService.initiate_checkout`,
+so a caller that is not an HTTP route cannot create an order either. No
+Razorpay or Twilio code is deleted or stubbed — those paths are *refused*, so
+there is no mock order to clean up on the way back.
+
+**Reverting is deleting one variable.** Delete `LAUNCH_MODE`, redeploy, and the
+full fail-closed behaviour returns — the deploy will then correctly refuse to
+boot until `RAZORPAY_*` and `TWILIO_*` are set. Any value other than exactly
+`browse` (case- and whitespace-insensitive) is treated as unset, so a typo
+fails closed rather than half-opening checkout.
+
+Confirm which mode is live without shelling into the container:
+
+```bash
+curl -s https://api.zisun.in/health | jq '{launch_mode, checkout_enabled}'
+```
+
+The storefront needs the matching `NEXT_PUBLIC_LAUNCH_MODE=browse` (see 1.9),
+or it will keep offering an "Add to Cart" that 503s.
 
 ### 1.6 Supabase auto-enables RLS on every table
 
@@ -236,9 +302,18 @@ Set on the **web** service:
 
 | Variable | Example |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | `https://api.zisun.in` |
+| `NEXT_PUBLIC_API_URL` | `https://api.zisun.in` — origin only; the `/api/v1` prefix is added per call |
+| `NEXT_PUBLIC_LAUNCH_MODE` | `browse` while checkout is closed; empty otherwise. Must match the API's `LAUNCH_MODE`. |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | `919876543210` — digits and country code, no `+`. Powers the browse-mode CTA. |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | `rzp_live_xxx` (publishable key only — never the secret) |
 | `NEXT_PUBLIC_SENTRY_DSN` | `https://...@sentry.io/...` |
+
+`src/lib/apiBase.ts` normalises `NEXT_PUBLIC_API_URL`, so a value ending in
+`/api/v1` is accepted too. It did not always: the storefront client assumed the
+suffix was included while the admin client and the analytics beacon appended it
+themselves, so one of the two was always a path segment off — which surfaces as
+a catalogue that renders empty against a perfectly healthy API, with 404s only
+in the browser console.
 
 Changing one requires a **rebuild**, not a restart. A redeploy without a rebuild
 keeps the old value baked in.
@@ -295,9 +370,15 @@ railway up --service zisun-api  # build and deploy from local source
 ## 3. Post-deploy checklist
 
 ```bash
+cd backend && python scripts/check_connections.py   # datastores, before blaming the app
 curl https://api.zisun.in/health     # db / redis / celery per-component status
 railway logs --service zisun-api
 ```
+
+Under `LAUNCH_MODE=browse`, `celery` may read `no workers` and that is fine —
+nothing queues work while ordering is closed. `database` and `redis` must both
+be `ok`; the app will serve a degraded `/health` rather than refuse to start,
+so a green container is not by itself proof the database is reachable.
 
 Confirm in the dashboard that **api, worker and beat are all running**. A
 stopped worker is silent — orders reach `PAID` and then nothing ships, no error
@@ -307,6 +388,21 @@ Then, once:
 
 1. **Load the catalogue** — `/admin/products` → *Bulk Import Products (CSV)*, or
    the single-product form. Template: `backend/scripts/sample_catalog.csv`.
+
+   Under `LAUNCH_MODE=browse` there is no admin login to use — it needs an OTP,
+   which needs Twilio. Import against the database instead. It runs the admin
+   endpoint's own handler, so the validation is identical:
+
+   ```bash
+   cd backend
+   python scripts/import_catalog.py my_catalogue.csv --dry-run   # validate only
+   python scripts/import_catalog.py my_catalogue.csv
+   ```
+
+   Product images must be on the host in `CLOUDFLARE_CDN_BASE_URL`.
+   `frontend/next.config.js` allowlists that one hostname for `next/image`, so
+   an `image_url` pointing anywhere else renders broken — upload to the bucket
+   first, then reference the CDN URL in the CSV.
 2. **Register the Razorpay webhook** → `https://api.zisun.in/api/v1/orders/webhooks/razorpay`
    (must match `RAZORPAY_WEBHOOK_SECRET`).
 3. **Register the WhatsApp webhook** → `https://api.zisun.in/api/v1/webhooks/whatsapp`.
@@ -346,6 +442,7 @@ failure with no recovery path.
 
 | Gap | Impact |
 |---|---|
+| **No policy pages** | `/privacy`, `/terms`, `/refund`, `/shipping`, `/contact` do not exist in `frontend/src/app/`. All five 404. **Razorpay KYC requires them on a live domain** — this blocks the payments launch, not the browse launch |
 | No email service | Notifications are WhatsApp + SMS only; no email receipts |
 | Pincode serviceability stubbed | Always returns "deliverable" — real Shiprocket check not wired |
 | No Shiprocket inbound webhook | Tracking updates don't flow back automatically |
