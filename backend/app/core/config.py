@@ -14,6 +14,21 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ADMIN_V1_STR: str = "/api/admin/v1"
     ENVIRONMENT: str = "development"  # development | staging | production
+    # "" (normal) | "browse". Browse-only is the pre-launch storefront: the
+    # catalogue is fully public, and every path that would create an order is
+    # closed server-side. It exists so a storefront can go live before the
+    # payment gateway's KYC clears, instead of the whole site waiting on it.
+    #
+    # It relaxes exactly the boot requirements whose features it disables —
+    # RAZORPAY_* (no checkout) and TWILIO_* (no OTP login to send). R2_*,
+    # CLOUDFLARE_CDN_BASE_URL, JWT_* and the datastore credentials stay
+    # required: browsing needs all of them, and a browse-only launch with
+    # broken product images is not a launch.
+    #
+    # Removing this one variable restores the full fail-closed behaviour. No
+    # Razorpay or Twilio code is deleted or bypassed — the paths are refused,
+    # not stubbed, so there is no mock order to clean up on the way back.
+    LAUNCH_MODE: str = ""
 
     # ── Security (RS256) ─────────────────────────────────────────────────────
     # PEM strings with literal \n in the .env file.
@@ -105,8 +120,6 @@ class Settings(BaseSettings):
             required = {
                 "JWT_PRIVATE_KEY": self.JWT_PRIVATE_KEY,
                 "JWT_PUBLIC_KEY": self.JWT_PUBLIC_KEY,
-                "TWILIO_ACCOUNT_SID": self.TWILIO_ACCOUNT_SID,
-                "TWILIO_FROM_NUMBER": self.TWILIO_FROM_NUMBER,
                 "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
                 "REDIS_URL": self.REDIS_URL,
                 # Without these, storage.py hands out localhost:9000 upload URLs
@@ -118,15 +131,25 @@ class Settings(BaseSettings):
                 "CLOUDFLARE_CDN_BASE_URL": self.CLOUDFLARE_CDN_BASE_URL,
             }
             missing = [k for k, v in required.items() if not v]
-            # Either auth style is acceptable, so neither can be checked flatly.
-            if not self.has_twilio_auth:
-                missing.append(
-                    "TWILIO_AUTH_TOKEN (or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)"
-                )
+            # Twilio only sends the login OTP. Browse-only has no login, so
+            # demanding the credentials would deadlock the launch on a second
+            # vendor's onboarding for a feature nobody can reach.
+            if not self.is_browse_only:
+                missing += [
+                    k for k, v in {
+                        "TWILIO_ACCOUNT_SID": self.TWILIO_ACCOUNT_SID,
+                        "TWILIO_FROM_NUMBER": self.TWILIO_FROM_NUMBER,
+                    }.items() if not v
+                ]
+                # Either auth style is acceptable, so neither can be checked flatly.
+                if not self.has_twilio_auth:
+                    missing.append(
+                        "TWILIO_AUTH_TOKEN (or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)"
+                    )
             # Razorpay is required only when online payment can actually be
             # selected. Under PAYMENTS_COD_ONLY no checkout path reaches the
             # gateway, so demanding live keys would block launch on KYC alone.
-            if not self.PAYMENTS_COD_ONLY:
+            if not (self.PAYMENTS_COD_ONLY or self.is_browse_only):
                 missing += [
                     k for k, v in {
                         "RAZORPAY_KEY_ID": self.RAZORPAY_KEY_ID,
@@ -145,12 +168,28 @@ class Settings(BaseSettings):
                     "SENTRY_DSN is not set — running in production with no error "
                     "tracking. Crashes will surface only in container logs."
                 )
+            if self.is_browse_only:
+                logger.warning(
+                    "LAUNCH_MODE=browse — checkout is DISABLED server-side and "
+                    "RAZORPAY_*/TWILIO_* are not enforced. The catalogue is "
+                    "public; no order can be created. Unset LAUNCH_MODE to "
+                    "restore the full storefront."
+                )
             if self.PAYMENTS_COD_ONLY:
                 logger.warning(
                     "PAYMENTS_COD_ONLY=1 — online payment is DISABLED and Razorpay "
                     "credentials are not enforced. Unset it once KYC is approved."
                 )
         return self
+
+    @property
+    def is_browse_only(self) -> bool:
+        """True when the storefront is live but no order may be created."""
+        return self.LAUNCH_MODE.strip().lower() == "browse"
+
+    @property
+    def checkout_enabled(self) -> bool:
+        return not self.is_browse_only
 
     @property
     def has_twilio_auth(self) -> bool:

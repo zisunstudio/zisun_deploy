@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_async_db
+from app.core.launch import require_checkout_enabled
 from app.core.security import get_current_user
 from app.models.order import Order, OrderStatus, Payment, PaymentStatus, OutboxEvent
 from app.services.order_state_machine import OrderStateMachine
@@ -36,12 +37,27 @@ async def available_payment_methods():
     rule server-side; this endpoint only stops the UI offering an option that
     would be rejected.
     """
+    # Answerable even when checkout is shut: this endpoint is how the UI learns
+    # there is nothing to offer. 503-ing it would leave the storefront guessing.
+    if settings.is_browse_only:
+        return {
+            "methods": [],
+            "razorpay_key_id": None,
+            "cod_only": False,
+            "checkout_enabled": False,
+        }
     if settings.PAYMENTS_COD_ONLY:
-        return {"methods": ["COD"], "razorpay_key_id": None, "cod_only": True}
+        return {
+            "methods": ["COD"],
+            "razorpay_key_id": None,
+            "cod_only": True,
+            "checkout_enabled": True,
+        }
     return {
         "methods": ["RAZORPAY", "COD"],
         "razorpay_key_id": settings.RAZORPAY_KEY_ID or None,
         "cod_only": False,
+        "checkout_enabled": True,
     }
 
 
@@ -89,7 +105,11 @@ def _verify_payment_signature(
     return hmac.compare_digest(expected, razorpay_signature)
 
 
-@router.post("/verify-payment", tags=["Checkout"])
+@router.post(
+    "/verify-payment",
+    tags=["Checkout"],
+    dependencies=[Depends(require_checkout_enabled)],
+)
 async def verify_payment(
     body: VerifyPaymentRequest,
     db: AsyncSession = Depends(get_async_db),

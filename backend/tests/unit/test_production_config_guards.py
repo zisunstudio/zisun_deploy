@@ -304,3 +304,86 @@ class TestPgBouncerMode:
         args = db._async_connect_args()
         assert args["statement_cache_size"] == 0
         assert args["prepared_statement_cache_size"] == 0
+
+
+class TestBrowseOnlyLaunchMode:
+    """A storefront must be able to go live before its payment gateway does.
+
+    Browse-only is the pre-launch state: catalogue public, ordering closed. It
+    relaxes only the credentials whose features it switches off, and it reverts
+    by deleting one variable.
+    """
+
+    def _no_gateways(self):
+        return {
+            "RAZORPAY_KEY_ID": "", "RAZORPAY_KEY_SECRET": "", "RAZORPAY_WEBHOOK_SECRET": "",
+            "TWILIO_ACCOUNT_SID": "", "TWILIO_AUTH_TOKEN": "", "TWILIO_FROM_NUMBER": "",
+            "SENTRY_DSN": "",
+        }
+
+    def test_boots_with_no_payment_or_sms_vendor(self, monkeypatch):
+        s = _settings(monkeypatch, LAUNCH_MODE="browse", **self._no_gateways())
+        assert s.is_browse_only is True
+        assert s.checkout_enabled is False
+
+    def test_same_env_without_the_flag_refuses_to_boot(self, monkeypatch):
+        """The one-variable round trip: removing it restores fail-closed."""
+        with pytest.raises(Exception) as exc:
+            _settings(monkeypatch, **self._no_gateways())
+        assert "RAZORPAY_KEY_ID" in str(exc.value)
+        assert "TWILIO_ACCOUNT_SID" in str(exc.value)
+
+    @pytest.mark.parametrize(
+        "missing",
+        ["R2_ACCESS_KEY", "CLOUDFLARE_CDN_BASE_URL", "JWT_PRIVATE_KEY", "POSTGRES_PASSWORD"],
+    )
+    def test_does_not_relax_what_browsing_needs(self, monkeypatch, missing):
+        with pytest.raises(Exception, match=missing):
+            _settings(monkeypatch, LAUNCH_MODE="browse", **{missing: ""}, **self._no_gateways())
+
+    @pytest.mark.parametrize("value", ["", "soon", "preview", "BROWSE-ONLY"])
+    def test_only_the_exact_value_opens_the_relaxation(self, monkeypatch, value):
+        """A typo must fail closed, not silently launch with checkout half-off."""
+        with pytest.raises(Exception, match="RAZORPAY_KEY_ID"):
+            _settings(monkeypatch, LAUNCH_MODE=value, **self._no_gateways())
+
+    @pytest.mark.parametrize("value", ["browse", "BROWSE", " Browse "])
+    def test_value_is_case_and_whitespace_tolerant(self, monkeypatch, value):
+        assert _settings(monkeypatch, LAUNCH_MODE=value, **self._no_gateways()).is_browse_only
+
+
+class TestBrowseOnlyRefusesToCreateOrders:
+    """Hiding the button is presentation. This is the rule."""
+
+    @pytest.mark.asyncio
+    async def test_route_dependency_returns_503(self, monkeypatch):
+        from fastapi import HTTPException
+        from app.core import launch
+
+        monkeypatch.setattr(launch, "settings", _settings(monkeypatch, LAUNCH_MODE="browse"))
+        with pytest.raises(HTTPException) as exc:
+            await launch.require_checkout_enabled()
+        assert exc.value.status_code == 503
+        assert "WhatsApp" in exc.value.detail
+
+    @pytest.mark.asyncio
+    async def test_route_dependency_passes_when_checkout_is_open(self, monkeypatch):
+        from app.core import launch
+
+        monkeypatch.setattr(launch, "settings", _settings(monkeypatch))
+        assert await launch.require_checkout_enabled() is None
+
+    @pytest.mark.asyncio
+    async def test_service_refuses_even_when_the_dependency_is_bypassed(self, monkeypatch):
+        """Callers that are not HTTP routes must hit the same wall."""
+        from fastapi import HTTPException
+        from app.core import config as config_mod
+        from app.services.checkout import CheckoutService
+
+        browse = _settings(monkeypatch, LAUNCH_MODE="browse")
+        monkeypatch.setattr(config_mod, "settings", browse)
+
+        svc = CheckoutService(db=None)
+        with pytest.raises(HTTPException) as exc:
+            await svc.initiate_checkout(user_id=None, address_id=None)
+        assert exc.value.status_code == 503
