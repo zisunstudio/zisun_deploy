@@ -1,5 +1,7 @@
 "use client";
 
+import { API_V1 } from "@/lib/apiBase";
+
 type AnalyticsEvent = {
   event_type: string;
   session_id?: string;
@@ -14,7 +16,7 @@ function flush() {
   if (_queue.length === 0) return;
   const events = _queue.splice(0);
   // Fire-and-forget — never block the UI
-  fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/analytics/events`, {
+  fetch(`${API_V1}/analytics/events`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ events }),

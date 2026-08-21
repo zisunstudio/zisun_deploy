@@ -1,10 +1,10 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 import { getAccessToken } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { API_ADMIN_V1 } from "@/lib/apiBase";
 
 export const adminApi = axios.create({
-  baseURL: `${API_BASE}/api/admin/v1`,
+  baseURL: API_ADMIN_V1,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });
