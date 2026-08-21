@@ -25,13 +25,23 @@ const TRUST_BADGES = [
   { Icon: Star, title: "Trusted by", subtitle: "10K+ customers" },
 ];
 
-const HERO_IMAGE = "/placeholder-hero.svg";
+// A real photograph, not the placeholder SVG: the home hero is the first
+// thing anyone sees and a flat graphic reads as an unfinished site. Served
+// from the Tigris host that next.config.js allowlists.
+//
+// The local SVG stays as the fallback for when the CDN object is missing,
+// so a deleted or renamed file degrades to branded artwork rather than a
+// broken-image icon on the landing screen.
+const HERO_IMAGE =
+  "https://zisun-media.fly.storage.tigris.dev/hero/home-hero.jpg";
+const HERO_FALLBACK = "/placeholder-hero.svg";
 
 export default function HomePage() {
   const router = useRouter();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("home");
   const [activeDot, setActiveDot] = useState(0);
+  const [heroSrc, setHeroSrc] = useState(HERO_IMAGE);
   const [feedPage, setFeedPage] = useState(1);
   const [allFeedItems, setAllFeedItems] = useState<FeedItem[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -150,11 +160,12 @@ export default function HomePage() {
           ) : (
             <>
               <Image
-                src={HERO_IMAGE}
+                src={heroSrc}
                 alt="Handwoven South Indian cotton"
                 fill
                 priority
                 sizes="100vw"
+                onError={() => setHeroSrc(HERO_FALLBACK)}
                 className="object-cover object-[50%_20%]"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />

@@ -40,6 +40,7 @@ deliberate and it constrains the choices:
 | Venkatagiri Fine Cotton Kurti | `products/venkatagiri.jpg` | https://www.pexels.com/photo/intricate-indian-textile-with-elephant-embroidery-37975931/ | MS Parikh |
 | Kasavu Panel Kurti | `products/kasavu.jpg` | https://www.pexels.com/photo/textile-with-variety-of-patterns-hanging-in-front-of-a-building-18728089/ | Arthur Andre |
 | Ilkal Angarkha Kurti | `products/ilkal.jpg` | https://www.pexels.com/photo/colorful-textiles-against-jaisalmer-fort-wall-37076644/ | Sajhad |
+| Home page hero | `hero/home-hero.jpg` | https://www.pexels.com/photo/artisan-textiles-hanging-in-indian-market-37415386/ | Harsh Kukadiya |
 | Molakalmuru Border Co-ord | `products/molakalmuru.jpg` | https://www.pexels.com/photo/colorful-sarees-drying-at-varanasi-ghats-33433875/ | Debarshi Mukherjee |
 
 ## ⚠️ Before checkout opens
