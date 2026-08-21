@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ChevronRight, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -95,9 +96,9 @@ export default function LoginPage() {
 
         <p className="text-center text-muted text-xs mt-8 leading-relaxed">
           By continuing, you agree to our{" "}
-          <span className="text-primary underline cursor-pointer">Terms of Service</span>
+          <Link href="/terms" className="text-primary underline">Terms &amp; Conditions</Link>
           {" "}and{" "}
-          <span className="text-primary underline cursor-pointer">Privacy Policy</span>
+          <Link href="/privacy" className="text-primary underline">Privacy Policy</Link>
         </p>
       </div>
     </div>

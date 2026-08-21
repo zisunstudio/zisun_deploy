@@ -7,6 +7,7 @@ import { useProducts, useCategories, SortBy } from "@/lib/queries/catalog";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductCardSkeleton } from "@/components/skeletons/Skeleton";
 import { SearchBar } from "@/components/SearchBar";
+import { LegalFooter } from "@/components/LegalFooter";
 
 const SORT_OPTIONS: { label: string; value: SortBy }[] = [
   { label: "Newest", value: "newest" },
@@ -110,6 +111,8 @@ export default function ShopPage() {
           </>
         )}
       </div>
+
+      <LegalFooter />
     </div>
   );
 }
