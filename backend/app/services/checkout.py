@@ -15,6 +15,11 @@ from app.models.order import Order, OrderItem, OrderStatus, InventoryLock, LockS
 logger = logging.getLogger(__name__)
 
 
+# Razorpay rejects orders below this. Their API returns a generic
+# BAD_REQUEST_ERROR, so the check is clearer on our side.
+RAZORPAY_MIN_AMOUNT_PAISE = 100
+
+
 def _razorpay_client():
     """Return a live Razorpay client, or None if credentials are absent/unusable.
 
@@ -332,6 +337,23 @@ class CheckoutService:
             # the webhook can never match it, so it strands in PAYMENT_PENDING
             # holding stock — or worse, gets waved through by a verifier that
             # has no secret to check against. Fail the checkout instead.
+            # Razorpay rejects anything under 100 paise. Reaching the gateway
+            # to be told so costs a round trip and surfaces to the customer as
+            # an opaque 503. Raising here is safe: nothing is committed until
+            # the end of this method, so the order row and its inventory locks
+            # are discarded with the transaction rather than stranding stock.
+            if net_total < RAZORPAY_MIN_AMOUNT_PAISE:
+                logger.error(
+                    "Order %s total %d paise is below Razorpay's %d paise minimum",
+                    order.id, net_total, RAZORPAY_MIN_AMOUNT_PAISE,
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Online payment requires a minimum of "
+                           f"Rs {RAZORPAY_MIN_AMOUNT_PAISE / 100:.0f}. "
+                           f"Please choose Cash on Delivery for smaller orders.",
+                )
+
             client = _razorpay_client()
             if client is None and settings.is_production:
                 logger.error("Razorpay unavailable — refusing to create order %s", order.id)

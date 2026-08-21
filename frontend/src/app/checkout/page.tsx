@@ -220,6 +220,31 @@ export default function CheckoutPage() {
           ondismiss: () => showToast("Payment cancelled", "warning"),
         },
       });
+
+      // A declined card, an expired UPI mandate, a 3-D Secure timeout: the
+      // modal closes and `handler` never fires, so without this the customer
+      // is returned to a checkout screen with no explanation and an order
+      // still sitting in PAYMENT_PENDING holding their stock.
+      rzp.on("payment.failed", (response: {
+        error?: { description?: string; reason?: string; metadata?: { payment_id?: string } };
+      }) => {
+        const err = response?.error;
+        showToast(
+          err?.description
+            ? `Payment failed: ${err.description}`
+            : "Payment failed. No money was taken — please try again.",
+          "error"
+        );
+        // Razorpay only supplies a payment id when the attempt got far enough
+        // to have one; support cannot trace the attempt without it.
+        if (err?.metadata?.payment_id) {
+          trackEvent("payment_failed", {
+            payment_id: err.metadata.payment_id,
+            reason: err.reason ?? "unknown",
+          });
+        }
+      });
+
       rzp.open();
     } catch (err: any) {
       showToast(
