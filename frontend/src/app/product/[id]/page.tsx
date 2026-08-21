@@ -105,13 +105,17 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               <ChevronLeft className="w-4 h-4 text-foreground" />
             </button>
             <div className="flex gap-2">
-              <button
-                onClick={handleWishlistToggle}
-                aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
-                className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
-              >
-                <Heart className={`w-4 h-4 ${inWishlist ? "fill-red-500 text-red-500" : "text-foreground"}`} />
-              </button>
+              {/* Same reason as the product card: no login in browse mode, so
+                  this could only bounce the visitor back to the catalogue. */}
+              {!BROWSE_ONLY && (
+                <button
+                  onClick={handleWishlistToggle}
+                  aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                  className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
+                >
+                  <Heart className={`w-4 h-4 ${inWishlist ? "fill-red-500 text-red-500" : "text-foreground"}`} />
+                </button>
+              )}
               <button
                 aria-label="Share"
                 className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"

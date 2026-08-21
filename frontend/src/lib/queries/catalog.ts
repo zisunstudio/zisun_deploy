@@ -135,7 +135,7 @@ export function useSearch(q: string, page = 1) {
 export function useFeed(page = 1) {
   return useQuery<ProductListResponse>({
     queryKey: catalogKeys.feed(page),
-    queryFn: () => api.get("/feed", { params: { page, limit: 20 } }).then((r) => r.data),
+    queryFn: () => api.get("/catalog/feed", { params: { page, limit: 20 } }).then((r) => r.data),
   });
 }
 

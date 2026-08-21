@@ -37,11 +37,22 @@ deliberate and it constrains the choices:
 | Sungudi Everyday Kurti | `products/sungudi.jpg` | https://www.pexels.com/photo/colorful-handmade-traditional-fabrics-23749436/ | aahshitpng |
 | Udupi Cotton A-Line | `products/udupi.jpg` | https://www.pexels.com/photo/36891999/ | udatommo |
 | Chettinad Check Kurti | `products/chettinad.jpg` | https://www.pexels.com/photo/intricate-red-indian-textile-with-embroidery-37975932/ | MS Parikh |
-| Venkatagiri Fine Cotton Kurti | `products/venkatagiri.jpg` | https://www.pexels.com/photo/intricate-indian-textile-with-elephant-embroidery-37975931/ | MS Parikh |
-| Kasavu Panel Kurti | `products/kasavu.jpg` | https://www.pexels.com/photo/textile-with-variety-of-patterns-hanging-in-front-of-a-building-18728089/ | Arthur Andre |
-| Ilkal Angarkha Kurti | `products/ilkal.jpg` | https://www.pexels.com/photo/colorful-textiles-against-jaisalmer-fort-wall-37076644/ | Sajhad |
+| Venkatagiri Fine Cotton Kurti | `products/venkatagiri-v2.jpg` | https://www.pexels.com/photo/close-up-of-fabric-textures-5908326/ | Pexels contributor |
+| Kasavu Panel Kurti | `products/kasavu-v2.jpg` | https://www.pexels.com/photo/cotton-boll-on-beige-linen-fabric-close-up-32795036/ | Pexels contributor |
+| Ilkal Angarkha Kurti | `products/ilkal-v2.jpg` | https://www.pexels.com/photo/gray-woven-fabric-texture-close-up-29060193/ | Engin Akyurt |
 | Home page hero | `hero/home-hero.jpg` | https://www.pexels.com/photo/artisan-textiles-hanging-in-indian-market-37415386/ | Harsh Kukadiya |
 | Molakalmuru Border Co-ord | `products/molakalmuru.jpg` | https://www.pexels.com/photo/colorful-sarees-drying-at-varanasi-ghats-33433875/ | Debarshi Mukherjee |
+
+## Replaced after a visual review
+
+Three originals were market and street photographs. Chosen from a list they read
+as "Indian textile"; cropped into a product card they read as a fort wall, a
+shopfront and a rug. A picture of a building above a garment name and a price is
+worse than a plain swatch. They were swapped for close-up cloth.
+
+Colour is deliberately not matched to the product's stated colour. Stock
+textures do not come in "Deep Maroon", and forcing the match would strengthen
+exactly the implication these images must not make — that this is the garment.
 
 ## ⚠️ Before checkout opens
 

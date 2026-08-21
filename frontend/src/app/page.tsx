@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ShoppingBag, Search, User, Truck, RefreshCcw,
-  ShieldCheck, Star, Home, Grid3X3, Heart, ChevronRight,
+  Leaf, Sun, Home, Grid3X3, Heart, ChevronRight,
 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import BottomSheet from "@/components/BottomSheet";
@@ -18,11 +18,18 @@ import { FeedCard, FeedItem } from "@/components/FeedCard";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 
+// Every claim here is read as a promise. Three of the previous four were not
+// ones we could keep:
+//   "Trusted by 10K+ customers" — invented. The store has had no customers.
+//   "100% secure checkout"      — there is no checkout; it 503s by design.
+//   "Free Shipping above Rs 999" — the shipping policy promises no such thing.
+//                                  It says charges are shown at checkout.
+// What remains is true today and consistent with the policy pages.
 const TRUST_BADGES = [
-  { Icon: Truck, title: "Free Shipping", subtitle: "On orders above ₹999" },
-  { Icon: RefreshCcw, title: "Easy Returns", subtitle: "7-day return policy" },
-  { Icon: ShieldCheck, title: "Secure Payments", subtitle: "100% secure checkout" },
-  { Icon: Star, title: "Trusted by", subtitle: "10K+ customers" },
+  { Icon: Truck, title: "Ships across India", subtitle: "Shiprocket partners" },
+  { Icon: RefreshCcw, title: "7-day returns", subtitle: "From delivery" },
+  { Icon: Leaf, title: "Handloom cotton", subtitle: "Mangalgiri, Ilkal, Kasavu" },
+  { Icon: Sun, title: "Built for the heat", subtitle: "Breathable weaves" },
 ];
 
 // A real photograph, not the placeholder SVG: the home hero is the first
@@ -120,12 +127,15 @@ export default function HomePage() {
       <div className="flex-1 overflow-y-auto no-scrollbar relative">
 
         {/* Header — absolute over hero */}
+        {/* Scrim: the header sits over an arbitrary photograph, so legibility
+            cannot depend on that photograph happening to be light at the top. */}
+        <div className="absolute top-0 inset-x-0 h-32 z-[5] bg-gradient-to-b from-black/45 to-transparent pointer-events-none" />
         <header className="absolute top-0 w-full px-5 pt-5 z-10 flex justify-between items-start">
           <div>
-            <h1 className="font-serif text-2xl font-bold text-[#1A0F0A] leading-none tracking-wide">
+            <h1 className="font-serif text-2xl font-bold text-white leading-none tracking-wide drop-shadow-[0_1px_6px_rgba(0,0,0,0.55)]">
               ZISUN
             </h1>
-            <p className="text-primary text-[9px] font-semibold tracking-[0.22em] uppercase mt-0.5">
+            <p className="text-white/90 text-[9px] font-semibold tracking-[0.22em] uppercase mt-0.5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
               Cotton made for your climate
             </p>
           </div>

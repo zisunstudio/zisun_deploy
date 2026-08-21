@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Product, formatPrice, productImageUrl } from "@/lib/queries/catalog";
 import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from "@/lib/queries/wishlist";
 import { useAuthStore } from "@/store/useAuthStore";
+import { BROWSE_ONLY } from "@/lib/launchMode";
 
 interface Props {
   product: Product;
@@ -60,15 +61,21 @@ export function ProductCard({ product, className = "" }: Props) {
             </span>
           </div>
         )}
-        <button
-          onClick={handleWishlistToggle}
-          className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm transition-transform active:scale-90"
-          aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
-        >
-          <Heart
-            className={`w-4 h-4 transition-colors ${inWishlist ? "fill-red-500 text-red-500" : "text-gray-500"}`}
-          />
-        </button>
+        {/* Wishlisting needs a signed-in user, and browse mode has no working
+            login — the handler would push to /login, which redirects straight
+            back here. A control whose only outcome is a no-op is worse than
+            no control. */}
+        {!BROWSE_ONLY && (
+          <button
+            onClick={handleWishlistToggle}
+            className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm transition-transform active:scale-90"
+            aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <Heart
+              className={`w-4 h-4 transition-colors ${inWishlist ? "fill-red-500 text-red-500" : "text-gray-500"}`}
+            />
+          </button>
+        )}
       </div>
       <p className="text-foreground font-semibold text-sm mt-2 leading-tight line-clamp-2">{product.name}</p>
       <p className="text-primary font-bold text-sm mt-0.5">{formatPrice(price)}</p>
