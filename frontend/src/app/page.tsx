@@ -116,7 +116,7 @@ export default function HomePage() {
               ZISUN
             </h1>
             <p className="text-primary text-[9px] font-semibold tracking-[0.22em] uppercase mt-0.5">
-              Wear Your Story.
+              Cotton made for your climate
             </p>
           </div>
           <div className="flex gap-2 mt-0.5">
@@ -127,13 +127,17 @@ export default function HomePage() {
             >
               <Search className="w-4 h-4 text-foreground" />
             </button>
-            <button
-              onClick={() => router.push("/profile")}
-              className="w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/70"
-              aria-label="Profile"
-            >
-              <User className="w-4 h-4 text-foreground" />
-            </button>
+            {/* /profile redirects to / in browse mode, so this button would
+                only ever reload the home screen. */}
+            {!BROWSE_ONLY && (
+              <button
+                onClick={() => router.push("/profile")}
+                className="w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/70"
+                aria-label="Profile"
+              >
+                <User className="w-4 h-4 text-foreground" />
+              </button>
+            )}
           </div>
         </header>
 
@@ -147,7 +151,7 @@ export default function HomePage() {
             <>
               <Image
                 src={HERO_IMAGE}
-                alt="Summer Collection '24"
+                alt="Handwoven South Indian cotton"
                 fill
                 priority
                 sizes="100vw"
@@ -156,10 +160,12 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
 
               <div className="absolute bottom-10 left-5 z-10">
-                <h2 className="font-serif text-[2.6rem] font-bold text-white leading-tight mb-1 drop-shadow-sm">
-                  Summer<br />Collection &#39;24
+                <h2 className="font-serif text-[2.4rem] font-bold text-white leading-tight mb-2 drop-shadow-sm">
+                  Cotton made for<br />your climate
                 </h2>
-                <p className="text-white/80 text-sm mb-5">Elevate your everyday aesthetic.</p>
+                <p className="text-white/85 text-sm mb-5 max-w-[19rem] leading-snug">
+                  Handwoven South Indian cotton, cut for the way you actually live.
+                </p>
                 <button
                   onClick={() => setIsSheetOpen(true)}
                   className="bg-[#5C3317] text-white px-7 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm hover:bg-[#4A2810] transition-colors shadow-lg"
