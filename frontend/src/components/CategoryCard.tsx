@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Category } from "@/lib/queries/catalog";
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop";
+const FALLBACK_IMAGE = "/placeholder-product.svg";
 
 export function CategoryCard({ category }: { category: Category }) {
   const router = useRouter();

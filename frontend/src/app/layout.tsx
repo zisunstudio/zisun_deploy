@@ -34,12 +34,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-foreground`}>
+      <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-foreground lg:bg-[#EFE6DA]`}>
         <OfflineBanner />
         <ReactQueryProvider>
         <ToastProvider>
           <ErrorBoundary>
-            <main className="max-w-md mx-auto h-screen bg-background relative overflow-hidden shadow-2xl sm:border-x sm:border-gray-200">
+            {/* Phone-width column by design. On desktop it sits on a warm canvas with
+                rounded corners so it reads as an intentional mobile-first layout
+                rather than a page that failed to fill the screen. */}
+            <main className="max-w-md mx-auto h-screen bg-background relative overflow-hidden shadow-2xl sm:border-x sm:border-gray-200 lg:h-[92vh] lg:my-[4vh] lg:rounded-2xl lg:border lg:border-[#DCCDBA]">
               {children}
             </main>
           </ErrorBoundary>

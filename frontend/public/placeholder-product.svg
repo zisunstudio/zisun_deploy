@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500" role="img" aria-label="Product image coming soon">
+  <rect width="400" height="500" fill="#F3EDE5"/>
+  <g fill="none" stroke="#C9B8A4" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M150 150 L120 175 L95 245 L130 262 L145 232"/>
+    <path d="M250 150 L280 175 L305 245 L270 262 L255 232"/>
+    <path d="M150 150 Q200 185 250 150 L262 355 Q200 372 138 355 Z"/>
+  </g>
+  <text x="200" y="420" font-family="Georgia, 'Times New Roman', serif" font-size="26" fill="#8A7660" text-anchor="middle">ZISUN</text>
+  <text x="200" y="448" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#A99884" text-anchor="middle">image coming soon</text>
+</svg>

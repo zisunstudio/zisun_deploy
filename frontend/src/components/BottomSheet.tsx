@@ -35,7 +35,7 @@ export default function BottomSheet({ isOpen, onClose, productId }: BottomSheetP
 
   const imageUrl = product
     ? productImageUrl(product)
-    : "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200";
+    : "/placeholder-product.svg";
 
   const handleAddToCart = () => {
     if (product && selectedVariant) {
@@ -58,7 +58,7 @@ export default function BottomSheet({ isOpen, onClose, productId }: BottomSheetP
         name: "Silk Resort Shirt",
         price: 2499,
         quantity: 1,
-        image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200",
+        image: "/placeholder-product.svg",
         size: "M",
       });
     }

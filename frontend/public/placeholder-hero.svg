@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1500" viewBox="0 0 1200 1500" role="img" aria-label="ZISUN">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EFE6DA"/>
+      <stop offset="100%" stop-color="#DCCDBA"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="1500" fill="url(#g)"/>
+  <g fill="none" stroke="#B8A48C" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.55">
+    <path d="M470 520 L380 600 L300 810 L405 862 L450 760"/>
+    <path d="M730 520 L820 600 L900 810 L795 862 L750 760"/>
+    <path d="M470 520 Q600 625 730 520 L768 1130 Q600 1182 432 1130 Z"/>
+  </g>
+  <text x="600" y="1290" font-family="Georgia, 'Times New Roman', serif" font-size="72" letter-spacing="14" fill="#6B5842" text-anchor="middle">ZISUN</text>
+  <text x="600" y="1345" font-family="system-ui, -apple-system, sans-serif" font-size="26" letter-spacing="4" fill="#8A7660" text-anchor="middle">WEAR YOUR STORY</text>
+</svg>

@@ -25,7 +25,7 @@ const TRUST_BADGES = [
   { Icon: Star, title: "Trusted by", subtitle: "10K+ customers" },
 ];
 
-const HERO_IMAGE = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop";
+const HERO_IMAGE = "/placeholder-hero.svg";
 
 export default function HomePage() {
   const router = useRouter();

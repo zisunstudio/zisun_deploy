@@ -10,7 +10,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { ProductCardSkeleton } from "@/components/skeletons/Skeleton";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop";
+const FALLBACK_IMAGE = "/placeholder-product.svg";
 
 export default function WishlistPage() {
   const router = useRouter();

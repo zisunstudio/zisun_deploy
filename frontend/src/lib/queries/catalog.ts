@@ -69,7 +69,9 @@ export function formatPrice(paise: number): string {
 /** First active image URL for a product, or placeholder */
 export function productImageUrl(product: Product): string {
   const img = product.media.find((m) => m.type === "IMAGE");
-  return img?.cdn_url ?? img?.url ?? "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop";
+  // LOCAL fallback on purpose: next/image remotePatterns allowlists only our
+  // media host, so a remote placeholder would be BLOCKED and render broken.
+  return img?.cdn_url ?? img?.url ?? "/placeholder-product.svg";
 }
 
 // ── Query keys ─────────────────────────────────────────────────────────────────
