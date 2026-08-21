@@ -86,9 +86,14 @@ export default function HomePage() {
   const NAV_ITEMS = [
     { Icon: Home, label: "Home", id: "home", href: "/" },
     { Icon: Grid3X3, label: "Shop", id: "shop", href: "/shop" },
-    { Icon: Heart, label: "Wishlist", id: "wishlist", href: "/wishlist" },
-    ...(BROWSE_ONLY ? [] : [{ Icon: ShoppingBag, label: "Cart", id: "cart", href: null }]),
-    { Icon: User, label: "Profile", id: "profile", href: "/profile" },
+    // Wishlist, Cart and Profile all need a signed-in user, and browse mode has
+    // no working login. Tabs that can only bounce the visitor back here are
+    // worse than no tabs, so the nav shrinks to what actually works.
+    ...(BROWSE_ONLY ? [] : [
+      { Icon: Heart, label: "Wishlist", id: "wishlist", href: "/wishlist" },
+      { Icon: ShoppingBag, label: "Cart", id: "cart", href: null },
+      { Icon: User, label: "Profile", id: "profile", href: "/profile" },
+    ]),
   ];
 
   function handleNavClick(id: string, href: string | null) {
