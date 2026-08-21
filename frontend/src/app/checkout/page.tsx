@@ -16,6 +16,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/lib/queries/catalog";
 import { trackEvent } from "@/lib/queries/analytics";
+import { BROWSE_ONLY } from "@/lib/launchMode";
+import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
 // Declare Razorpay on window to avoid TypeScript errors
 declare global {
@@ -94,6 +96,10 @@ export default function CheckoutPage() {
   } | null>(null);
 
   useEffect(() => {
+    // In preview there is no login to send anyone to — a bare /checkout URL
+    // should explain itself, not bounce the visitor to an OTP screen that
+    // cannot send an OTP.
+    if (BROWSE_ONLY) return;
     if (!isAuthenticated) {
       router.push("/login");
     }
@@ -105,6 +111,34 @@ export default function CheckoutPage() {
       setSelectedAddressId(def?.id ?? addresses[0].id);
     }
   }, [addresses]);
+
+  // Anyone reaching /checkout directly — a bookmark, a stale link, a shared
+  // URL. The API would 503 this flow anyway; say why instead of erroring.
+  if (BROWSE_ONLY) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-5 px-8 text-center">
+        <ShoppingBag className="w-14 h-14 text-gray-200" />
+        <div>
+          <h1 className="font-serif text-xl font-bold text-foreground">
+            Checkout isn&apos;t open yet
+          </h1>
+          <p className="text-muted text-sm mt-1.5 leading-relaxed">
+            The collection is live to browse. Online ordering opens shortly —
+            until then we take orders directly.
+          </p>
+        </div>
+        <div className="w-full max-w-xs">
+          <BrowseOnlyCTA />
+        </div>
+        <button
+          onClick={() => router.push("/shop")}
+          className="text-primary text-sm font-semibold underline underline-offset-4"
+        >
+          Back to the collection
+        </button>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) return null;
 

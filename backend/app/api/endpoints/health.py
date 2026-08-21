@@ -1,6 +1,7 @@
 """Enhanced health check — DB, Redis, Celery heartbeat."""
 from fastapi import APIRouter
 from sqlalchemy import text
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.redis import get_redis_client
 
@@ -9,7 +10,14 @@ router = APIRouter()
 
 @router.get("/health", tags=["Health"])
 async def health_check():
-    status = {"status": "ok", "components": {}}
+    # launch_mode is reported here so "is checkout actually closed?" is one
+    # curl away, rather than an inference from the container's env vars.
+    status = {
+        "status": "ok",
+        "launch_mode": settings.LAUNCH_MODE or "normal",
+        "checkout_enabled": settings.checkout_enabled,
+        "components": {},
+    }
 
     # DB check
     try:

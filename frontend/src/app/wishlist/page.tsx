@@ -8,6 +8,7 @@ import { formatPrice } from "@/lib/queries/catalog";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { ProductCardSkeleton } from "@/components/skeletons/Skeleton";
+import { BROWSE_ONLY } from "@/lib/launchMode";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop";
 
@@ -93,18 +94,27 @@ export default function WishlistPage() {
                       <p className="text-primary font-bold text-sm mt-1">{formatPrice(price)}</p>
                     </div>
                     <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => {
-                          addCartItem({ id: variant.id, name: product.name, price: price / 100, quantity: 1, image: imageUrl, size: variant.size ?? undefined });
-                          toggleCart();
-                          removeItem.mutate(variant.id);
-                        }}
-                        disabled={variant.stock === 0}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-white rounded-full py-2 text-xs font-semibold disabled:opacity-50"
-                      >
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        Move to Cart
-                      </button>
+                      {BROWSE_ONLY ? (
+                        // Saving items still works and is the point of a
+                        // pre-launch wishlist; only moving them to a cart that
+                        // cannot check out is withheld.
+                        <div className="flex-1 flex items-center justify-center rounded-full py-2 bg-[#F7F0E8] border border-[#EDE4D8] text-muted text-xs font-medium">
+                          Saved for launch
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            addCartItem({ id: variant.id, name: product.name, price: price / 100, quantity: 1, image: imageUrl, size: variant.size ?? undefined });
+                            toggleCart();
+                            removeItem.mutate(variant.id);
+                          }}
+                          disabled={variant.stock === 0}
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-white rounded-full py-2 text-xs font-semibold disabled:opacity-50"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          Move to Cart
+                        </button>
+                      )}
                       <button
                         onClick={() => removeItem.mutate(variant.id)}
                         className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-400"

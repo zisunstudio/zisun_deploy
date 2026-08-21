@@ -16,6 +16,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { useCategories, useFeed } from "@/lib/queries/catalog";
 import { FeedCard, FeedItem } from "@/components/FeedCard";
 import { trackEvent } from "@/lib/queries/analytics";
+import { BROWSE_ONLY } from "@/lib/launchMode";
 
 const TRUST_BADGES = [
   { Icon: Truck, title: "Free Shipping", subtitle: "On orders above ₹999" },
@@ -79,11 +80,14 @@ export default function HomePage() {
     }
   }, [hasMore]);
 
+  // The cart tab is the last checkout entry point in the chrome. In preview
+  // there is nothing it could lead to, so it is removed rather than disabled —
+  // a tab that opens an empty drawer with no way out is worse than no tab.
   const NAV_ITEMS = [
     { Icon: Home, label: "Home", id: "home", href: "/" },
     { Icon: Grid3X3, label: "Shop", id: "shop", href: "/shop" },
     { Icon: Heart, label: "Wishlist", id: "wishlist", href: "/wishlist" },
-    { Icon: ShoppingBag, label: "Cart", id: "cart", href: null },
+    ...(BROWSE_ONLY ? [] : [{ Icon: ShoppingBag, label: "Cart", id: "cart", href: null }]),
     { Icon: User, label: "Profile", id: "profile", href: "/profile" },
   ];
 

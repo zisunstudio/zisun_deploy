@@ -5,7 +5,9 @@
  */
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+import { API_V1 } from "@/lib/apiBase";
+
+const BASE_URL = API_V1;
 
 // ── In-memory token store ────────────────────────────────────────────────────
 let _accessToken: string | null = null;

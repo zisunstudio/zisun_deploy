@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
+from app.core.launch import require_checkout_enabled
 from app.core.security import get_current_user
 from app.schemas.order import (
     CartItemRequest,
@@ -115,7 +116,11 @@ async def update_cart_item_quantity(
     return _build_cart_response(cart, cart_total)
 
 
-@router.post("/checkout/initiate", response_model=CheckoutResponse)
+@router.post(
+    "/checkout/initiate",
+    response_model=CheckoutResponse,
+    dependencies=[Depends(require_checkout_enabled)],
+)
 async def initiate_checkout(
     body: CheckoutInitiateRequest,
     db: AsyncSession = Depends(get_async_db),

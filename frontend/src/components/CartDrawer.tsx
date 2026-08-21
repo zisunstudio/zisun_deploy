@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Minus, Plus, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
+import { BROWSE_ONLY } from "@/lib/launchMode";
+import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
 export default function CartDrawer() {
   const { items, isOpen, toggleCart, updateQuantity, removeItem, getCartTotal } = useCartStore();
@@ -113,10 +115,14 @@ export default function CartDrawer() {
                     ₹{getCartTotal().toLocaleString("en-IN")}
                   </span>
                 </div>
-                <button className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#4A2810] transition-colors shadow-md">
-                  Checkout
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                {BROWSE_ONLY ? (
+                  <BrowseOnlyCTA />
+                ) : (
+                  <button className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#4A2810] transition-colors shadow-md">
+                    Checkout
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             )}
           </motion.div>

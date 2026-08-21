@@ -196,6 +196,15 @@ class CheckoutService:
         from app.services.coupon import CouponService, COD_MAX_ORDER_VALUE_PAISE
         from app.core.config import settings  # deferred: avoids circular import
 
+        # Browse-only closes order creation outright. The route dependency
+        # already refuses the request; this is the layer that matters, because
+        # every other caller of initiate_checkout (an admin path, a task, a
+        # future endpoint) bypasses that dependency and must not be able to
+        # create an order there is no way to pay for.
+        if settings.is_browse_only:
+            from app.core.launch import checkout_disabled_error
+            raise checkout_disabled_error()
+
         # Enforced server-side, not just hidden in the UI: a client can post any
         # payment_method it likes. Under COD-only the Razorpay credentials are
         # not required to boot, so a RAZORPAY order here would reach a gateway

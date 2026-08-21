@@ -12,6 +12,8 @@ import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { trackEvent } from "@/lib/queries/analytics";
+import { BROWSE_ONLY } from "@/lib/launchMode";
+import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -172,16 +174,21 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      {/* CTA */}
+      {/* CTA — price, size and stock above stay visible either way; only the
+          buy action changes while the store is in preview. */}
       <div className="px-5 pb-8 pt-3 border-t border-gray-100 bg-background flex-shrink-0">
-        <button
-          onClick={handleAddToCart}
-          disabled={isOutOfStock}
-          className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#4A2810] transition-colors shadow-md"
-        >
-          <ShoppingBag className="w-5 h-5" />
-          {isOutOfStock ? "Out of Stock" : "Add to Cart"}
-        </button>
+        {BROWSE_ONLY ? (
+          <BrowseOnlyCTA productName={product.name} />
+        ) : (
+          <button
+            onClick={handleAddToCart}
+            disabled={isOutOfStock}
+            className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#4A2810] transition-colors shadow-md"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            {isOutOfStock ? "Out of Stock" : "Add to Cart"}
+          </button>
+        )}
       </div>
     </div>
   );
