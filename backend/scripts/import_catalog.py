@@ -47,35 +47,45 @@ async def _run(csv_path: str, dry_run: bool) -> int:
         pool_pre_ping=True,
         connect_args=_async_connect_args(),
     )
-    Session = async_sessionmaker(bind=engine, expire_on_commit=False)
 
-    async with Session() as db:
-        before = (await db.execute(select(func.count(Product.id)))).scalar_one()
-        print(f"Connected to {settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}"
-              f"/{settings.POSTGRES_DB} -- {before} product(s) already present")
+    # The handler ends with its own commit(), so a dry run cannot simply
+    # rollback afterwards -- by then there is nothing left to roll back and
+    # the rows are already live. Binding the session to an outer transaction
+    # with join_transaction_mode="create_savepoint" turns that inner commit()
+    # into a RELEASE SAVEPOINT, leaving the outer transaction the real say.
+    async with engine.connect() as conn:
+        outer = await conn.begin()
+        Session = async_sessionmaker(
+            bind=conn, expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+        async with Session() as db:
+            before = (await db.execute(select(func.count(Product.id)))).scalar_one()
+            print(f"Connected to {settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}"
+                  f"/{settings.POSTGRES_DB} -- {before} product(s) already present")
 
-        upload = UploadFile(file=io.BytesIO(raw), filename=os.path.basename(csv_path))
-        try:
-            result = await admin_bulk_import_products_csv(file=upload, db=db)
-        except HTTPException as exc:
-            # The endpoint reports every bad row at once; print them all rather
-            # than making the operator fix one line per run.
-            detail = exc.detail
-            print(f"\nImport REJECTED ({exc.status_code}) -- nothing was written.")
-            if isinstance(detail, dict) and "errors" in detail:
-                for e in detail["errors"]:
-                    print(f"  - {e}")
-            else:
-                print(f"  - {detail}")
-            await engine.dispose()
-            return 1
+            upload = UploadFile(file=io.BytesIO(raw), filename=os.path.basename(csv_path))
+            try:
+                result = await admin_bulk_import_products_csv(file=upload, db=db)
+            except HTTPException as exc:
+                # The endpoint reports every bad row at once; print them all rather
+                # than making the operator fix one line per run.
+                detail = exc.detail
+                print(f"\nImport REJECTED ({exc.status_code}) -- nothing was written.")
+                if isinstance(detail, dict) and "errors" in detail:
+                    for e in detail["errors"]:
+                        print(f"  - {e}")
+                else:
+                    print(f"  - {detail}")
+                await outer.rollback()
+                await engine.dispose()
+                return 1
 
         if dry_run:
-            # The handler commits, so a dry run has to undo it. Products and
-            # variants created in this transaction go with the rollback.
-            await db.rollback()
-            print("\nDRY RUN -- rolled back. Would have created:")
+            await outer.rollback()
+            print("\nDRY RUN -- rolled back, nothing written. Would have created:")
         else:
+            await outer.commit()
             print("\nImported:")
 
         print(f"  products: {result['created_products']}")
@@ -83,7 +93,10 @@ async def _run(csv_path: str, dry_run: bool) -> int:
         for p in result["products"]:
             print(f"    - {p['name']} ({p['variants']} variant(s))")
 
-    async with Session() as db:
+    # A fresh session on the engine, not the connection above: reusing it
+    # would report a dry run's uncommitted counts as if they were real.
+    VerifySession = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with VerifySession() as db:
         products = (await db.execute(select(func.count(Product.id)))).scalar_one()
         variants = (await db.execute(select(func.count(ProductVariant.id)))).scalar_one()
         stock = (await db.execute(select(func.coalesce(func.sum(ProductVariant.stock), 0)))).scalar_one()
