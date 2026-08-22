@@ -15,11 +15,16 @@ const FALLBACK_IMAGE = "/placeholder-product.svg";
 export default function WishlistPage() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const sessionChecked = useAuthStore((s) => s.sessionChecked);
   const { data: wishlist, isLoading } = useWishlist();
   const removeItem = useRemoveFromWishlist();
   const addCartItem = useCartStore((s) => s.addItem);
   const toggleCart = useCartStore((s) => s.toggleCart);
 
+  // Same reason as checkout and profile: before the restore finishes, "no
+  // user" means "not asked yet", and showing a sign-in wall to someone who
+  // is signed in is the bug this whole change exists to remove.
+  if (!sessionChecked) return null;
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 gap-4">

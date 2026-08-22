@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ReactQueryProvider } from "@/lib/ReactQueryProvider";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { SessionRestore } from "@/components/SessionRestore";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
@@ -36,6 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-foreground lg:bg-[#EFE6DA]`}>
+        <SessionRestore />
         <OfflineBanner />
         <ReactQueryProvider>
         <ToastProvider>

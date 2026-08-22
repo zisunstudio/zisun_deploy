@@ -55,9 +55,9 @@ async def refresh(
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided")
 
-    new_access, new_refresh, _ = await svc.rotate_refresh_token(refresh_token)
+    new_access, new_refresh, user = await svc.rotate_refresh_token(refresh_token)
     response.set_cookie(value=new_refresh, **_REFRESH_COOKIE)
-    return RefreshResponse(access_token=new_access)
+    return RefreshResponse(access_token=new_access, user=user)
 
 
 @router.post("/logout", status_code=200)

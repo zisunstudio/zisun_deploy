@@ -93,7 +93,7 @@ function AddressForm({ onDone }: { onDone: () => void }) {
 export default function ProfilePage() {
   const router = useRouter();
   const { showToast } = useToast();
-  const { user, clearAuth } = useAuthStore();
+  const { user, clearAuth, sessionChecked } = useAuthStore();
   const { data: addresses, isLoading: loadingAddresses } = useAddresses();
   const setDefault = useSetDefaultAddress();
   const deleteAddress = useDeleteAddress();
@@ -110,6 +110,10 @@ export default function ProfilePage() {
     showToast("Logged out", "info");
   }
 
+  // Before the session restore finishes, "no user" means "not asked yet".
+  // Rendering the signed-out screen here shows a sign-in wall to someone who
+  // is already signed in — the bug this change exists to remove.
+  if (!sessionChecked) return null;
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 gap-4">

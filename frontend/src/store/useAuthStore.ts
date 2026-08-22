@@ -12,8 +12,20 @@ export interface AuthUser {
 interface AuthStore {
   user: AuthUser | null;
   pendingPhone: string | null; // Held during OTP flow, cleared on success/cancel
+  /**
+   * True once the one-shot restore from the refresh cookie has finished,
+   * whether it found a session or not.
+   *
+   * Protected pages must wait for this before concluding the visitor is signed
+   * out. Restoration is a network round trip, so on first render there is
+   * simply no answer yet — and redirecting on "no answer" bounced signed-in
+   * customers to /login before the cookie had been read.
+   */
+  sessionChecked: boolean;
 
   setAuth: (user: AuthUser, accessToken: string) => void;
+  restoreSession: (user: AuthUser, accessToken: string) => void;
+  markSessionChecked: () => void;
   clearAuth: () => void;
   setPendingPhone: (phone: string) => void;
   clearPendingPhone: () => void;
@@ -23,6 +35,9 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   pendingPhone: null,
+  sessionChecked: false,
+
+  markSessionChecked: () => set({ sessionChecked: true }),
 
   setAuth: (user, accessToken) => {
     setAccessToken(accessToken);
@@ -46,6 +61,24 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         }
       })();
     }
+    if (typeof window !== "undefined") {
+      import("@sentry/nextjs").then(({ setUser }) => {
+        setUser({ id: user?.id, username: user?.phone });
+      });
+    }
+  },
+
+  /**
+   * Re-establish a session that already existed, from the refresh cookie.
+   *
+   * Deliberately not setAuth. setAuth means "someone just signed in" and
+   * merges the guest cart onto the server — doing that on every page load
+   * would re-POST every cart line on each refresh, and a cart write costs
+   * seconds. Restoring is not signing in.
+   */
+  restoreSession: (user, accessToken) => {
+    setAccessToken(accessToken);
+    set({ user });
     if (typeof window !== "undefined") {
       import("@sentry/nextjs").then(({ setUser }) => {
         setUser({ id: user?.id, username: user?.phone });

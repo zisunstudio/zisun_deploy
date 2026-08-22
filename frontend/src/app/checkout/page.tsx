@@ -75,6 +75,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const sessionChecked = useAuthStore((s) => s.sessionChecked);
   const user = useAuthStore((s) => s.user);
 
   const { data: cart, isLoading: cartLoading } = useCart();
@@ -100,10 +101,14 @@ export default function CheckoutPage() {
     // should explain itself, not bounce the visitor to an OTP screen that
     // cannot send an OTP.
     if (BROWSE_ONLY) return;
+    // Wait for the session restore to finish. On first render there is no
+    // answer yet, and treating that as "signed out" bounced a signed-in
+    // customer to /login before the refresh cookie had even been read.
+    if (!sessionChecked) return;
     if (!isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, sessionChecked, router]);
 
   useEffect(() => {
     if (addresses?.length) {
@@ -140,7 +145,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (!isAuthenticated) return null;
+  if (!sessionChecked || !isAuthenticated) return null;
 
   if (cartLoading) {
     return (

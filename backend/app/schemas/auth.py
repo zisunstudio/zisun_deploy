@@ -35,3 +35,8 @@ class TokenResponse(BaseModel):
 class RefreshResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    # Returned so a page load can restore the session in one call. The client
+    # keeps the access token in memory only, so after every reload it has a
+    # valid cookie and no idea who it belongs to; without the user here it
+    # would need a second round trip to find out.
+    user: Optional[UserResponse] = None
