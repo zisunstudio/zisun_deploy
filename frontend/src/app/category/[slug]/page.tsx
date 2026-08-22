@@ -47,7 +47,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
       {/* Products grid */}
       <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {Array(6).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
         ) : !category?.products?.length ? (
@@ -57,7 +57,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
         ) : (
           <>
             <p className="text-muted text-xs mb-4">{category.product_count} items</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
               {category.products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

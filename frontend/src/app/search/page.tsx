@@ -18,7 +18,7 @@ function SearchResults({ q }: { q: string }) {
   );
 
   if (isLoading) return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
       {Array(6).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}
     </div>
   );
@@ -33,7 +33,7 @@ function SearchResults({ q }: { q: string }) {
   return (
     <>
       <p className="text-muted text-xs mb-4">{data.total} results for &ldquo;{q}&rdquo;</p>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
         {data.items.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

@@ -85,7 +85,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       <div className="flex-1 overflow-y-auto no-scrollbar">
         {/* Image carousel */}
         <div className="relative">
-          <div className="relative w-full aspect-[3/4] bg-gray-100">
+          {/* 3:4 is right on a phone. In a 1152px column it is over 1500px
+              tall, so the image gets a landscape ratio on large screens. */}
+          <div className="relative w-full aspect-[3/4] lg:aspect-[16/9] bg-gray-100">
             <Image
               src={images[imageIdx]}
               alt={product.name}
@@ -143,7 +145,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         </div>
 
         {/* Product info */}
-        <div className="px-5 pt-5 pb-4">
+        <div className="px-5 pt-5 pb-4 lg:max-w-3xl lg:mx-auto lg:w-full">
           {product.category && (
             <p className="text-muted text-xs uppercase tracking-widest font-medium mb-1">
               {product.category.name}
@@ -183,7 +185,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
       {/* CTA — price, size and stock above stay visible either way; only the
           buy action changes while the store is in preview. */}
-      <div className="px-5 pb-8 pt-3 border-t border-gray-100 bg-background flex-shrink-0">
+      <div className="px-5 pb-8 pt-3 border-t border-gray-100 bg-background flex-shrink-0 lg:max-w-3xl lg:mx-auto lg:w-full">
         {BROWSE_ONLY ? (
           <BrowseOnlyCTA productName={product.name} />
         ) : (

@@ -12,14 +12,15 @@ export function LegalPage({
 }) {
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-gray-200 px-4 py-3 flex items-center gap-3">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-gray-200 px-4 py-3 flex items-center gap-3 lg:px-8">
         <Link href="/" aria-label="Back to home" className="p-1 -ml-1">
           <ChevronLeft className="w-5 h-5 text-gray-700" />
         </Link>
         <h1 className="font-serif text-lg font-bold text-[#5C3317]">{title}</h1>
       </header>
 
-      <div className="px-5 py-6 pb-24">
+      {/* ~75 characters is the readable maximum; the full column is far past it. */}
+      <div className="px-5 py-6 pb-24 lg:max-w-3xl lg:mx-auto">
         <p className="text-xs text-muted mb-6">Last updated: {POLICY_LAST_UPDATED}</p>
 
         {HAS_PLACEHOLDERS && process.env.NODE_ENV !== "production" && (

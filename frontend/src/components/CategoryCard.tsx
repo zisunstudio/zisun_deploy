@@ -10,15 +10,15 @@ export function CategoryCard({ category }: { category: Category }) {
   const router = useRouter();
   return (
     <div
-      className="flex-shrink-0 w-[138px] cursor-pointer group"
+      className="flex-shrink-0 w-[138px] lg:w-[200px] cursor-pointer group"
       onClick={() => router.push(`/category/${category.slug}`)}
     >
-      <div className="w-[138px] h-[172px] rounded-2xl overflow-hidden bg-gray-100 relative">
+      <div className="w-[138px] h-[172px] lg:w-[200px] lg:h-[250px] rounded-2xl overflow-hidden bg-gray-100 relative">
         <Image
           src={category.image_url ?? FALLBACK_IMAGE}
           alt={category.name}
           fill
-          sizes="138px"
+          sizes="(min-width: 1024px) 200px, 138px"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
           placeholder="blur"
           blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="

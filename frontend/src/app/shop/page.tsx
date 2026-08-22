@@ -88,9 +88,9 @@ export default function ShopPage() {
       )}
 
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto px-5 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 lg:px-8 pb-6">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {Array(8).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
         ) : data?.items.length === 0 ? (
@@ -103,7 +103,7 @@ export default function ShopPage() {
         ) : (
           <>
             <p className="text-muted text-xs mb-4">{data?.total ?? 0} items</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
               {data?.items.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

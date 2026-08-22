@@ -46,7 +46,7 @@ export default function WishlistPage() {
 
       <div className="flex-1 overflow-y-auto px-5 pb-6">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {Array(4).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
         ) : !wishlist?.items.length ? (

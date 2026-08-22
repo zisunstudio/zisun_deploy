@@ -167,7 +167,7 @@ export default function HomePage() {
         </header>
 
         {/* Hero */}
-        <div ref={heroRef} className="relative h-[72vh]">
+        <div ref={heroRef} className="relative h-[72vh] lg:h-[60vh]">
           {allFeedItems[0] ? (
             <div className="absolute inset-0">
               <FeedCard item={allFeedItems[0]} />
@@ -218,7 +218,7 @@ export default function HomePage() {
         </div>
 
         {/* Trust badges */}
-        <div className="mx-4 -mt-5 relative z-10 bg-white rounded-2xl shadow-md px-3 py-4 grid grid-cols-4 gap-1">
+        <div className="mx-4 lg:mx-auto lg:max-w-3xl -mt-5 relative z-10 bg-white rounded-2xl shadow-md px-3 py-4 lg:py-6 grid grid-cols-4 gap-1 lg:gap-6">
           {TRUST_BADGES.map(({ Icon, title, subtitle }) => (
             <div key={title} className="flex flex-col items-center text-center gap-1">
               <div className="w-8 h-8 rounded-full bg-[#F7F0E8] flex items-center justify-center">
@@ -289,7 +289,7 @@ export default function HomePage() {
       </div>
 
       {/* Bottom nav */}
-      <nav className="h-16 bg-white border-t border-gray-100 flex items-center justify-around px-1 flex-shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+      <nav className="h-16 bg-white border-t border-gray-100 flex items-center justify-around lg:justify-center lg:gap-24 px-1 flex-shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         {NAV_ITEMS.map(({ Icon, label, id, href }) => {
           const isCart = id === "cart";
           const isActive = activeNav === id && !isCart;

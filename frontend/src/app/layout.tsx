@@ -43,7 +43,13 @@ export default function RootLayout({
             {/* Phone-width column by design. On desktop it sits on a warm canvas with
                 rounded corners so it reads as an intentional mobile-first layout
                 rather than a page that failed to fill the screen. */}
-            <main className="max-w-md mx-auto h-screen bg-background relative overflow-hidden shadow-2xl sm:border-x sm:border-gray-200 lg:h-[92vh] lg:my-[4vh] lg:rounded-2xl lg:border lg:border-[#DCCDBA]">
+            {/* Phone-first, but not phone-only. The app-shell model is kept on
+                every size — a fixed viewport with its own scrolling regions —
+                because every page is built on `h-full` children and a fixed
+                bottom nav. What changes on a laptop is the width: the column
+                opens out to a real application canvas instead of a 448px strip
+                marooned in the middle of a 1440px display. */}
+            <main className="max-w-md lg:max-w-6xl mx-auto h-screen bg-background relative overflow-hidden shadow-2xl sm:border-x sm:border-gray-200 lg:h-[94vh] lg:my-[3vh] lg:rounded-2xl lg:border lg:border-[#DCCDBA]">
               {children}
             </main>
           </ErrorBoundary>
