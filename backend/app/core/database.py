@@ -45,9 +45,18 @@ _SessionLocal = None
 def _get_sync_engine():
     global _sync_engine, _SessionLocal
     if _sync_engine is None:
+        # Without explicit sizes SQLAlchemy defaults to pool_size=5 plus
+        # max_overflow=10 — fifteen connections per process. The Celery worker
+        # and beat each build one of these, and Supavisor's session pooler caps
+        # the whole project at fifteen clients, so two idle background services
+        # could exhaust the budget on their own and the API would fail to
+        # connect with EMAXCONNSESSION. Honour the same settings the async
+        # engine uses, so the total is something you can actually add up.
         _sync_engine = create_engine(
             settings.sync_database_uri,
             echo=False,
+            pool_size=settings.DB_POOL_SIZE,
+            max_overflow=settings.DB_MAX_OVERFLOW,
             pool_pre_ping=True,
             pool_recycle=3600,
         )
