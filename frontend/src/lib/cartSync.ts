@@ -47,7 +47,13 @@ function believesSignedIn(): boolean {
 let knownGuest = false;
 
 async function mirror(action: string, fn: () => Promise<unknown>): Promise<void> {
-  if (knownGuest && !believesSignedIn()) return;
+  // A client that knows it is signed in makes any earlier 401 stale. Without
+  // this, a visitor who browsed as a guest (latching the flag) and then signed
+  // in with an empty cart never mirrored again for the whole session, because
+  // the only other place the latch cleared was a merge — and a merge returns
+  // early when there is nothing to merge.
+  if (believesSignedIn()) knownGuest = false;
+  if (knownGuest) return;
   try {
     await fn();
     knownGuest = false;
@@ -101,8 +107,8 @@ export async function pushSetQuantity(variantId: string, quantity: number): Prom
 export async function mergeLocalCart(
   items: { id: string; quantity: number }[]
 ): Promise<void> {
-  if (items.length === 0) return;
   knownGuest = false; // a merge only runs on sign-in, so any past 401 is stale
+  if (items.length === 0) return;
   for (const item of items) {
     await mirror(`merge ${item.id}`, async () => {
       await api.delete(`/cart/items/${item.id}`).catch(() => undefined);
