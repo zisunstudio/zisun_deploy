@@ -19,11 +19,6 @@ const BROWSE_ALLOWED = ["/checkout"];
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Use the httpOnly refresh_token cookie as the auth signal.
-  // The access token lives in memory (not readable by middleware), so we rely
-  // on the cookie presence as a proxy for "the user has a valid session."
-  const hasSession = req.cookies.has("refresh_token");
-
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
   const isAuthOnly = AUTH_ONLY.some((p) => pathname.startsWith(p));
 
@@ -41,19 +36,24 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isProtected && !hasSession) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  if (isAuthOnly && hasSession) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
+  // Authentication is NOT gated here any more, and the reason matters.
+  //
+  // This used to redirect protected routes to /login unless a `refresh_token`
+  // cookie was present. That cookie is deliberately scoped to
+  // `path=/api/v1/auth`, so the browser never sends it to /checkout — the check
+  // could not pass even for a signed-in customer. In production it cannot pass
+  // at all: the API is a different domain, so the cookie is not on this origin.
+  // The effect was that every authenticated route bounced a logged-in user
+  // straight back to /login. Browse mode hid it, because those routes redirect
+  // to / there anyway.
+  //
+  // Widening the cookie's path would send a long-lived refresh token on every
+  // request to the site, which is a real downgrade for a check that is only
+  // cosmetic — the API authorises each request on its own, and every protected
+  // page already handles the signed-out case itself.
+  //
+  // So the gate lives with the pages, which can see the in-memory session, and
+  // middleware is left doing the one job it can do correctly: browse mode.
   return NextResponse.next();
 }
 

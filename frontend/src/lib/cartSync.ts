@@ -18,11 +18,43 @@
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
-function signedIn(): boolean {
+/**
+ * Whether the client *believes* it is signed in.
+ *
+ * Only a hint, never a gate. The auth store is not persisted and the access
+ * token lives in memory, so any full page load resets this to false while the
+ * httpOnly refresh cookie is still perfectly valid. Gating on it meant a
+ * signed-in customer who reloaded silently stopped mirroring, and arrived at
+ * checkout with a server cart missing everything added after the reload.
+ *
+ * The server is the authority on whether a request is authenticated, so we ask
+ * it. api.ts refreshes and retries on 401.
+ */
+function believesSignedIn(): boolean {
   try {
     return useAuthStore.getState().isAuthenticated();
   } catch {
     return false;
+  }
+}
+
+/**
+ * Set once a request comes back 401 *after* the refresh interceptor gave up,
+ * which means there is genuinely no session. Stops a guest firing a doomed
+ * request on every cart interaction. Cleared the moment a call succeeds or a
+ * merge runs, so signing in resumes mirroring immediately.
+ */
+let knownGuest = false;
+
+async function mirror(action: string, fn: () => Promise<unknown>): Promise<void> {
+  if (knownGuest && !believesSignedIn()) return;
+  try {
+    await fn();
+    knownGuest = false;
+  } catch (err) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 401 || status === 403) knownGuest = true;
+    swallow(action, err);
   }
 }
 
@@ -35,21 +67,13 @@ function swallow(action: string, err: unknown) {
 }
 
 export async function pushAdd(variantId: string, quantity = 1): Promise<void> {
-  if (!signedIn()) return;
-  try {
-    await api.post("/cart/items", { variant_id: variantId, quantity });
-  } catch (err) {
-    swallow("add", err);
-  }
+  await mirror("add", () =>
+    api.post("/cart/items", { variant_id: variantId, quantity })
+  );
 }
 
 export async function pushRemove(variantId: string): Promise<void> {
-  if (!signedIn()) return;
-  try {
-    await api.delete(`/cart/items/${variantId}`);
-  } catch (err) {
-    swallow("remove", err);
-  }
+  await mirror("remove", () => api.delete(`/cart/items/${variantId}`));
 }
 
 /**
@@ -60,14 +84,11 @@ export async function pushRemove(variantId: string): Promise<void> {
  * operation expressible with a variant id alone is remove-then-add.
  */
 export async function pushSetQuantity(variantId: string, quantity: number): Promise<void> {
-  if (!signedIn()) return;
   if (quantity <= 0) return pushRemove(variantId);
-  try {
+  await mirror("setQuantity", async () => {
     await api.delete(`/cart/items/${variantId}`).catch(() => undefined);
     await api.post("/cart/items", { variant_id: variantId, quantity });
-  } catch (err) {
-    swallow("setQuantity", err);
-  }
+  });
 }
 
 /**
@@ -80,16 +101,15 @@ export async function pushSetQuantity(variantId: string, quantity: number): Prom
 export async function mergeLocalCart(
   items: { id: string; quantity: number }[]
 ): Promise<void> {
-  if (!signedIn() || items.length === 0) return;
+  if (items.length === 0) return;
+  knownGuest = false; // a merge only runs on sign-in, so any past 401 is stale
   for (const item of items) {
-    try {
+    await mirror(`merge ${item.id}`, async () => {
       await api.delete(`/cart/items/${item.id}`).catch(() => undefined);
       await api.post("/cart/items", {
         variant_id: item.id,
         quantity: item.quantity,
       });
-    } catch (err) {
-      swallow(`merge ${item.id}`, err);
-    }
+    });
   }
 }
