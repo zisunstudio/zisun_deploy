@@ -103,6 +103,16 @@ class Settings(BaseSettings):
     # ── Shiprocket ────────────────────────────────────────────────────────────
     SHIPROCKET_EMAIL: str = ""
     SHIPROCKET_PASSWORD: str = ""
+    # Origin pincode for serviceability and rate lookups. Defaults to the
+    # registered business address in Bengaluru; override if dispatch moves.
+    SHIPROCKET_PICKUP_PINCODE: str = "560094"
+    # Courier serviceability is cached, but the two halves age differently.
+    # Prepaid coverage is stable. The per-pincode COD flag is not: couriers
+    # suspend COD to a pincode intraday when RTO spikes there, so a day-old
+    # "COD available" is a day of orders taken against a courier that will not
+    # collect. Six hours is the compromise the research settled on.
+    SERVICEABILITY_CACHE_SECONDS: int = 86400
+    SERVICEABILITY_COD_CACHE_SECONDS: int = 21600
 
     # ── Sentry ────────────────────────────────────────────────────────────────
     SENTRY_DSN: str = ""

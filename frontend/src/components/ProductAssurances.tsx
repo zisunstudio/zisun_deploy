@@ -14,10 +14,12 @@ import { POLICY_TERMS } from "@/lib/legal";
  *
  * Each line states something the policy pages already commit to, and links to
  * the page that commits to it — a claim the customer cannot verify in one tap
- * is worth less than no claim. Nothing here promises a delivery date: the
- * pincode serviceability check is still stubbed, so an estimate would be
- * invented. It goes in once Shiprocket's serviceability API is wired, which
- * returns per-courier estimated days.
+ * is worth less than no claim.
+ *
+ * No delivery date here yet. The serviceability API is wired now and returns a
+ * real per-courier estimate, but it needs the customer's pincode, so showing a
+ * date means asking for one. That belongs in a delivery checker beside the
+ * CTA, not in a static list.
  */
 const ITEMS = [
   {

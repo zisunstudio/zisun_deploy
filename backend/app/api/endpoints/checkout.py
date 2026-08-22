@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_async_db
+from app.core.redis import get_redis_client
 from app.core.launch import require_checkout_enabled
 from app.core.security import get_current_user
 from app.models.order import Order, OrderStatus, Payment, PaymentStatus, OutboxEvent
@@ -62,15 +63,38 @@ async def available_payment_methods():
 
 
 @router.get("/pincode/{pincode}/check", tags=["Checkout"])
-async def check_pincode(pincode: str):
-    """
-    Check if a pincode is serviceable.
-    Phase 2: any valid 6-digit pincode returns serviceable=true.
-    Real Shiprocket integration in Phase 4.
+async def check_pincode(pincode: str, cod: bool = True):
+    """Whether we deliver to this pincode, how fast, and whether COD is on.
+
+    Backed by Shiprocket's courier/serviceability, cached in Redis with the COD
+    flag on a shorter TTL than the coverage — couriers suspend COD to a pincode
+    intraday when RTO spikes there.
+
+    Fails open. If Shiprocket is unreachable the answer is "deliverable" with
+    `source: "assumed"` and no estimate: refusing an order we could have
+    fulfilled loses the sale outright, while accepting one we cannot is caught
+    at COD confirmation before anything is dispatched. Callers must treat
+    `source` as load-bearing and not render an estimate that was never given.
     """
     if not _PINCODE_RE.match(pincode):
         raise HTTPException(status_code=400, detail="Pincode must be exactly 6 digits")
-    return {"serviceable": True, "estimated_days": "3-7", "pincode": pincode}
+
+    from app.services.shiprocket import check_serviceability
+
+    try:
+        redis = await get_redis_client()
+    except Exception:
+        redis = None
+
+    result = await check_serviceability(pincode, cod=cod, redis=redis)
+    return {
+        "pincode": pincode,
+        "serviceable": result.serviceable,
+        "cod_available": result.cod_available,
+        "estimated_days": result.estimated_days,
+        "courier": result.courier,
+        "source": result.source,
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
