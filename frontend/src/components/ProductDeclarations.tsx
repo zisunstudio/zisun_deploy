@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { LegalMetrology } from "@/lib/queries/catalog";
 import { formatPrice } from "@/lib/queries/catalog";
@@ -25,6 +25,21 @@ interface ProductDeclarationsProps {
  */
 export function ProductDeclarations({ declarations, price }: ProductDeclarationsProps) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    // The product page scrolls inside its own container rather than the
+    // window, so expanding a section near the bottom of it reveals content
+    // below the fold — the customer taps and, as far as they can tell,
+    // nothing happens. Pull the section up after the row has laid out.
+    if (next) {
+      requestAnimationFrame(() =>
+        ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+      );
+    }
+  }
 
   const rows: Array<[string, string | null]> = [
     ["Commodity", declarations.commodity_name],
@@ -44,9 +59,9 @@ export function ProductDeclarations({ declarations, price }: ProductDeclarations
   ];
 
   return (
-    <div className="mt-6 border-t border-gray-100 pt-4">
+    <div ref={ref} className="mt-6 border-t border-gray-100 pt-4">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         aria-controls="product-declarations"
         className="w-full flex items-center justify-between text-left"
