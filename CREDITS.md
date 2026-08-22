@@ -40,6 +40,9 @@ deliberate and it constrains the choices:
 | Venkatagiri Fine Cotton Kurti | `products/venkatagiri-v2.jpg` | https://www.pexels.com/photo/close-up-of-fabric-textures-5908326/ | Pexels contributor |
 | Kasavu Panel Kurti | `products/kasavu-v2.jpg` | https://www.pexels.com/photo/cotton-boll-on-beige-linen-fabric-close-up-32795036/ | Pexels contributor |
 | Ilkal Angarkha Kurti | `products/ilkal-v2.jpg` | https://www.pexels.com/photo/gray-woven-fabric-texture-close-up-29060193/ | Engin Akyurt |
+| Category: Everyday Kurtis | `categories/everyday-kurtis.jpg` | https://www.pexels.com/photo/stack-of-folded-fabrics-with-neutral-tones-35009337/ | mibernaa |
+| Category: Occasion & Festive | `categories/occasion-kurtis.jpg` | https://www.pexels.com/photo/close-up-of-folded-silk-and-velvet-fabric-14935628/ | eugenia-remark |
+| Category: Co-ord Sets | `categories/co-ord-sets.jpg` | https://www.pexels.com/photo/pile-of-cloth-365066/ | digitalbuggu |
 | Home page hero | `hero/home-hero.jpg` | https://www.pexels.com/photo/artisan-textiles-hanging-in-indian-market-37415386/ | Harsh Kukadiya |
 | Molakalmuru Border Co-ord | `products/molakalmuru.jpg` | https://www.pexels.com/photo/colorful-sarees-drying-at-varanasi-ghats-33433875/ | Debarshi Mukherjee |
 

@@ -25,7 +25,9 @@ export function CategoryCard({ category }: { category: Category }) {
         />
       </div>
       <p className="text-foreground font-semibold text-sm mt-2 leading-tight">{category.name}</p>
-      <p className="text-muted text-xs">{category.product_count} items</p>
+      <p className="text-muted text-xs">
+        {category.product_count} {category.product_count === 1 ? "item" : "items"}
+      </p>
     </div>
   );
 }
