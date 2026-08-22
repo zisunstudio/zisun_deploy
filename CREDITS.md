@@ -16,6 +16,45 @@ Downloaded from the Pexels CDN and re-hosted on Tigris
 `frontend/next.config.js` allowlists the Tigris host only, so a remote URL would
 render as a broken image.
 
+## Launch imagery — TEMPORARY, remove after the video
+
+People wearing kurtis, for the launch reel. These sit under the `launch/`
+prefix in the bucket and are used in exactly two places: the home hero and the
+three category cards.
+
+| Slot | File | Source | Photographer |
+|---|---|---|---|
+| Home hero | `launch/home-hero.jpg` | https://www.pexels.com/photo/stylish-woman-in-yellow-floral-kurta-outdoors-30809730/ | Shootsaga |
+| Everyday Kurtis | `launch/everyday-kurtis.jpg` | https://www.pexels.com/photo/woman-in-blue-dress-walking-13178920/ | Framesbyambro |
+| Occasion & Festive | `launch/occasion-kurtis.jpg` | https://www.pexels.com/photo/elegant-chikankari-kurti-fashion-in-lucknow-28512776/ | Neha Mishra |
+| Co-ord Sets | `launch/co-ord-sets.jpg` | https://www.pexels.com/photo/elegant-woman-in-chikankari-kurti-in-lucknow-28512787/ | Neha Mishra |
+
+**They are deliberately not on product cards.** A hero or a category tile is
+editorial — it sets a mood. A product card carries a name, a price, a size and a
+stock count, so an image there is a statement about what arrives in the parcel.
+A person in a different kurti next to "Mangalgiri Straight Kurti, Rs 1,699" says
+something untrue, and no licence fixes that.
+
+The licences also matter more here than for cloth. Pexels grants the
+photographer's copyright; it does not grant rights in the likeness of the person
+photographed, and it forbids uses that show identifiable people unfavourably.
+Editorial mood-setting is the defensible end of that. Implying a named model
+endorses a specific SKU is not.
+
+### To revert
+
+Nothing was overwritten — the cloth images are still at `products/`,
+`categories/` and `hero/`. Two steps:
+
+```sql
+update categories
+   set image_url = 'https://zisun-media.fly.storage.tigris.dev/categories/' || slug || '.jpg'
+ where slug in ('everyday-kurtis','occasion-kurtis','co-ord-sets');
+```
+
+and point `HERO_IMAGE` in `frontend/src/app/page.tsx` back at
+`/hero/home-hero.jpg`, then redeploy the web service.
+
 ## Selection criteria
 
 Every image is a **textile or weave shot with no identifiable person**. This was

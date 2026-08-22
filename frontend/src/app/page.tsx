@@ -32,15 +32,20 @@ const TRUST_BADGES = [
   { Icon: Sun, title: "Built for the heat", subtitle: "Breathable weaves" },
 ];
 
-// A real photograph, not the placeholder SVG: the home hero is the first
-// thing anyone sees and a flat graphic reads as an unfinished site. Served
-// from the Tigris host that next.config.js allowlists.
+// LAUNCH IMAGERY — temporary, see CREDITS.md.
+// A licensed photograph of a person wearing a kurti. It is editorial: it
+// sets the mood and makes no claim to be a garment for sale, which is why
+// people appear here and on the category cards but never on a product card
+// next to a name, a price and a stock count.
+//
+// To revert after the launch video, point this back at
+// /hero/home-hero.jpg — the cloth originals are still in the bucket.
 //
 // The local SVG stays as the fallback for when the CDN object is missing,
 // so a deleted or renamed file degrades to branded artwork rather than a
 // broken-image icon on the landing screen.
 const HERO_IMAGE =
-  "https://zisun-media.fly.storage.tigris.dev/hero/home-hero.jpg";
+  "https://zisun-media.fly.storage.tigris.dev/launch/home-hero.jpg";
 const HERO_FALLBACK = "/placeholder-hero.svg";
 
 export default function HomePage() {
