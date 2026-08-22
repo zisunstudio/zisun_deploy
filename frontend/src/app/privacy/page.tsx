@@ -152,6 +152,12 @@ export default function PrivacyPage() {
               Phone: {COMPANY.phone}
             </>
           ) : null}
+          {COMPANY.gstin ? (
+            <>
+              <br />
+              GSTIN: {COMPANY.gstin}
+            </>
+          ) : null}
           <br />
           Hours: {COMPANY.supportHours}
         </p>

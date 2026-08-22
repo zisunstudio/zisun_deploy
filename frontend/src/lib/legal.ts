@@ -37,12 +37,19 @@ type CompanyDetails = {
 };
 
 export const COMPANY: CompanyDetails = {
-  legalName: "ZISUN", // TODO: the registered entity name from your GST / registration certificate
+  // TODO: GSTIN 29BAYPT2026A1ZH carries PAN BAYPT2026A, whose fourth character
+  // "P" marks an individual proprietorship. The registered legal name is
+  // therefore the proprietor's own name as printed on that PAN, and "ZISUN" is
+  // the trade name. Razorpay verifies the legal name against the PAN during
+  // onboarding, so this needs the proprietor's name before KYC is submitted.
+  legalName: "ZISUN",
   brandName: "ZISUN",
-  address: "", // TODO: full registered address, city, state, PIN
+  address:
+    "35, RMV 2nd Stage, Railway Men's Colony, near Lottegollhalli Railway Station, " +
+    "Bengaluru, Karnataka 560094",
   email: "zisunstudio@gmail.com",
-  phone: "", // TODO: support number with country code
-  gstin: "",
+  phone: "+91 93636 08792",
+  gstin: "29BAYPT2026A1ZH",
   supportHours: "Monday–Saturday, 10:00–18:00 IST",
   websiteUrl: "https://zisun.in",
 };

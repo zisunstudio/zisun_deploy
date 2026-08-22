@@ -110,6 +110,12 @@ export default function ShippingPage() {
               Phone: {COMPANY.phone}
             </>
           ) : null}
+          {COMPANY.gstin ? (
+            <>
+              <br />
+              GSTIN: {COMPANY.gstin}
+            </>
+          ) : null}
           <br />
           {COMPANY.supportHours}
         </p>

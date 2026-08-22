@@ -133,6 +133,12 @@ export default function TermsPage() {
               Phone: {COMPANY.phone}
             </>
           ) : null}
+          {COMPANY.gstin ? (
+            <>
+              <br />
+              GSTIN: {COMPANY.gstin}
+            </>
+          ) : null}
         </p>
       </Section>
     </LegalPage>
