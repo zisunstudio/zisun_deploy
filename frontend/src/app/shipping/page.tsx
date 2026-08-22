@@ -96,12 +96,20 @@ export default function ShippingPage() {
       <Section heading="9. Contact">
         <p>
           {COMPANY.legalName}
-          <br />
-          {COMPANY.address}
+          {COMPANY.address ? (
+            <>
+              <br />
+              {COMPANY.address}
+            </>
+          ) : null}
           <br />
           Email: {COMPANY.email}
-          <br />
-          Phone: {COMPANY.phone}
+          {COMPANY.phone ? (
+            <>
+              <br />
+              Phone: {COMPANY.phone}
+            </>
+          ) : null}
           <br />
           {COMPANY.supportHours}
         </p>

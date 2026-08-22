@@ -22,14 +22,18 @@ export default function ContactPage() {
           <a href={`mailto:${COMPANY.email}`} className="text-primary underline">
             {COMPANY.email}
           </a>
-          <br />
-          Phone / WhatsApp:{" "}
-          <a
-            href={`tel:${COMPANY.phone.replace(/\s/g, "")}`}
-            className="text-primary underline"
-          >
-            {COMPANY.phone}
-          </a>
+          {COMPANY.phone ? (
+            <>
+              <br />
+              Phone / WhatsApp:{" "}
+              <a
+                href={`tel:${COMPANY.phone.replace(/\s/g, "")}`}
+                className="text-primary underline"
+              >
+                {COMPANY.phone}
+              </a>
+            </>
+          ) : null}
           <br />
           Hours: {COMPANY.supportHours}
         </p>
@@ -39,8 +43,12 @@ export default function ContactPage() {
       <Section heading="Registered address">
         <p>
           {COMPANY.legalName}
-          <br />
-          {COMPANY.address}
+          {COMPANY.address ? (
+            <>
+              <br />
+              {COMPANY.address}
+            </>
+          ) : null}
           {COMPANY.gstin ? (
             <>
               <br />
