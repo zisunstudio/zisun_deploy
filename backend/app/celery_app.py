@@ -44,6 +44,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.commerce.release_expired_locks",
         "schedule": 300,
     },
+    "sweep-cod-confirmations": {
+        "task": "app.tasks.commerce.sweep_cod_confirmations",
+        "schedule": 600,  # every 10 minutes
+    },
     "process-outbox": {
         "task": "app.tasks.commerce.process_outbox",
         "schedule": 30,

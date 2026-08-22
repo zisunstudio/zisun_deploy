@@ -15,6 +15,7 @@ from app.models.order import Order, OrderStatus, Payment, PaymentStatus, OutboxE
 from app.models.user import User
 from app.schemas.order import OrderResponse
 from app.services.order_state_machine import OrderStateMachine
+from app.services.cod_confirmation import may_dispatch
 from app.tasks.commerce import _release_locks_for_order
 
 router = APIRouter()
@@ -105,6 +106,20 @@ async def admin_update_order_status(
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
+
+    # An unconfirmed COD order must not become PACKED. This is the gate the
+    # whole confirmation flow exists for: asking the customer and then shipping
+    # regardless saves nothing, and an admin clicking through a list is exactly
+    # where that would happen. Refused here rather than warned about in the UI.
+    if body.status == OrderStatus.PACKED and not may_dispatch(order):
+        state = order.cod_confirmation.value if order.cod_confirmation else "not asked"
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cash on Delivery order is {state}. It cannot be packed until "
+                "the customer confirms. Resend the confirmation or cancel it."
+            ),
+        )
 
     OrderStateMachine.transition(order, body.status)
 

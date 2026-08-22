@@ -178,7 +178,9 @@ async def _process_outbox():
 
         for event in events:
             try:
-                if event.event_type == "ORDER_PAID":
+                if event.event_type == "COD_CONFIRMATION_REQUESTED":
+                    await _send_cod_ask(db, event.payload)
+                elif event.event_type == "ORDER_PAID":
                     payload = event.payload
                     await send_order_confirmation(
                         phone=payload.get("phone", ""),
@@ -191,6 +193,135 @@ async def _process_outbox():
                 logger.error("Outbox event %s failed: %s", event.id, exc)
 
         await db.commit()
+
+
+async def _send_cod_ask(db, payload: dict) -> None:
+    """Send one COD confirmation and record that we asked."""
+    from app.models.order import Order
+    from app.models.user import User
+    from app.services.cod_confirmation import mark_sent
+    from app.services.whatsapp import send_cod_confirmation
+
+    order_id = payload.get("order_id")
+    order = (
+        await db.execute(select(Order).where(Order.id == order_id))
+    ).scalar_one_or_none()
+    if not order:
+        logger.warning("COD ask for unknown order %s", order_id)
+        return
+
+    phone = (
+        await db.execute(select(User.phone).where(User.id == order.user_id))
+    ).scalar_one_or_none()
+    if not phone:
+        logger.error("COD ask for order %s has no phone on the user", order_id)
+        return
+
+    await send_cod_confirmation(
+        phone=phone,
+        order_id=str(order.id),
+        amount_paise=order.total_amount,
+        items_summary=payload.get("items_summary", "your order"),
+    )
+    # Recorded whether or not the send succeeded. A failed send that is not
+    # counted would be retried forever by the sweep; the sweep's own attempt
+    # cap is what bounds it.
+    mark_sent(order)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Task: sweep_cod_confirmations
+# ─────────────────────────────────────────────────────────────────────────────
+
+# One nudge, then give up. Reply rates fall off quickly, and a third message
+# about the same order reads as harassment rather than service.
+COD_NUDGE_AFTER_MINUTES = 30
+COD_GIVE_UP_AFTER_HOURS = 24
+
+
+@celery_app.task(name="app.tasks.commerce.sweep_cod_confirmations")
+def sweep_cod_confirmations():
+    """Nudge COD orders that have gone quiet, and release the ones that stay quiet."""
+    run_async(_sweep_cod_confirmations())
+
+
+async def _sweep_cod_confirmations():
+    from datetime import timedelta
+
+    from app.models.order import CODConfirmation, Order, OrderStatus
+    from app.models.user import User
+    from app.services.cod_confirmation import mark_sent
+    from app.services.whatsapp import send_cod_confirmation
+
+    now = datetime.now(timezone.utc)
+    nudge_before = now - timedelta(minutes=COD_NUDGE_AFTER_MINUTES)
+    expire_before = now - timedelta(hours=COD_GIVE_UP_AFTER_HOURS)
+
+    async with AsyncSessionLocal() as db:
+        pending = (
+            await db.execute(
+                select(Order).where(
+                    Order.cod_confirmation == CODConfirmation.PENDING,
+                    Order.status.notin_([OrderStatus.CANCELLED, OrderStatus.RETURNED]),
+                    Order.cod_confirmation_sent_at.isnot(None),
+                )
+            )
+        ).scalars().all()
+
+        nudged = expired = 0
+        for order in pending:
+            sent_at = order.cod_confirmation_sent_at
+            if sent_at and sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+
+            if sent_at and sent_at < expire_before:
+                # Out of time. Marked UNREACHABLE rather than CANCELLED so the
+                # distinction survives: this customer never answered, which is
+                # different from one who declined, and the two should not be
+                # read as the same signal later.
+                order.cod_confirmation = CODConfirmation.UNREACHABLE
+                await _release_locks(db, order.id)
+                expired += 1
+                continue
+
+            if (
+                sent_at
+                and sent_at < nudge_before
+                and (order.cod_confirmation_attempts or 0) < 2
+            ):
+                phone = (
+                    await db.execute(select(User.phone).where(User.id == order.user_id))
+                ).scalar_one_or_none()
+                if phone:
+                    await send_cod_confirmation(
+                        phone=phone,
+                        order_id=str(order.id),
+                        amount_paise=order.total_amount,
+                        items_summary="your order",
+                    )
+                    mark_sent(order)
+                    nudged += 1
+
+        await db.commit()
+
+    if nudged or expired:
+        logger.info("COD sweep: %s nudged, %s expired", nudged, expired)
+
+
+async def _release_locks(db, order_id) -> None:
+    """Give the stock back when a COD order will never be confirmed."""
+    from app.models.order import InventoryLock, LockStatus
+
+    locks = (
+        await db.execute(
+            select(InventoryLock).where(
+                InventoryLock.order_id == order_id,
+                InventoryLock.status == LockStatus.ACTIVE,
+            )
+        )
+    ).scalars().all()
+    for lock in locks:
+        lock.status = LockStatus.RELEASED
 
 
 # ─────────────────────────────────────────────────────────────────────────────

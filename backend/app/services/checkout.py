@@ -10,7 +10,16 @@ from sqlalchemy.orm import selectinload
 
 from app.models.cart import Cart, CartItem
 from app.models.catalog import ProductVariant, Product
-from app.models.order import Order, OrderItem, OrderStatus, InventoryLock, LockStatus, OutboxEvent, PaymentMethod
+from app.models.order import (
+    CODConfirmation,
+    InventoryLock,
+    LockStatus,
+    Order,
+    OrderItem,
+    OrderStatus,
+    OutboxEvent,
+    PaymentMethod,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +312,11 @@ class CheckoutService:
         )
         if payment_method == PaymentMethod.COD:
             order.cod_amount_due = net_total
+            # Held until the customer confirms. PENDING is set the moment the
+            # order exists rather than when the message goes out, so an order
+            # can never sit in a state where dispatch is permitted because the
+            # ask has not been sent yet.
+            order.cod_confirmation = CODConfirmation.PENDING
 
         self.db.add(order)
         await self.db.flush()  # get order.id
@@ -367,6 +381,24 @@ class CheckoutService:
             order.razorpay_order_id = razorpay_order_id
         else:
             logger.info("COD order %s — skipping Razorpay", order.id)
+
+        # Ask for COD confirmation. Queued as an outbox event so it survives a
+        # crash between committing the order and sending the message, and goes
+        # out on the next 30s tick rather than a nightly batch — reply rates
+        # collapse once the order is out of the customer's mind.
+        if payment_method == PaymentMethod.COD:
+            self.db.add(
+                OutboxEvent(
+                    aggregate_type="order",
+                    aggregate_id=str(order.id),
+                    event_type="COD_CONFIRMATION_REQUESTED",
+                    payload={
+                        "order_id": str(order.id),
+                        "user_id": str(user_id),
+                        "amount": net_total,
+                    },
+                )
+            )
 
         # Clear cart items
         for cart_item, _, __ in item_snapshots:

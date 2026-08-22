@@ -215,6 +215,18 @@ def _as_int(value) -> Optional[int]:
 async def create_shipment(db, order) -> Optional[str]:
     """Create Shiprocket order when marked PACKED. Returns AWB number or None."""
     from app.core.redis import get_redis_client
+    from app.services.cod_confirmation import may_dispatch
+
+    # Belt and braces behind the admin route's check. Anything that reaches
+    # this function is about to hand a parcel to a courier, and an unconfirmed
+    # COD parcel is the single most expensive thing we can put on a van.
+    if not may_dispatch(order):
+        logger.error(
+            "Refusing AWB for order %s: COD confirmation is %s",
+            order.id,
+            order.cod_confirmation.value if order.cod_confirmation else "not asked",
+        )
+        return None
 
     try:
         redis = await get_redis_client()

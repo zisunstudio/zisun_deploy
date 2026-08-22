@@ -25,6 +25,21 @@ class OrderStatus(str, enum.Enum):
     RETURNED = "RETURNED"
 
 
+class CODConfirmation(str, enum.Enum):
+    """Where a COD order stands in the pre-dispatch confirmation call.
+
+    COD orders return at roughly 26% against under 2% for prepaid, and a
+    fashion RTO costs Rs 200-250 in two-way freight against nothing collected.
+    Asking the customer to confirm before anything ships is the cheapest
+    control available, and it only works if dispatch actually waits for it.
+    """
+
+    PENDING = "PENDING"        # asked, waiting for a reply
+    CONFIRMED = "CONFIRMED"    # customer said yes; safe to dispatch
+    DECLINED = "DECLINED"      # customer said no; cancel and release stock
+    UNREACHABLE = "UNREACHABLE"  # no reply within the window
+
+
 class PaymentStatus(str, enum.Enum):
     PENDING = "PENDING"
     CAPTURED = "CAPTURED"
@@ -54,6 +69,20 @@ class Order(BaseModel):
         nullable=False,
     )
     cod_amount_due: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # NULL on prepaid orders — the column only means something for COD.
+    cod_confirmation: Mapped[Optional[CODConfirmation]] = mapped_column(
+        Enum(CODConfirmation, name="codconfirmation"), nullable=True, index=True
+    )
+    cod_confirmation_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cod_confirmed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Counts outbound asks, so the follow-up nudge cannot become a loop.
+    cod_confirmation_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
     coupon_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("coupons.id"), nullable=True)
     discount_amount: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
