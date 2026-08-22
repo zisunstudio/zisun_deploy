@@ -438,11 +438,37 @@ failure with no recovery path.
 
 ---
 
+## 5.1 There is no staging database
+
+Everything runs against one Supabase project. The browser walkthrough of the
+cart and checkout path — sign in, add to cart, place a test-mode Razorpay order,
+verify the signature — therefore ran against **production Supabase**, and left
+32 accounts, 19 carts and 2 orders behind. They were deleted afterwards; the
+catalogue was untouched.
+
+That was tolerable exactly once, because the store had no real customers. It
+stops being tolerable the moment it does:
+
+- test accounts become indistinguishable from real ones in any count you run
+- a test order is a real row in the table an accountant reconciles
+- a mistaken `delete from users` is unrecoverable rather than merely annoying
+- the free tier's fifteen session-mode clients are shared with the live app, so
+  a local test run competes with customers for connections
+
+The fix is a second Supabase project used as staging, with `POSTGRES_*` pointed
+at it for local and CI runs. Until that exists, anything that writes rows must
+be run knowingly and cleaned up, and **nothing may be tested against production
+once real orders exist**.
+
+Seeding the staging catalogue is `scripts/import_catalog.py` against the staging
+credentials; `--dry-run` validates without writing.
+
 ## 6. Known gaps
 
 | Gap | Impact |
 |---|---|
 | **No policy pages** | `/privacy`, `/terms`, `/refund`, `/shipping`, `/contact` do not exist in `frontend/src/app/`. All five 404. **Razorpay KYC requires them on a live domain** — this blocks the payments launch, not the browse launch |
+| **No staging database** | All testing runs against production Supabase — see 5.1. Fine before real customers, not after |
 | No email service | Notifications are WhatsApp + SMS only; no email receipts |
 | Pincode serviceability stubbed | Always returns "deliverable" — real Shiprocket check not wired |
 | No Shiprocket inbound webhook | Tracking updates don't flow back automatically |
