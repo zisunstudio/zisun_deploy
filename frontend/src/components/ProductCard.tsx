@@ -7,6 +7,7 @@ import { Product, formatPrice, productImageUrl } from "@/lib/queries/catalog";
 import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from "@/lib/queries/wishlist";
 import { useAuthStore } from "@/store/useAuthStore";
 import { BROWSE_ONLY } from "@/lib/launchMode";
+import { RepresentativeImage } from "@/components/RepresentativeImage";
 
 interface Props {
   product: Product;
@@ -54,6 +55,7 @@ export function ProductCard({ product, className = "" }: Props) {
           placeholder="blur"
           blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         />
+        <RepresentativeImage className="absolute bottom-2 left-2 text-[9px] px-2 py-[3px] z-10" />
         {isOutOfStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="text-white text-xs font-semibold bg-black/60 px-2.5 py-1 rounded-full">

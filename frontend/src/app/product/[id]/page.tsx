@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
+import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -94,6 +95,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               className="object-cover"
             />
           </div>
+
+          <RepresentativeImage className="absolute bottom-3 left-4 text-[10px] px-2.5 py-1 z-10" />
 
           {/* Top controls */}
           <div className="absolute top-12 left-0 right-0 flex justify-between px-5">

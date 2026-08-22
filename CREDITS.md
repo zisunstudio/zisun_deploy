@@ -29,7 +29,35 @@ three category cards.
 | Occasion & Festive | `launch/occasion-kurtis.jpg` | https://www.pexels.com/photo/elegant-chikankari-kurti-fashion-in-lucknow-28512776/ | Neha Mishra |
 | Co-ord Sets | `launch/co-ord-sets.jpg` | https://www.pexels.com/photo/elegant-woman-in-chikankari-kurti-in-lucknow-28512787/ | Neha Mishra |
 
-**They are deliberately not on product cards.** A hero or a category tile is
+### Product cards
+
+Product cards carry launch photographs too, at the owner's decision, under
+`launch/products/`. Each is labelled **"Representative image"** on the card and
+on the product page — see `frontend/src/components/RepresentativeImage.tsx`.
+
+| Product | File | Source | Photographer |
+|---|---|---|---|
+| Mangalgiri Straight Kurti | `launch/products/mangalgiri.jpg` | https://www.pexels.com/photo/portrait-of-indian-woman-in-sunlight-15602468/ | Pexels contributor |
+| Sungudi Everyday Kurti | `launch/products/sungudi.jpg` | https://www.pexels.com/photo/elegant-portrait-of-a-woman-in-traditional-indian-attire-35521738/ | Kunal Yadav Photography |
+| Udupi Cotton A-Line | `launch/products/udupi.jpg` | https://www.pexels.com/photo/elegant-woman-in-chikankari-kurti-lucknow-28512779/ | Neha Mishra |
+| Chettinad Check Kurti | `launch/products/chettinad.jpg` | https://www.pexels.com/photo/beautiful-brunette-woman-with-hand-on-waist-14027977/ | Riyad Ahmed |
+| Venkatagiri Fine Cotton Kurti | `launch/products/venkatagiri.jpg` | https://www.pexels.com/photo/young-woman-wearing-traditional-clothing-8770996/ | Gustavo Fring |
+| Kasavu Panel Kurti | `launch/products/kasavu.jpg` | https://www.pexels.com/photo/elegant-chikankari-kurti-fashion-in-lucknow-28512776/ | Neha Mishra |
+| Ilkal Angarkha Kurti | `launch/products/ilkal.jpg` | https://www.pexels.com/photo/portrait-of-a-woman-smiling-20604437/ | Thangaraj |
+| Molakalmuru Border Co-ord | `launch/products/molakalmuru.jpg` | https://www.pexels.com/photo/heritage-in-print-tavsi-s-stunning-ajrakh-kurtas-28213774/ | Tavsi Apparel |
+
+**The label is not optional decoration.** These women are wearing kurtis, but
+not *these* kurtis. Beside a name, a price, a size and a stock count, an
+unlabelled photograph states what arrives in the parcel, and the Consumer
+Protection (E-Commerce) Rules 2020 require product images to be accurate. The
+label is what keeps that honest until real photography exists.
+
+It renders only while `NEXT_PUBLIC_LAUNCH_MODE=browse`, so it disappears with
+the same flag that opens checkout. That is deliberate: the day someone can buy,
+the real photographs must already be in place. **Do not open checkout on these
+images.**
+
+**Hero and category tiles are a different case.** A hero or a category tile is
 editorial — it sets a mood. A product card carries a name, a price, a size and a
 stock count, so an image there is a statement about what arrives in the parcel.
 A person in a different kurti next to "Mangalgiri Straight Kurti, Rs 1,699" says
@@ -47,10 +75,30 @@ Nothing was overwritten — the cloth images are still at `products/`,
 `categories/` and `hero/`. Two steps:
 
 ```sql
+-- categories back to cloth
 update categories
    set image_url = 'https://zisun-media.fly.storage.tigris.dev/categories/' || slug || '.jpg'
  where slug in ('everyday-kurtis','occasion-kurtis','co-ord-sets');
+
+-- product cards back to cloth (note ilkal, kasavu and venkatagiri are -v2)
+update product_media m
+   set url = x.u, cdn_url = x.u
+  from (values
+    ('Mangalgiri Straight Kurti','https://zisun-media.fly.storage.tigris.dev/products/mangalgiri.jpg'),
+    ('Sungudi Everyday Kurti','https://zisun-media.fly.storage.tigris.dev/products/sungudi.jpg'),
+    ('Udupi Cotton A-Line','https://zisun-media.fly.storage.tigris.dev/products/udupi.jpg'),
+    ('Chettinad Check Kurti','https://zisun-media.fly.storage.tigris.dev/products/chettinad.jpg'),
+    ('Venkatagiri Fine Cotton Kurti','https://zisun-media.fly.storage.tigris.dev/products/venkatagiri-v2.jpg'),
+    ('Kasavu Panel Kurti','https://zisun-media.fly.storage.tigris.dev/products/kasavu-v2.jpg'),
+    ('Ilkal Angarkha Kurti','https://zisun-media.fly.storage.tigris.dev/products/ilkal-v2.jpg'),
+    ('Molakalmuru Border Co-ord','https://zisun-media.fly.storage.tigris.dev/products/molakalmuru.jpg')
+  ) as x(pname, u)
+  join products p on p.name = x.pname
+ where m.product_id = p.id;
 ```
+
+Then delete `frontend/src/components/RepresentativeImage.tsx` and its two call
+sites.
 
 and point `HERO_IMAGE` in `frontend/src/app/page.tsx` back at
 `/hero/home-hero.jpg`, then redeploy the web service.
