@@ -37,14 +37,18 @@ on the product page — see `frontend/src/components/RepresentativeImage.tsx`.
 
 | Product | File | Source | Photographer |
 |---|---|---|---|
-| Mangalgiri Straight Kurti | `launch/products/mangalgiri.jpg` | https://www.pexels.com/photo/portrait-of-indian-woman-in-sunlight-15602468/ | Pexels contributor |
-| Sungudi Everyday Kurti | `launch/products/sungudi.jpg` | https://www.pexels.com/photo/elegant-portrait-of-a-woman-in-traditional-indian-attire-35521738/ | Kunal Yadav Photography |
+| Mangalgiri Straight Kurti | `launch/products/mangalgiri-v2.jpg` | https://www.pexels.com/photo/woman-enjoying-outdoor-garden-view-in-kolkata-36281928/ | Kolkatarphotographer |
+| Sungudi Everyday Kurti | `launch/products/sungudi-v2.jpg` | https://www.pexels.com/photo/woman-in-pink-dress-walking-on-forest-road-38374231/ | Subhrajyoti Paul |
 | Udupi Cotton A-Line | `launch/products/udupi.jpg` | https://www.pexels.com/photo/elegant-woman-in-chikankari-kurti-lucknow-28512779/ | Neha Mishra |
-| Chettinad Check Kurti | `launch/products/chettinad.jpg` | https://www.pexels.com/photo/beautiful-brunette-woman-with-hand-on-waist-14027977/ | Riyad Ahmed |
+| Chettinad Check Kurti | `launch/products/chettinad-v2.jpg` | https://www.pexels.com/photo/woman-in-red-and-black-3-4-sleeve-midi-dress-169047/ | Vinod Kharkwal |
 | Venkatagiri Fine Cotton Kurti | `launch/products/venkatagiri.jpg` | https://www.pexels.com/photo/young-woman-wearing-traditional-clothing-8770996/ | Gustavo Fring |
 | Kasavu Panel Kurti | `launch/products/kasavu.jpg` | https://www.pexels.com/photo/elegant-chikankari-kurti-fashion-in-lucknow-28512776/ | Neha Mishra |
 | Ilkal Angarkha Kurti | `launch/products/ilkal.jpg` | https://www.pexels.com/photo/portrait-of-a-woman-smiling-20604437/ | Thangaraj |
 | Molakalmuru Border Co-ord | `launch/products/molakalmuru.jpg` | https://www.pexels.com/photo/heritage-in-print-tavsi-s-stunning-ajrakh-kurtas-28213774/ | Tavsi Apparel |
+
+Three were replaced after seeing the grid at laptop width: the originals were
+portrait close-ups where the face fills the frame and the kurti is barely
+visible. A product card has one job, which is showing the garment.
 
 **The label is not optional decoration.** These women are wearing kurtis, but
 not *these* kurtis. Beside a name, a price, a size and a stock count, an
