@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
+import { ProductAssurances } from "@/components/ProductAssurances";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -198,6 +199,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             {isOutOfStock ? "Out of Stock" : "Add to Cart"}
           </button>
         )}
+        <ProductAssurances />
       </div>
     </div>
   );
