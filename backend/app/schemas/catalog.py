@@ -1,8 +1,10 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Optional, List
 from datetime import datetime
 import uuid
 import enum
+
+from app.core.config import settings
 
 _MAX_PRICE_PAISE = 100_000_000  # 1 crore rupees in paise
 
@@ -116,6 +118,45 @@ class ProductUpdate(BaseModel):
     category_id: Optional[uuid.UUID] = None
 
 
+class LegalMetrology(BaseModel):
+    """
+    The pre-purchase declarations the Packaged Commodities Rules require.
+
+    Resolved server-side rather than in the browser so that every surface that
+    reads a product — the PDP today, an invoice or a marketplace feed later —
+    sees the same values, and so a missing column can never render as a blank
+    legal declaration on the page.
+    """
+
+    commodity_name: str
+    net_quantity: str
+    dimensions: Optional[str] = None
+    country_of_origin: str
+    manufacturer_name: str
+    manufacturer_address: str
+    consumer_care_name: str
+    consumer_care_email: str
+    consumer_care_phone: str
+
+    @classmethod
+    def resolve(cls, product) -> "LegalMetrology":
+        """Per-product value where one is set, brand-level default otherwise."""
+        return cls(
+            commodity_name=getattr(product, "commodity_name", None) or settings.LM_COMMODITY_NAME,
+            net_quantity=getattr(product, "net_quantity", None) or settings.LM_NET_QUANTITY,
+            # Dimensions have no sensible brand-wide default — a kurti and a
+            # co-ord set do not share measurements — so this one stays absent
+            # until the product carries it, and the PDP omits the row.
+            dimensions=getattr(product, "dimensions", None) or None,
+            country_of_origin=getattr(product, "country_of_origin", None) or settings.LM_COUNTRY_OF_ORIGIN,
+            manufacturer_name=getattr(product, "manufacturer_name", None) or settings.LM_MANUFACTURER_NAME,
+            manufacturer_address=getattr(product, "manufacturer_address", None) or settings.LM_MANUFACTURER_ADDRESS,
+            consumer_care_name=settings.LM_CONSUMER_CARE_NAME,
+            consumer_care_email=settings.LM_CONSUMER_CARE_EMAIL,
+            consumer_care_phone=settings.LM_CONSUMER_CARE_PHONE,
+        )
+
+
 class ProductResponse(ProductBase):
     id: uuid.UUID
     is_active: bool = True
@@ -124,6 +165,23 @@ class ProductResponse(ProductBase):
     variants: List[ProductVariantResponse] = []
     media: List[ProductMediaResponse] = []
     category: Optional[CategoryResponse] = None
+
+    # Populated from the row, excluded from the response: these are the raw
+    # per-product overrides, and only `legal_metrology` below — which folds in
+    # the brand-level defaults — is safe for a client to render.
+    commodity_name: Optional[str] = Field(None, exclude=True)
+    net_quantity: Optional[str] = Field(None, exclude=True)
+    dimensions: Optional[str] = Field(None, exclude=True)
+    country_of_origin: Optional[str] = Field(None, exclude=True)
+    manufacturer_name: Optional[str] = Field(None, exclude=True)
+    manufacturer_address: Optional[str] = Field(None, exclude=True)
+
+    # Declarations the buyer must be able to read before paying. Computed, so
+    # it needs no work at any of the call sites that build a ProductResponse.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def legal_metrology(self) -> LegalMetrology:
+        return LegalMetrology.resolve(self)
 
     class Config:
         from_attributes = True

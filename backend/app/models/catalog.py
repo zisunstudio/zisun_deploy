@@ -45,6 +45,22 @@ class Product(BaseModel):
     avg_rating: Mapped[float] = mapped_column(default=0.0, nullable=False)
     review_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    # ── Legal Metrology declarations ──────────────────────────────────────────
+    # Nullable on purpose. Everything here has a brand-level default in
+    # settings, and the API fills the gap at serialisation time, so a listing is
+    # never published with a blank declaration just because nobody typed one in.
+    # A value here overrides the default for that one product.
+    commodity_name: Mapped[Optional[str]] = mapped_column(String(255))
+    # Free text, not a number: the rules ask for the declaration as printed
+    # ("1 unit", "1 set of 2 pieces"), and a co-ord set is not one piece.
+    net_quantity: Mapped[Optional[str]] = mapped_column(String(120))
+    # Garment measurements in centimetres. Explicitly required for apparel.
+    # Per-size numbers live in the size guide; this is the summary declaration.
+    dimensions: Mapped[Optional[str]] = mapped_column(String(255))
+    country_of_origin: Mapped[Optional[str]] = mapped_column(String(120))
+    manufacturer_name: Mapped[Optional[str]] = mapped_column(String(255))
+    manufacturer_address: Mapped[Optional[str]] = mapped_column(Text)
+
     variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"
     )

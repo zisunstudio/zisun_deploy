@@ -32,6 +32,23 @@ export interface Category {
   product_count: number;
 }
 
+/**
+ * Legal Metrology declarations, resolved server-side. Every field except
+ * `dimensions` is guaranteed non-empty: the API falls back to the brand-level
+ * default when a product carries no override.
+ */
+export interface LegalMetrology {
+  commodity_name: string;
+  net_quantity: string;
+  dimensions: string | null;
+  country_of_origin: string;
+  manufacturer_name: string;
+  manufacturer_address: string;
+  consumer_care_name: string;
+  consumer_care_email: string;
+  consumer_care_phone: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -44,6 +61,7 @@ export interface Product {
   media: ProductMedia[];
   created_at: string;
   updated_at: string;
+  legal_metrology: LegalMetrology;
 }
 
 export interface ProductListResponse {

@@ -114,6 +114,28 @@ class Settings(BaseSettings):
     SERVICEABILITY_CACHE_SECONDS: int = 86400
     SERVICEABILITY_COD_CACHE_SECONDS: int = 21600
 
+    # ── Legal Metrology declarations ──────────────────────────────────────────
+    # The Legal Metrology (Packaged Commodities) Rules require an e-commerce
+    # listing to show these *before* purchase. Most of them are identical for
+    # every product we sell, so they live here rather than being copied onto
+    # every row: one seller address that can go stale in one place beats eight.
+    # A product may still override any of them (see the columns on Product) for
+    # the day we stock a garment we did not pack ourselves.
+    LM_MANUFACTURER_NAME: str = "ZISUN"
+    LM_MANUFACTURER_ADDRESS: str = (
+        "35, RMV 2nd Stage, Railway Men's Colony, near Lottegollhalli Railway "
+        "Station, Bengaluru, Karnataka 560094"
+    )
+    LM_COUNTRY_OF_ORIGIN: str = "India"
+    LM_COMMODITY_NAME: str = "Women's cotton garment"
+    LM_NET_QUANTITY: str = "1 unit"
+    # Consumer-care contact. Rule 6(1)(d) wants a name or designation plus a
+    # reachable address, and the e-commerce rules want the same person named as
+    # grievance officer, which the legal pages already do.
+    LM_CONSUMER_CARE_NAME: str = "Customer Care"
+    LM_CONSUMER_CARE_EMAIL: str = "zisunstudio@gmail.com"
+    LM_CONSUMER_CARE_PHONE: str = "+91 93636 08792"
+
     # ── Sentry ────────────────────────────────────────────────────────────────
     SENTRY_DSN: str = ""
 

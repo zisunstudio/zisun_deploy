@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { ChevronLeft, Heart, ShoppingBag, Share2 } from "lucide-react";
+import { ChevronLeft, Heart, ShoppingBag, Share2, Ruler } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProduct, formatPrice, productImageUrl } from "@/lib/queries/catalog";
 import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from "@/lib/queries/wishlist";
@@ -16,6 +16,8 @@ import { BROWSE_ONLY } from "@/lib/launchMode";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { ProductAssurances } from "@/components/ProductAssurances";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
+import { SizeGuideModal } from "@/components/SizeGuideModal";
+import { ProductDeclarations } from "@/components/ProductDeclarations";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -30,6 +32,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [imageIdx, setImageIdx] = useState(0);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   // Track product view on mount
   useEffect(() => {
@@ -63,6 +66,28 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       addToWishlist.mutate(selectedVariant.id, {
         onSuccess: () => showToast("Added to wishlist", "success"),
       });
+    }
+  }
+
+  async function handleShare() {
+    const url = window.location.href;
+    const title = product?.name ?? "ZISUN";
+    // navigator.share is the good path on a phone, which is where sharing a
+    // product actually happens. It rejects when the user dismisses the sheet,
+    // and that is not an error worth a toast.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text: `${title} — ZISUN`, url });
+        return;
+      } catch (err) {
+        if ((err as DOMException)?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Link copied", "success");
+    } catch {
+      showToast("Could not copy the link", "error");
     }
   }
 
@@ -123,7 +148,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 </button>
               )}
               <button
-                aria-label="Share"
+                onClick={handleShare}
+                aria-label="Share this product"
                 className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
               >
                 <Share2 className="w-4 h-4 text-foreground" />
@@ -160,7 +186,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           {/* Variant selector */}
           {product.variants.length > 1 && (
             <div className="mb-4">
-              <p className="text-foreground text-sm font-semibold mb-2">Select Size</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-foreground text-sm font-semibold">Select Size</p>
+                <button
+                  onClick={() => setSizeGuideOpen(true)}
+                  className="flex items-center gap-1 text-xs text-primary font-medium underline underline-offset-2"
+                >
+                  <Ruler className="w-3.5 h-3.5" />
+                  Size guide
+                </button>
+              </div>
               <VariantSelector
                 variants={product.variants}
                 selected={selectedVariantId ?? selectedVariant?.id ?? null}
@@ -180,6 +215,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           {/* Description */}
           {product.description && (
             <p className="text-muted text-sm leading-relaxed">{product.description}</p>
+          )}
+
+          {product.legal_metrology && (
+            <ProductDeclarations declarations={product.legal_metrology} price={price} />
           )}
         </div>
       </div>
@@ -201,6 +240,13 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         )}
         <ProductAssurances />
       </div>
+
+      <SizeGuideModal
+        isOpen={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        categoryName={product.category?.name}
+        selectedSize={selectedVariant?.size ?? null}
+      />
     </div>
   );
 }
