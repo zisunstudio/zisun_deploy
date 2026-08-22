@@ -27,6 +27,25 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   setAuth: (user, accessToken) => {
     setAccessToken(accessToken);
     set({ user });
+
+    // The moment a guest becomes a customer, their cart has to stop being
+    // local-only: /checkout reads the server cart. Imported dynamically so the
+    // auth store does not take a static dependency on the cart store, which
+    // depends on cartSync, which reads this store.
+    if (typeof window !== "undefined") {
+      void (async () => {
+        try {
+          const [{ useCartStore }, { mergeLocalCart }] = await Promise.all([
+            import("@/store/useCartStore"),
+            import("@/lib/cartSync"),
+          ]);
+          await mergeLocalCart(useCartStore.getState().items);
+        } catch {
+          // A failed merge leaves the local cart intact and the customer can
+          // still see it; checkout re-reads the server cart on mount.
+        }
+      })();
+    }
     if (typeof window !== "undefined") {
       import("@sentry/nextjs").then(({ setUser }) => {
         setUser({ id: user?.id, username: user?.phone });

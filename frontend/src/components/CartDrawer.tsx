@@ -1,12 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { X, Minus, Plus, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
 export default function CartDrawer() {
+  const router = useRouter();
   const { items, isOpen, toggleCart, updateQuantity, removeItem, getCartTotal } = useCartStore();
 
   return (
@@ -118,7 +120,13 @@ export default function CartDrawer() {
                 {BROWSE_ONLY ? (
                   <BrowseOnlyCTA />
                 ) : (
-                  <button className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#4A2810] transition-colors shadow-md">
+                  <button
+                    onClick={() => {
+                      toggleCart();
+                      router.push("/checkout");
+                    }}
+                    className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#4A2810] transition-colors shadow-md"
+                  >
                     Checkout
                     <ArrowRight className="w-4 h-4" />
                   </button>

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
-import { useProduct, formatPrice, productImageUrl, useAddToCart } from "@/lib/queries/catalog";
+import { useProduct, formatPrice, productImageUrl } from "@/lib/queries/catalog";
 import { useToast } from "@/components/ui/ToastProvider";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
@@ -20,7 +20,6 @@ export default function BottomSheet({ isOpen, onClose, productId }: BottomSheetP
   const addItem = useCartStore((state) => state.addItem);
   const toggleCart = useCartStore((state) => state.toggleCart);
   const { showToast } = useToast();
-  const addToCart = useAddToCart();
 
   const { data: product, isLoading } = useProduct(productId ?? "");
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
@@ -39,9 +38,10 @@ export default function BottomSheet({ isOpen, onClose, productId }: BottomSheetP
 
   const handleAddToCart = () => {
     if (product && selectedVariant) {
-      // Backend cart sync (fire-and-forget — don't block UI)
-      addToCart.mutate({ variant_id: selectedVariant.id, quantity: 1 });
-      // Local cart for drawer
+      // No explicit server call here any more. addItem mirrors to the server
+      // itself, and doing both would post the item twice — the server cart
+      // increments, so the customer would reach checkout with two of
+      // everything added from this sheet.
       addItem({
         id: selectedVariant.id,
         name: product.name,
