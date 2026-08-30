@@ -139,9 +139,19 @@ To open commerce, in order — set the Twilio account SID and from-number (OTP
 login needs them), unset `LAUNCH_MODE`, keep `PAYMENTS_COD_ONLY=1` until
 Razorpay KYC clears, then unset that too.
 
-Celery is unverified. `/health` does not probe it in browse mode, and Railway
-reporting SUCCESS proves nothing — confirm a task actually ran before trusting
-the worker.
+**Celery is DOWN and has been since 2026-08-22.** Upstash's free command
+quota is exhausted (`500000/500000`); writes are rejected, so beat cannot
+publish and the worker cannot consume. Proven by probing the broker: `LPUSH`
+to the `celery` queue returns `ERR max requests limit exceeded`, and the
+whole database holds 3 stale `_kombu.binding.*` keys and nothing else.
+
+Consequence while it stays down: no zombie-order cleanup, no inventory-lock
+release, no outbox delivery. Harmless in browse mode — no orders exist — and
+silently destructive the moment commerce opens.
+
+The command-budget fixes above reduce future burn but cannot restore an
+already-spent quota. Redis must be resolved (quota reset, paid tier, or a
+non-metered broker) *before* commerce is enabled.
 
 Check whether Railway's Postgres and Redis plugins still exist; they were
 superseded by Supabase and Upstash and bill until deleted.
