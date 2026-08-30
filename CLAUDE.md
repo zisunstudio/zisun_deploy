@@ -94,6 +94,13 @@ Each of these produced a green build or a healthy-looking deploy:
 - **Supabase auto-enables RLS** on every table Alembic creates, with no
   policies. Harmless while connecting as the owning `postgres` role; a silent
   zero-rows failure the moment `POSTGRES_USER` changes.
+- **Celery will eat a metered Redis quota alive.** Default config burned
+  Upstash's entire 500,000-command free tier in days: beat died with
+  `max requests limit exceeded`, the worker crashed, Railway exhausted its
+  restart retries, and background processing stopped **silently for eight
+  days**. Hence `task_ignore_result`, no task events, no broker heartbeat,
+  `--without-gossip --without-mingle --without-heartbeat`, and a 120s (not
+  30s) outbox sweep. Before shortening any schedule, check the command budget.
 - **Supabase's direct host is IPv6-only.** Use the pooler (IPv4). The app runs
   on the transaction pooler `:6543` with `DB_PGBOUNCER_MODE=1`, which disables
   statement caching — without it asyncpg fails intermittently, under
