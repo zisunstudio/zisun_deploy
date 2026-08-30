@@ -50,7 +50,11 @@ celery_app.conf.beat_schedule = {
     },
     "process-outbox": {
         "task": "app.tasks.commerce.process_outbox",
-        "schedule": 30,
+        # 30s here exhausted Upstash's 500k command quota in days and took the
+        # worker down with it. Outbox events are notifications, not payments —
+        # two minutes of latency on a WhatsApp confirmation is invisible to a
+        # customer; a dead worker is not.
+        "schedule": 120,
     },
     "razorpay-daily-reconciliation": {
         "task": "tasks.razorpay_daily_reconciliation",
@@ -58,3 +62,28 @@ celery_app.conf.beat_schedule = {
     },
 }
 celery_app.conf.timezone = "Asia/Kolkata"
+
+# ── Redis command budget ─────────────────────────────────────────────────────
+# Celery is a continuous poller, and managed Redis is metered per command. On
+# 2026-08-22 the default configuration burned Upstash's entire 500,000-command
+# free quota: beat then failed with `max requests limit exceeded`, the worker
+# crashed, Railway exhausted its restart retries, and background processing
+# stopped silently for eight days. Nothing alerted, because a dead worker
+# produces no errors — only work that never happens.
+celery_app.conf.update(
+    # Nothing in this codebase reads a task result (no AsyncResult anywhere), but
+    # storing one costs a SET plus an EXPIRE for every task, forever.
+    task_ignore_result=True,
+    # Event streams for monitoring tools we do not run.
+    worker_send_task_events=False,
+    task_send_sent_event=False,
+    # AMQP-style heartbeats are meaningless on a Redis broker and just add
+    # traffic; TCP keepalive already covers a dead connection.
+    broker_heartbeat=0,
+    # Block longer on an empty queue: fewer wake-ups, same latency once a
+    # message arrives, since BRPOP returns immediately when one does.
+    broker_transport_options={"socket_timeout": 30},
+    # Remote control (pidbox) is deliberately LEFT ON — `/health` uses
+    # control.inspect() to prove the worker is alive, and that probe is the only
+    # thing standing between a crashed worker and another silent eight days.
+)
