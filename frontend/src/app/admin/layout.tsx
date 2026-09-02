@@ -20,14 +20,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  // The session lives in memory and is restored from the refresh cookie after
+  // mount. Without waiting for that, `isAuthenticated` is false for the first
+  // moment of every page load, and this effect bounced a perfectly valid admin
+  // to /login on any refresh ordirect visit to an /admin URL.
+  const sessionChecked = useAuthStore((s) => s.sessionChecked);
 
   useEffect(() => {
+    if (!sessionChecked) return;
     if (!isAuthenticated) { router.push("/login"); return; }
     if (user?.role !== "admin" && user?.role !== "operations" && user?.role !== "finance") {
       router.push("/");
     }
-  }, [isAuthenticated, user, router]);
+  }, [sessionChecked, isAuthenticated, user, router]);
 
+  if (!sessionChecked) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">Loading…</p>
+      </div>
+    );
+  }
   if (!isAuthenticated) return null;
 
   return (
