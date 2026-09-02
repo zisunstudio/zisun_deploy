@@ -387,3 +387,75 @@ class TestBrowseOnlyRefusesToCreateOrders:
         with pytest.raises(HTTPException) as exc:
             await svc.initiate_checkout(user_id=None, address_id=None)
         assert exc.value.status_code == 503
+
+
+class TestOtpProviderAgnostic:
+    """Login needs an OTP provider — Firebase or Twilio, not Twilio specifically."""
+
+    _NO_TWILIO = {"TWILIO_ACCOUNT_SID": "", "TWILIO_AUTH_TOKEN": "",
+                  "TWILIO_API_KEY_SID": "", "TWILIO_API_KEY_SECRET": "",
+                  "TWILIO_FROM_NUMBER": ""}
+
+    def test_firebase_alone_satisfies_boot(self, monkeypatch):
+        s = _settings(monkeypatch, LAUNCH_MODE="", PAYMENTS_COD_ONLY="1",
+                      FIREBASE_PROJECT_ID="zisun-prod", **self._NO_TWILIO)
+        assert s.has_otp_provider is True
+        assert s.has_twilio_sms is False
+
+    def test_twilio_alone_still_satisfies_boot(self, monkeypatch):
+        s = _settings(monkeypatch, LAUNCH_MODE="", PAYMENTS_COD_ONLY="1",
+                      FIREBASE_PROJECT_ID="")
+        assert s.has_otp_provider is True
+
+    def test_no_provider_refuses_to_boot_outside_browse_mode(self, monkeypatch):
+        with pytest.raises(Exception, match="FIREBASE_PROJECT_ID"):
+            _settings(monkeypatch, LAUNCH_MODE="", PAYMENTS_COD_ONLY="1",
+                      FIREBASE_PROJECT_ID="", **self._NO_TWILIO)
+
+    def test_browse_mode_needs_no_provider(self, monkeypatch):
+        """Browse-only has no login, so a provider would be onboarding for nothing."""
+        s = _settings(monkeypatch, LAUNCH_MODE="browse", FIREBASE_PROJECT_ID="",
+                      **self._NO_TWILIO)
+        assert s.has_otp_provider is False
+
+    def test_partial_twilio_is_not_a_provider(self, monkeypatch):
+        """SID with no token/number sends nothing — it 503s on every login."""
+        s = _settings(monkeypatch, LAUNCH_MODE="browse", FIREBASE_PROJECT_ID="",
+                      TWILIO_ACCOUNT_SID="ACx", TWILIO_AUTH_TOKEN="",
+                      TWILIO_API_KEY_SID="", TWILIO_API_KEY_SECRET="",
+                      TWILIO_FROM_NUMBER="")
+        assert s.has_twilio_sms is False
+        assert s.has_otp_provider is False
+
+
+class TestFirebaseTokenVerification:
+    """The token check is the entire security boundary on the Firebase path."""
+
+    @pytest.mark.asyncio
+    async def test_unconfigured_project_rejects(self, monkeypatch):
+        from app.services import firebase_auth as fa
+        monkeypatch.setattr(fa, "settings", _settings(monkeypatch, FIREBASE_PROJECT_ID=""))
+        with pytest.raises(fa.FirebaseAuthError, match="not configured"):
+            await fa.verify_firebase_id_token("anything")
+
+    @pytest.mark.asyncio
+    async def test_malformed_token_rejects(self, monkeypatch):
+        from app.services import firebase_auth as fa
+        monkeypatch.setattr(fa, "settings", _settings(monkeypatch, FIREBASE_PROJECT_ID="zisun"))
+        with pytest.raises(fa.FirebaseAuthError):
+            await fa.verify_firebase_id_token("not.a.jwt")
+
+    @pytest.mark.asyncio
+    async def test_unknown_kid_rejects_without_trusting_payload(self, monkeypatch):
+        """A token signed by someone else must never reach the phone lookup."""
+        import jwt as _jwt
+        from app.services import firebase_auth as fa
+        monkeypatch.setattr(fa, "settings", _settings(monkeypatch, FIREBASE_PROJECT_ID="zisun"))
+
+        async def _no_certs():
+            return {}
+        monkeypatch.setattr(fa, "_get_certs", _no_certs)
+        forged = _jwt.encode({"phone_number": "+919999999999"}, "attacker-secret",
+                             algorithm="HS256", headers={"kid": "not-a-google-kid"})
+        with pytest.raises(fa.FirebaseAuthError, match="no Google certificate"):
+            await fa.verify_firebase_id_token(forged)

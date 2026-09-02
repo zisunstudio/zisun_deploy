@@ -114,6 +114,25 @@ class AuthService:
 
     # ── Refresh token rotation ────────────────────────────────────────────────
 
+    async def login_with_verified_phone(self, phone: str) -> User:
+        """Return the User for a phone whose ownership is already proven.
+
+        Used by the Firebase path, where Google delivered the SMS and signed a
+        token attesting the number. There is no OTP to check here, so the ONLY
+        thing standing between a caller and an arbitrary account is the token
+        verification in firebase_auth.verify_firebase_id_token — never call
+        this with a phone number taken from a request body.
+        """
+        result = await self.db.execute(select(User).where(User.phone == phone))
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(phone=phone, role=UserRole.user)
+            self.db.add(user)
+            await self.db.commit()
+            await self.db.refresh(user)
+            logger.info("New user registered", extra={"phone": mask_phone(phone)})
+        return user
+
     async def create_and_store_refresh_token(self, user_id: str) -> str:
         """Issue a new refresh token, persist its hash, return the raw token."""
         raw_token, jti = create_refresh_token(user_id)

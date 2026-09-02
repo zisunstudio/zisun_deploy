@@ -62,7 +62,15 @@ class Settings(BaseSettings):
     # ── Redis ─────────────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # ── Firebase Phone Auth ───────────────────────────────────────────────────
+    # Preferred OTP provider: Firebase sends the SMS and the browser returns a
+    # signed ID token we verify. The project id is public, and no service
+    # account is needed — see app/services/firebase_auth.py.
+    FIREBASE_PROJECT_ID: str = ""
+
     # ── Twilio ────────────────────────────────────────────────────────────────
+    # Optional fallback. A Twilio trial can only message numbers verified in
+    # its console, so it cannot serve real customers.
     # Authenticate with EITHER an API key (SK... + secret, preferred: scoped and
     # revocable without rotating everything) OR the account's auth token.
     # TWILIO_ACCOUNT_SID (AC...) is required either way — an API key identifies
@@ -163,21 +171,14 @@ class Settings(BaseSettings):
                 "CLOUDFLARE_CDN_BASE_URL": self.CLOUDFLARE_CDN_BASE_URL,
             }
             missing = [k for k, v in required.items() if not v]
-            # Twilio only sends the login OTP. Browse-only has no login, so
-            # demanding the credentials would deadlock the launch on a second
-            # vendor's onboarding for a feature nobody can reach.
-            if not self.is_browse_only:
-                missing += [
-                    k for k, v in {
-                        "TWILIO_ACCOUNT_SID": self.TWILIO_ACCOUNT_SID,
-                        "TWILIO_FROM_NUMBER": self.TWILIO_FROM_NUMBER,
-                    }.items() if not v
-                ]
-                # Either auth style is acceptable, so neither can be checked flatly.
-                if not self.has_twilio_auth:
-                    missing.append(
-                        "TWILIO_AUTH_TOKEN (or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)"
-                    )
+            # Login needs SOME OTP provider, not a specific vendor. Browse-only
+            # has no login at all, so demanding one would deadlock the launch on
+            # a second vendor's onboarding for a feature nobody can reach.
+            if not self.is_browse_only and not self.has_otp_provider:
+                missing.append(
+                    "FIREBASE_PROJECT_ID (or the full TWILIO_* set) — login "
+                    "cannot work without one"
+                )
             # Razorpay is required only when online payment can actually be
             # selected. Under PAYMENTS_COD_ONLY no checkout path reaches the
             # gateway, so demanding live keys would block launch on KYC alone.
@@ -222,6 +223,19 @@ class Settings(BaseSettings):
     @property
     def checkout_enabled(self) -> bool:
         return not self.is_browse_only
+
+    @property
+    def has_otp_provider(self) -> bool:
+        """True when a login OTP can actually be delivered by some provider."""
+        return bool(self.FIREBASE_PROJECT_ID) or self.has_twilio_sms
+
+    @property
+    def has_twilio_sms(self) -> bool:
+        """Twilio configured completely enough to send. Partial config is not
+        a fallback — it is a 503 on every login attempt."""
+        return bool(
+            self.TWILIO_ACCOUNT_SID and self.TWILIO_FROM_NUMBER and self.has_twilio_auth
+        )
 
     @property
     def has_twilio_auth(self) -> bool:

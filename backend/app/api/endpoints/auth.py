@@ -1,4 +1,7 @@
+import logging
+
 from fastapi import APIRouter, Depends, Response, Cookie, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
@@ -8,6 +11,7 @@ from app.core.database import get_async_db
 from app.core.redis import get_redis
 from app.core.security import create_access_token
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _REFRESH_COOKIE = dict(
@@ -40,6 +44,46 @@ async def verify_otp(
     svc: AuthService = Depends(_svc),
 ):
     user = await svc.verify_otp(body.phone, body.otp)
+    access_token = create_access_token(str(user.id), user.role.value)
+    refresh_token = await svc.create_and_store_refresh_token(str(user.id))
+    response.set_cookie(value=refresh_token, **_REFRESH_COOKIE)
+    return TokenResponse(access_token=access_token, user=user)
+
+
+class FirebaseLoginRequest(BaseModel):
+    id_token: str
+
+
+@router.post("/firebase", response_model=TokenResponse)
+async def firebase_login(
+    body: FirebaseLoginRequest,
+    response: Response,
+    svc: AuthService = Depends(_svc),
+):
+    """Exchange a Firebase Phone Auth ID token for a ZISUN session.
+
+    Firebase delivered the SMS and signed the result, so there is no OTP for us
+    to check — which means the token verification below is the entire security
+    boundary. It must run before any user lookup, and the phone must come from
+    the verified claims, never from the request body.
+    """
+    from app.services.firebase_auth import (  # noqa: PLC0415 — optional provider
+        FirebaseAuthError,
+        verify_firebase_id_token,
+    )
+
+    try:
+        phone = await verify_firebase_id_token(body.id_token)
+    except FirebaseAuthError as exc:
+        # Logged in full, returned as a generic message: the detail tells an
+        # attacker which check they failed.
+        logger.warning("Firebase token rejected: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not verify phone number. Please sign in again.",
+        ) from exc
+
+    user = await svc.login_with_verified_phone(phone)
     access_token = create_access_token(str(user.id), user.role.value)
     refresh_token = await svc.create_and_store_refresh_token(str(user.id))
     response.set_cookie(value=refresh_token, **_REFRESH_COOKIE)
