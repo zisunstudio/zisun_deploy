@@ -11,6 +11,17 @@ const AUTH_ONLY = ["/login"];
 const BROWSE_ONLY =
   (process.env.NEXT_PUBLIC_LAUNCH_MODE ?? "").trim().toLowerCase() === "browse";
 
+// Whether sign-in can actually complete. Browse mode used to bounce /login
+// because the OTP had no provider and the page was a dead end; with Firebase
+// configured it works, and it is the only route to /admin. Mirrors
+// FIREBASE_ENABLED in lib/firebase.ts — middleware runs on the edge and
+// cannot import it.
+const AUTH_AVAILABLE = Boolean(
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+);
+
 // In browse mode /checkout is allowed through so it can explain itself. Its
 // page renders a "checkout isn't open yet" message; bouncing to /login instead
 // would strand the visitor on a form that cannot possibly succeed.
@@ -27,7 +38,7 @@ export function middleware(req: NextRequest) {
     // not configured, so /login is a dead end rather than a way in. Anything
     // that would lead there goes back to the catalogue instead — the only part
     // of the site that actually works.
-    if (isAuthOnly || (isProtected && !BROWSE_ALLOWED.some((p) => pathname.startsWith(p)))) {
+    if ((isAuthOnly && !AUTH_AVAILABLE) || (isProtected && !BROWSE_ALLOWED.some((p) => pathname.startsWith(p)))) {
       const url = req.nextUrl.clone();
       url.pathname = "/";
       url.search = "";
