@@ -66,7 +66,7 @@ export default function AdminContentPage() {
               </div>
               <div className="p-3">
                 {card.caption && <p className="text-sm text-gray-700 mb-2 line-clamp-2">{card.caption}</p>}
-                <p className="text-xs text-gray-400 mb-3">{card.products.length} products linked · {card.tags.length} tags</p>
+                <p className="text-xs text-gray-400 mb-3">{card.products.length} {card.products.length === 1 ? "product" : "products"} linked · {card.tags.length} {card.tags.length === 1 ? "tag" : "tags"}</p>
                 <div className="flex gap-2">
                   {card.status === "DRAFT" ? (
                     <button onClick={() => publishCard.mutate(card.id)} className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold">
