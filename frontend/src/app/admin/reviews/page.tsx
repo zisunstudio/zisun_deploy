@@ -101,7 +101,7 @@ export default function AdminReviewsPage() {
                       </span>
                     )}
                     <span className="text-xs text-gray-400">
-                      {new Date(r.created_at).toLocaleDateString()}
+                      {new Date(r.created_at).toLocaleDateString("en-IN")}
                     </span>
                   </div>
                   {r.title && <p className="font-semibold text-gray-900">{r.title}</p>}

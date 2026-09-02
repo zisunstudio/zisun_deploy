@@ -278,7 +278,7 @@ export default function AdminCouponsPage() {
                   <td className="px-4 py-3 text-gray-600">{c.usage_limit ?? "∞"}</td>
                   <td className="px-4 py-3 text-gray-600">{c.per_user_limit}</td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                    {c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "—"}
+                    {c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-IN") : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-semibold px-2 py-1 rounded ${c.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
