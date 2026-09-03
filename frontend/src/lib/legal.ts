@@ -57,9 +57,23 @@ export const COMPANY: CompanyDetails = {
 /** Last reviewed date shown on each policy. Update when you change a policy. */
 export const POLICY_LAST_UPDATED = "22 August 2026";
 
-/** Windows referenced across the policies — keep these consistent with ops reality. */
+/**
+ * Windows referenced across the policies — keep these consistent with ops reality.
+ *
+ * ZISUN does not run a returns programme. There is an exchange, it is short, and
+ * it covers one thing: a size that does not fit. That is a deliberate commercial
+ * decision for a business with no warehouse and a 26% COD return rate, and it is
+ * stated in the same words everywhere it appears — on the product page, on the
+ * home page and in the policy — because a three-day window that a customer only
+ * discovers after delivery is the kind of surprise the dark-pattern rules exist
+ * to stop.
+ *
+ * `refundProcessingDays` survives because refunds still happen: a cancellation
+ * before dispatch, and the statutory case in section 5 of the exchange policy.
+ */
 export const POLICY_TERMS = {
-  returnWindowDays: 7,
+  /** Days from delivery to raise a size exchange. Not a return window. */
+  exchangeWindowDays: 3,
   refundProcessingDays: "5–7 business days",
   dispatchTimeframe: "2–3 business days",
   deliveryTimeframe: "4–8 business days",

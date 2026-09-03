@@ -72,7 +72,7 @@ export default function ShippingPage() {
           If a parcel returns to us undelivered, we will contact you to arrange
           re-dispatch (shipping may be chargeable) or a refund per our{" "}
           <Link href="/refund" className="text-primary underline">
-            Refund &amp; Cancellation Policy
+            Exchange &amp; Cancellation Policy
           </Link>
           .
         </p>

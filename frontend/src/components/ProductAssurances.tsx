@@ -33,8 +33,11 @@ type Assurance = {
 
 const ITEMS: Assurance[] = [
   {
+    // The honest version of this line is worse for conversion than "7-day
+    // returns" was, and it has to be here anyway: a customer who finds out
+    // after delivery that there is no return is a customer who charges back.
     Icon: RefreshCcw,
-    text: `${POLICY_TERMS.returnWindowDays}-day returns from delivery`,
+    text: `${POLICY_TERMS.exchangeWindowDays}-day size exchange · no returns`,
     href: "/refund",
   },
   {

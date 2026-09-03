@@ -32,8 +32,9 @@ export default function TermsPage() {
           irregularities. These are characteristics of the material, not defects.
         </p>
         <p>
-          Please check the size guide before ordering. Fit issues are the most common
-          reason for returns.
+          Please check the size guide before ordering. We do not accept returns, and a
+          size exchange is the only remedy for fit — so the measurements are worth two
+          minutes before you buy.
         </p>
       </Section>
 
@@ -59,16 +60,17 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section heading="5. Shipping, returns and refunds">
+      <Section heading="5. Shipping, exchanges and refunds">
         <p>
           Delivery timelines are set out in our{" "}
           <Link href="/shipping" className="text-primary underline">
             Shipping Policy
           </Link>
-          . Returns and refunds — including the {POLICY_TERMS.returnWindowDays}-day
-          window — are set out in our{" "}
+          . We do not offer returns. Size exchanges — including the{" "}
+          {POLICY_TERMS.exchangeWindowDays}-day window and the video-proof requirement —
+          and the limited cases in which a refund arises are set out in our{" "}
           <Link href="/refund" className="text-primary underline">
-            Refund &amp; Cancellation Policy
+            Exchange &amp; Cancellation Policy
           </Link>
           . Both form part of these terms.
         </p>

@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { AlertCircle, X } from "lucide-react";
+import Link from "next/link";
+import { POLICY_TERMS } from "@/lib/legal";
 import { chartForCategory, HOW_TO_MEASURE } from "@/lib/sizeGuide";
 
 interface SizeGuideModalProps {
@@ -160,6 +162,44 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              {/* The size guide is no longer just helpful — with no returns and a
+                  size-only exchange, it is the single thing standing between a
+                  customer and a garment they cannot send back. Saying so here,
+                  at the moment they are choosing a size, is worth more than the
+                  same sentence on a policy page they will read afterwards. */}
+              <div className="rounded-xl bg-primary/5 border border-primary/15 p-3.5">
+                <div className="flex gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold text-foreground">
+                      Please measure before you order
+                    </p>
+                    <p className="text-xs text-muted leading-relaxed">
+                      We do not accept returns. If the size does not fit we will exchange
+                      it within{" "}
+                      <strong className="font-semibold text-foreground">
+                        {POLICY_TERMS.exchangeWindowDays} days of delivery
+                      </strong>
+                      , and size is the only reason we can accept.
+                    </p>
+                    <p className="text-xs text-muted leading-relaxed">
+                      An exchange needs an{" "}
+                      <strong className="font-semibold text-foreground">
+                        unedited, single-shot video
+                      </strong>{" "}
+                      of the sealed parcel being opened — so please start recording
+                      before you open it. We arrange and pay for the pickup.
+                    </p>
+                    <Link
+                      href="/refund"
+                      className="inline-block text-xs text-primary font-medium underline underline-offset-2"
+                    >
+                      Read the exchange policy
+                    </Link>
+                  </div>
+                </div>
               </div>
 
               {/* Model height and the size she is wearing belong here, and the

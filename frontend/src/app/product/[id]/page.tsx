@@ -217,6 +217,15 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             <p className="text-muted text-sm leading-relaxed">{product.description}</p>
           )}
 
+          {/* Colour variance has to be disclosed before the sale, not argued
+              after it: it is the first thing the exchange policy rules out as a
+              reason, so the buyer has to have seen it while deciding. */}
+          <p className="text-muted text-xs leading-relaxed mt-3">
+            Colour will vary slightly from the photographs — lighting, your screen and
+            the dye lot all shift it. Small irregularities in handwoven cotton are part
+            of the cloth. Neither is a defect, and neither is grounds for an exchange.
+          </p>
+
           {product.legal_metrology && (
             <ProductDeclarations declarations={product.legal_metrology} price={price} />
           )}

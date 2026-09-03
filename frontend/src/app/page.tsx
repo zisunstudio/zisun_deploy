@@ -27,7 +27,9 @@ import { BROWSE_ONLY } from "@/lib/launchMode";
 // What remains is true today and consistent with the policy pages.
 const TRUST_BADGES = [
   { Icon: Truck, title: "Ships across India", subtitle: "Shiprocket partners" },
-  { Icon: RefreshCcw, title: "7-day returns", subtitle: "From delivery" },
+  // Not "returns". We do not have a returns programme, and a badge on the home
+  // page is exactly where an overstated promise does the most damage.
+  { Icon: RefreshCcw, title: "3-day size exchange", subtitle: "Size issues only" },
   { Icon: Leaf, title: "Handloom cotton", subtitle: "Mangalgiri, Ilkal, Kasavu" },
   { Icon: Sun, title: "Built for the heat", subtitle: "Breathable weaves" },
 ];
