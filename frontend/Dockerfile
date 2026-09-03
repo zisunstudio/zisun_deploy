@@ -49,6 +49,24 @@ ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
 ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 
+# Report which NEXT_PUBLIC values this build actually received.
+#
+# These are inlined into the client bundle here and nowhere else, so a
+# missing one yields a build that succeeds and silently lacks a feature.
+# That cost us an afternoon on Firebase: the only symptom was /login
+# redirecting to /, with a green deploy and no error anywhere. Presence
+# only, never values, and never fatal - a build without Firebase is still
+# a legitimate build.
+# Report which NEXT_PUBLIC values this build actually received.
+#
+# These are inlined into the client bundle here and nowhere else, so a
+# missing one yields a build that succeeds and silently lacks a feature.
+# That cost an afternoon on Firebase: the only symptom was /login
+# redirecting to /, with a green deploy and no error anywhere. Presence
+# only, never values, and never fatal - a build without Firebase is a
+# legitimate build.
+RUN echo "NEXT_PUBLIC build args received:"; if [ -n "$NEXT_PUBLIC_API_URL" ]; then echo "  NEXT_PUBLIC_API_URL: set"; else echo "  NEXT_PUBLIC_API_URL: MISSING"; fi; if [ -n "$NEXT_PUBLIC_LAUNCH_MODE" ]; then echo "  NEXT_PUBLIC_LAUNCH_MODE: set"; else echo "  NEXT_PUBLIC_LAUNCH_MODE: MISSING"; fi; if [ -n "$NEXT_PUBLIC_FIREBASE_API_KEY" ]; then echo "  NEXT_PUBLIC_FIREBASE_API_KEY: set"; else echo "  NEXT_PUBLIC_FIREBASE_API_KEY: MISSING"; fi; if [ -n "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" ]; then echo "  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: set"; else echo "  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: MISSING"; fi; if [ -n "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ]; then echo "  NEXT_PUBLIC_FIREBASE_PROJECT_ID: set"; else echo "  NEXT_PUBLIC_FIREBASE_PROJECT_ID: MISSING"; fi; if [ -n "$NEXT_PUBLIC_FIREBASE_APP_ID" ]; then echo "  NEXT_PUBLIC_FIREBASE_APP_ID: set"; else echo "  NEXT_PUBLIC_FIREBASE_APP_ID: MISSING"; fi
+
 # Build Next.js application
 RUN npm run build
 
