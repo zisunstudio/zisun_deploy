@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
 from app.celery_app import celery_app
-from app.core.database import AsyncSessionLocal
+from app.core.database import AsyncSessionLocal, async_engine
 from app.models.catalog import ProductVariant
 from app.models.order import (
     InventoryLock,
@@ -21,12 +21,40 @@ logger = logging.getLogger(__name__)
 
 
 def run_async(coro):
-    """Run an async coroutine in a new event loop (for Celery workers)."""
+    """Run an async coroutine in a new event loop (for Celery workers).
+
+    The dispose() is the whole point of this function, not tidiness.
+
+    `async_engine` is created once at import with a connection pool. Every task
+    here runs on a *fresh* event loop, and asyncpg connections are bound to the
+    loop that opened them. Close the loop while the pool still holds them and
+    they are orphaned: the pool's reference dies with the loop, no close is ever
+    sent, and Postgres keeps the backend open — mid-transaction, because
+    SQLAlchemy has already issued BEGIN. The server sees `idle in transaction`
+    forever.
+
+    Supavisor caps this project at 15 clients, so a worker firing a task every
+    few seconds exhausts the entire project budget in under a minute. Then every
+    task fails with EMAXCONNSESSION and leaks another connection on the way out,
+    which is a feedback loop, and the api service's next `alembic upgrade head`
+    cannot get a connection either — a background job quietly breaking deploys.
+
+    Disposing inside the loop that created the connections closes them properly.
+    It costs one connect per task, which is the right trade for jobs that run
+    every couple of minutes.
+    """
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
     finally:
-        loop.close()
+        # Must run even when the task raised — a failed task is exactly the case
+        # that was leaking, and it must not mask the original exception either.
+        try:
+            loop.run_until_complete(async_engine.dispose())
+        except Exception:  # pragma: no cover - best effort teardown
+            logger.warning("engine dispose failed during task teardown", exc_info=True)
+        finally:
+            loop.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
