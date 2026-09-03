@@ -1,7 +1,7 @@
 {
-  "name": "ZISUN — Fashion Commerce",
+  "name": "ZISUN - Cotton made for your climate",
   "short_name": "ZISUN",
-  "description": "India's shoppable fashion feed",
+  "description": "Handwoven South Indian cotton, cut for the way you actually live.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAF8",
@@ -21,6 +21,9 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["shopping", "lifestyle"],
+  "categories": [
+    "shopping",
+    "lifestyle"
+  ],
   "lang": "en-IN"
 }

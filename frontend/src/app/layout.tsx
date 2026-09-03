@@ -20,6 +20,12 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "ZISUN",
   },
+  // `appleWebApp.capable` emits only <meta name="apple-mobile-web-app-capable">,
+  // which Chrome now warns is deprecated in favour of the standard name. Both
+  // are needed: iOS reads the Apple one, everything else reads this.
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {
