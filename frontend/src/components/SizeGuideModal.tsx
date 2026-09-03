@@ -94,6 +94,46 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
             <div className="px-5 py-4 space-y-5">
               <p className="text-sm text-muted leading-relaxed">{chart.intro}</p>
 
+              {/* Above the chart, not below it. With no returns and a size-only
+                  exchange this is the reason the chart matters, and one line of
+                  it is time-critical: "record before you open the parcel" is
+                  useless advice once the parcel is open. Measured on a 390px
+                  viewport it sat at 949px inside a 743px modal — reachable only
+                  by scrolling past the very table it is asking them to read. */}
+              <div className="rounded-xl bg-primary/5 border border-primary/15 p-3.5">
+                <div className="flex gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold text-foreground">
+                      Please measure before you order
+                    </p>
+                    <p className="text-xs text-muted leading-relaxed">
+                      We do not accept returns. If the size does not fit we will exchange
+                      it within{" "}
+                      <strong className="font-semibold text-foreground">
+                        {POLICY_TERMS.exchangeWindowDays} days of delivery
+                      </strong>
+                      , and size is the only reason we can accept.
+                    </p>
+                    <p className="text-xs text-muted leading-relaxed">
+                      An exchange needs an{" "}
+                      <strong className="font-semibold text-foreground">
+                        unedited, single-shot video
+                      </strong>{" "}
+                      of the sealed parcel being opened — so please start recording
+                      before you open it. We arrange and pay for the pickup.
+                    </p>
+                    <Link
+                      href="/refund"
+                      className="inline-block text-xs text-primary font-medium underline underline-offset-2"
+                    >
+                      Read the exchange policy
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+
               <div className="overflow-x-auto -mx-1 px-1">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -162,44 +202,6 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                     </li>
                   ))}
                 </ul>
-              </div>
-
-              {/* The size guide is no longer just helpful — with no returns and a
-                  size-only exchange, it is the single thing standing between a
-                  customer and a garment they cannot send back. Saying so here,
-                  at the moment they are choosing a size, is worth more than the
-                  same sentence on a policy page they will read afterwards. */}
-              <div className="rounded-xl bg-primary/5 border border-primary/15 p-3.5">
-                <div className="flex gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-semibold text-foreground">
-                      Please measure before you order
-                    </p>
-                    <p className="text-xs text-muted leading-relaxed">
-                      We do not accept returns. If the size does not fit we will exchange
-                      it within{" "}
-                      <strong className="font-semibold text-foreground">
-                        {POLICY_TERMS.exchangeWindowDays} days of delivery
-                      </strong>
-                      , and size is the only reason we can accept.
-                    </p>
-                    <p className="text-xs text-muted leading-relaxed">
-                      An exchange needs an{" "}
-                      <strong className="font-semibold text-foreground">
-                        unedited, single-shot video
-                      </strong>{" "}
-                      of the sealed parcel being opened — so please start recording
-                      before you open it. We arrange and pay for the pickup.
-                    </p>
-                    <Link
-                      href="/refund"
-                      className="inline-block text-xs text-primary font-medium underline underline-offset-2"
-                    >
-                      Read the exchange policy
-                    </Link>
-                  </div>
-                </div>
               </div>
 
               {/* Model height and the size she is wearing belong here, and the
