@@ -8,6 +8,7 @@ import {
   confirmPhoneOtp,
   resetRecaptcha,
   sendPhoneOtp,
+  signInWithEmail,
 } from "@/lib/firebase";
 import type { ConfirmationResult } from "firebase/auth";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -30,6 +31,42 @@ export default function LoginPage() {
   // /login/verify route, which only needs the phone number carried across.
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [code, setCode] = useState("");
+
+  // Staff sign in with email and password. Customers sign in by phone, because
+  // the number is what orders, COD confirmation and delivery all key on - but
+  // phone sign-in bills per SMS and needs a handset, which is a poor fit for
+  // someone opening the admin twenty times a day. Phone stays the default; the
+  // email form is a deliberate detour.
+  const [mode, setMode] = useState<"phone" | "email">("phone");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function handleEmailSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
+    setError("");
+    setLoading(true);
+    try {
+      const idToken = await signInWithEmail(email, password);
+      const res = await api.post("/auth/firebase", { id_token: idToken });
+      setAuth(res.data.user, res.data.access_token);
+      router.push("/");
+    } catch (err: unknown) {
+      // Firebase returns auth/invalid-credential for a wrong password AND for
+      // an address that does not exist, deliberately, so that the form cannot
+      // be used to discover which accounts are real. Say the same here.
+      const code = (err as { code?: string })?.code ?? "";
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      const msg = detail
+        ?? (code.startsWith("auth/")
+            ? "That email or password is not right."
+            : "Could not sign in. Please try again.");
+      setError(msg);
+      showToast(msg, "error");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const isValid = /^[6-9]\d{9}$/.test(phone);
 
@@ -98,9 +135,46 @@ export default function LoginPage() {
       {/* Form */}
       <div className="flex-1 px-6">
         <h2 className="font-serif text-2xl font-bold text-foreground mb-1">Sign in</h2>
-        <p className="text-muted text-sm mb-8">Enter your mobile number to continue</p>
+        <p className="text-muted text-sm mb-8">
+          {mode === "email" ? "Staff sign-in" : "Enter your mobile number to continue"}
+        </p>
 
-        {confirmation ? (
+        {mode === "email" ? (
+          <form onSubmit={handleEmailSignIn} noValidate>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full px-4 py-4 mb-3 text-foreground placeholder-gray-400 text-sm font-medium outline-none bg-white border-2 border-gray-200 rounded-2xl focus:border-primary transition-colors"
+              autoFocus
+              autoComplete="email"
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full px-4 py-4 mb-4 text-foreground placeholder-gray-400 text-sm font-medium outline-none bg-white border-2 border-gray-200 rounded-2xl focus:border-primary transition-colors"
+              autoComplete="current-password"
+            />
+            {error && <p className="text-red-500 text-xs mb-4 px-1">{error}</p>}
+            <button
+              type="submit"
+              disabled={!email.trim() || !password || loading}
+              className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#4A2810] transition-colors shadow-md"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Sign in<ChevronRight className="w-4 h-4" /></>}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("phone"); setError(""); setPassword(""); }}
+              className="w-full text-muted text-xs mt-4 underline"
+            >
+              Sign in with mobile number instead
+            </button>
+          </form>
+        ) : confirmation ? (
           <form onSubmit={handleVerify} noValidate>
             <input
               type="text"
@@ -168,6 +242,16 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+        )}
+
+        {mode === "phone" && !confirmation && (
+          <button
+            type="button"
+            onClick={() => { setMode("email"); setError(""); }}
+            className="w-full text-muted text-xs mt-5 underline"
+          >
+            Staff sign-in
+          </button>
         )}
 
         {/* Firebase attaches its invisible reCAPTCHA here; it must exist in the

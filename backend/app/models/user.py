@@ -15,9 +15,16 @@ class UserRole(str, enum.Enum):
 class User(BaseModel):
     __tablename__ = "users"
 
-    phone: Mapped[str] = mapped_column(String(15), unique=True, index=True, nullable=False)
+    # Nullable since email/password sign-in exists: a staff account created
+    # that way has no phone. Still unique, and still the identifier the rest of
+    # the system keys on - orders, COD confirmation and delivery all need it,
+    # so a customer account without one cannot reach checkout.
+    phone: Mapped[Optional[str]] = mapped_column(String(15), unique=True, index=True)
     name: Mapped[Optional[str]] = mapped_column(String(255))
-    email: Mapped[Optional[str]] = mapped_column(String(255))
+    # Unique too, or the same address could sign in as two different accounts.
+    # Postgres allows many NULLs under a unique index, which is what phone-only
+    # customers need.
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.user, nullable=False)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 

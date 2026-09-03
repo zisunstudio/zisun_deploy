@@ -24,6 +24,7 @@ What is checked, and why each matters:
 """
 import logging
 import time
+from dataclasses import dataclass
 
 import httpx
 import jwt
@@ -43,6 +44,20 @@ _CERT_URL = (
 # Google's availability a hard dependency of ours.
 _certs: dict[str, str] = {}
 _certs_expire_at: float = 0.0
+
+
+@dataclass(frozen=True)
+class FirebaseIdentity:
+    """Who Firebase says this is.
+
+    Exactly one of `phone` or `email` is typically set: phone for SMS
+    sign-in, email for email/password. Both are possible once an account
+    links providers, and the caller resolves a user from whichever it has.
+    """
+
+    uid: str
+    phone: str | None = None
+    email: str | None = None
 
 
 class FirebaseAuthError(Exception):
@@ -73,8 +88,8 @@ async def _get_certs() -> dict[str, str]:
     return _certs
 
 
-async def verify_firebase_id_token(id_token: str) -> str:
-    """Return the verified E.164 phone number, or raise FirebaseAuthError."""
+async def verify_firebase_id_token(id_token: str) -> "FirebaseIdentity":
+    """Return the verified identity from the token, or raise FirebaseAuthError."""
     project_id = settings.FIREBASE_PROJECT_ID
     if not project_id:
         raise FirebaseAuthError("FIREBASE_PROJECT_ID is not configured")
@@ -111,10 +126,22 @@ async def verify_firebase_id_token(id_token: str) -> str:
         raise FirebaseAuthError(f"token rejected: {exc}") from exc
 
     phone = (claims.get("phone_number") or "").strip()
-    if not phone:
-        # Valid Firebase token, wrong sign-in method. Accepting it would create
-        # a user with no phone in a system keyed entirely on phone.
-        raise FirebaseAuthError("token has no phone_number claim")
-    if not phone.startswith("+"):
+    email = (claims.get("email") or "").strip().lower()
+
+    if phone and not phone.startswith("+"):
         raise FirebaseAuthError("phone_number is not in E.164 form")
-    return phone
+
+    if not phone and not email:
+        # A valid Firebase token from a sign-in method we do not accept -
+        # anonymous, or a federated provider with no email released. Accepting
+        # it would create an account with nothing to identify the person by.
+        raise FirebaseAuthError("token carries neither phone_number nor email")
+
+    # Only trust an address Firebase says was verified. Email/password sign-up
+    # sets email_verified=false until the user clicks the link, and treating an
+    # unverified address as an identity lets anyone claim someone else's.
+    # Phone sign-in is inherently verified: Google delivered the SMS.
+    if email and not phone and not claims.get("email_verified", False):
+        raise FirebaseAuthError("email is not verified")
+
+    return FirebaseIdentity(uid=str(claims.get("sub") or ""), phone=phone or None, email=email or None)

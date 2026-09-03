@@ -13,6 +13,7 @@ import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
   RecaptchaVerifier,
+  signInWithEmailAndPassword,
   signInWithPhoneNumber,
   type Auth,
   type ConfirmationResult,
@@ -90,4 +91,23 @@ export function resetRecaptcha(): void {
     /* already gone */
   }
   _verifier = null;
+}
+
+/**
+ * Email/password sign-in.
+ *
+ * Exists for staff. Customers sign in by phone, because the number is what
+ * orders, COD confirmation and delivery all key on — but phone sign-in bills
+ * per SMS and needs a handset, which makes it a poor fit for someone opening
+ * the admin twenty times a day.
+ *
+ * No sign-up function here on purpose. Accounts are created in the Firebase
+ * console and granted a role with scripts/grant_admin.py; a self-serve staff
+ * registration form on a public storefront is a way in, not a feature.
+ */
+export async function signInWithEmail(email: string, password: string): Promise<string> {
+  const cred = await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
+  // The backend re-verifies this token's signature before trusting any claim
+  // in it, so nothing here is trusted client-side.
+  return cred.user.getIdToken();
 }

@@ -114,6 +114,54 @@ class AuthService:
 
     # ── Refresh token rotation ────────────────────────────────────────────────
 
+    async def login_with_verified_identity(self, identity) -> User:
+        """Return the User for an identity Firebase has already proven.
+
+        Firebase delivered the SMS or checked the password and signed a token
+        attesting the result, so there is nothing for us to re-check here. That
+        makes the token verification in firebase_auth the ONLY thing standing
+        between a caller and an arbitrary account - never call this with a
+        phone or email taken from a request body.
+
+        Phone wins when both are present. It is the identifier the rest of the
+        system is built on: orders, COD confirmation and delivery all key on it,
+        so matching by email first could split one customer across two rows.
+        """
+        user = None
+        if identity.phone:
+            user = (
+                await self.db.execute(select(User).where(User.phone == identity.phone))
+            ).scalar_one_or_none()
+        if user is None and identity.email:
+            user = (
+                await self.db.execute(select(User).where(User.email == identity.email))
+            ).scalar_one_or_none()
+
+        if user is None:
+            user = User(phone=identity.phone, email=identity.email, role=UserRole.user)
+            self.db.add(user)
+            await self.db.commit()
+            await self.db.refresh(user)
+            logger.info(
+                "New user registered",
+                extra={"phone": mask_phone(identity.phone) if identity.phone else None},
+            )
+            return user
+
+        # Fill a blank the other provider can supply, so an admin who was
+        # created by phone and later signs in by email stays one account.
+        changed = False
+        if identity.phone and not user.phone:
+            user.phone = identity.phone
+            changed = True
+        if identity.email and not user.email:
+            user.email = identity.email
+            changed = True
+        if changed:
+            await self.db.commit()
+            await self.db.refresh(user)
+        return user
+
     async def login_with_verified_phone(self, phone: str) -> User:
         """Return the User for a phone whose ownership is already proven.
 

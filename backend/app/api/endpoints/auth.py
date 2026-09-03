@@ -73,17 +73,17 @@ async def firebase_login(
     )
 
     try:
-        phone = await verify_firebase_id_token(body.id_token)
+        identity = await verify_firebase_id_token(body.id_token)
     except FirebaseAuthError as exc:
         # Logged in full, returned as a generic message: the detail tells an
         # attacker which check they failed.
         logger.warning("Firebase token rejected: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not verify phone number. Please sign in again.",
+            detail="Could not verify your sign-in. Please try again.",
         ) from exc
 
-    user = await svc.login_with_verified_phone(phone)
+    user = await svc.login_with_verified_identity(identity)
     access_token = create_access_token(str(user.id), user.role.value)
     refresh_token = await svc.create_and_store_refresh_token(str(user.id))
     response.set_cookie(value=refresh_token, **_REFRESH_COOKIE)
