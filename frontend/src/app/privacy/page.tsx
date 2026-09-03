@@ -70,7 +70,41 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section heading="4. Who we share it with">
+      <Section heading="4. Cookies and on-device storage">
+        <p>
+          We do not use advertising or tracking cookies, and we do not sell or share
+          anything for advertising.
+        </p>
+        <p>What we do set, and why:</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>
+            <strong>One session cookie.</strong> When you sign in we set a single
+            cookie that keeps you signed in. It is marked{" "}
+            <code>HttpOnly</code>, <code>Secure</code> and <code>SameSite</code>, so
+            it cannot be read by scripts and is only ever sent back to our own login
+            endpoint. It is strictly necessary for the site to work — you cannot
+            place an order without being signed in.
+          </li>
+          <li>
+            <strong>Your basket, stored in your browser.</strong> Items you add are
+            kept in your own browser&rsquo;s local storage so the basket survives a
+            page reload. It stays on your device until you clear it or sign in, at
+            which point it is merged into your account.
+          </li>
+          <li>
+            <strong>Phone sign-in.</strong> Sign-in is delivered by Google Firebase,
+            which runs a reCAPTCHA check to stop automated abuse and may set its own
+            cookies for that purpose. Google acts as our processor for this.
+          </li>
+        </ul>
+        <p>
+          You can clear all of it at any time through your browser&rsquo;s site-data
+          settings. Clearing it signs you out and empties your basket; nothing else
+          is lost.
+        </p>
+      </Section>
+
+      <Section heading="5. Who we share it with">
         <p>We share the minimum necessary with service providers who help us operate:</p>
         <ul className="list-disc list-inside space-y-1">
           <li><strong>Razorpay</strong> — payment processing</li>
@@ -84,7 +118,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section heading="5. How long we keep it">
+      <Section heading="6. How long we keep it">
         <p>
           Order and transaction records are retained as long as required by Indian tax
           and accounting law. Account data is retained while your account is active. You
@@ -92,7 +126,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section heading="6. Your rights">
+      <Section heading="7. Your rights">
         <p>Under the DPDP Act you may:</p>
         <ul className="list-disc list-inside space-y-1">
           <li>access the personal data we hold about you</li>
@@ -109,7 +143,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section heading="7. Security">
+      <Section heading="8. Security">
         <p>
           Traffic is encrypted in transit (HTTPS). Sign-in uses one-time passwords
           rather than stored passwords, and payment credentials never reach our servers.
@@ -118,21 +152,21 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section heading="8. Children">
+      <Section heading="9. Children">
         <p>
           The store is not intended for anyone under 18. We do not knowingly collect
           data from children.
         </p>
       </Section>
 
-      <Section heading="9. Changes">
+      <Section heading="10. Changes">
         <p>
           We may update this policy. Material changes will be notified on this page with
           a revised &ldquo;last updated&rdquo; date.
         </p>
       </Section>
 
-      <Section heading="10. Grievance Officer">
+      <Section heading="11. Grievance Officer">
         <p>
           As required by the DPDP Act and the Information Technology Act, 2000:
         </p>
