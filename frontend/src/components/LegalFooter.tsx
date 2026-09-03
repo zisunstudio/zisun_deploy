@@ -4,7 +4,8 @@ import { COMPANY } from "@/lib/legal";
 const LINKS = [
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
-  { href: "/refund", label: "Refunds" },
+  // The route is still /refund; the policy behind it is an exchange policy.
+  { href: "/refund", label: "Exchanges" },
   { href: "/shipping", label: "Shipping" },
   { href: "/contact", label: "Contact" },
 ];

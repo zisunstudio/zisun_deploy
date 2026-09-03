@@ -17,6 +17,7 @@ import { useCategories, useFeed } from "@/lib/queries/catalog";
 import { FeedCard, FeedItem } from "@/components/FeedCard";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
+import { LegalFooter } from "@/components/LegalFooter";
 
 // Every claim here is read as a promise. Three of the previous four were not
 // ones we could keep:
@@ -286,6 +287,13 @@ export default function HomePage() {
             </div>
           </div>
         )}
+
+        {/* The policy links have to be reachable from the home page itself,
+            not only from /shop. Google's app verification rejected the domain
+            for exactly this: "your home page URL does not include a link to
+            your privacy policy". Razorpay checks the same thing at onboarding,
+            and the e-commerce rules require the policies to be findable. */}
+        <LegalFooter />
 
         <div className="h-20" />
       </div>
