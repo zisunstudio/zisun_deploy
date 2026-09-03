@@ -69,11 +69,21 @@ async def firebase_login(
     """
     from app.services.firebase_auth import (  # noqa: PLC0415 — optional provider
         FirebaseAuthError,
+        FirebaseEmailUnverified,
         verify_firebase_id_token,
     )
 
     try:
         identity = await verify_firebase_id_token(body.id_token)
+    except FirebaseEmailUnverified as exc:
+        # Deliberately specific. The caller already proved they know the
+        # password, so naming the reason leaks nothing, and the generic message
+        # below would send them looking for a fault that is not there.
+        logger.info("Sign-in refused, email not verified")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please confirm your email address first - check your inbox for the link.",
+        ) from exc
     except FirebaseAuthError as exc:
         # Logged in full, returned as a generic message: the detail tells an
         # attacker which check they failed.

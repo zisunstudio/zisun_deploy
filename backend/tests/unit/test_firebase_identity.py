@@ -33,7 +33,7 @@ def _resolve(claims: dict) -> FirebaseIdentity:
     if not phone and not email:
         raise fa.FirebaseAuthError("token carries neither phone_number nor email")
     if email and not phone and not claims.get("email_verified", False):
-        raise fa.FirebaseAuthError("email is not verified")
+        raise fa.FirebaseEmailUnverified("email is not verified")
     return FirebaseIdentity(
         uid=str(claims.get("sub") or ""), phone=phone or None, email=email or None
     )
@@ -63,10 +63,31 @@ class TestAcceptedIdentities:
 
 class TestRejectedTokens:
     def test_unverified_email_alone_is_refused(self):
-        from app.services.firebase_auth import FirebaseAuthError
+        """
+        The attack this stops: Email/Password sign-up is open against the public
+        API key, so without this check anyone could register an address that
+        matches a privileged row and sign in as that person.
+        """
+        from app.services.firebase_auth import FirebaseEmailUnverified
 
-        with pytest.raises(FirebaseAuthError, match="not verified"):
+        with pytest.raises(FirebaseEmailUnverified, match="not verified"):
             _resolve(_Claims(sub="u4", email="attacker@example.com", email_verified=False))
+
+    def test_unverified_email_is_a_distinct_failure(self):
+        """
+        It has to be separable from a forged token so the API can answer it with
+        something the user can act on. Answering both with the same opaque 401
+        sent someone hunting a configuration fault that did not exist.
+        """
+        from app.services.firebase_auth import FirebaseAuthError, FirebaseEmailUnverified
+
+        assert issubclass(FirebaseEmailUnverified, FirebaseAuthError)
+        with pytest.raises(FirebaseEmailUnverified):
+            _resolve(_Claims(sub="u4b", email="a@b.c", email_verified=False))
+        # A token with no identity at all stays the generic rejection.
+        with pytest.raises(FirebaseAuthError) as exc:
+            _resolve(_Claims(sub="u4c"))
+        assert not isinstance(exc.value, FirebaseEmailUnverified)
 
     def test_token_with_no_identity_is_refused(self):
         """An anonymous sign-in produces exactly this: a valid, useless token."""

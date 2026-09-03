@@ -64,6 +64,17 @@ class FirebaseAuthError(Exception):
     """Token rejected. The message is safe to log, never to return verbatim."""
 
 
+class FirebaseEmailUnverified(FirebaseAuthError):
+    """The token is genuine and the password was right - the address is not confirmed.
+
+    Separated from the generic rejection because it is the one failure the
+    caller can actually fix, and because answering it with the same opaque
+    401 as a forged token sends someone hunting a configuration problem that
+    does not exist. Safe to be specific here: whoever sees it has already
+    proved they know the password.
+    """
+
+
 async def _get_certs() -> dict[str, str]:
     global _certs, _certs_expire_at
     if _certs and time.time() < _certs_expire_at:
@@ -142,6 +153,6 @@ async def verify_firebase_id_token(id_token: str) -> "FirebaseIdentity":
     # unverified address as an identity lets anyone claim someone else's.
     # Phone sign-in is inherently verified: Google delivered the SMS.
     if email and not phone and not claims.get("email_verified", False):
-        raise FirebaseAuthError("email is not verified")
+        raise FirebaseEmailUnverified("email is not verified")
 
     return FirebaseIdentity(uid=str(claims.get("sub") or ""), phone=phone or None, email=email or None)

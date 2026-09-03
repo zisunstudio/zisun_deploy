@@ -13,6 +13,7 @@ import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
   RecaptchaVerifier,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   type Auth,
@@ -110,4 +111,20 @@ export async function signInWithEmail(email: string, password: string): Promise<
   // The backend re-verifies this token's signature before trusting any claim
   // in it, so nothing here is trusted client-side.
   return cred.user.getIdToken();
+}
+
+/**
+ * Re-send the confirmation link to the account that just signed in.
+ *
+ * Accounts created in the Firebase console start unverified, and our API
+ * refuses an unverified address as an identity - so without this the very
+ * first staff sign-in is a dead end with no way forward from the page.
+ * Firebase still holds the session client-side after a successful password
+ * check, which is what makes the resend possible even though our own API
+ * turned the sign-in down.
+ */
+export async function resendEmailVerification(): Promise<void> {
+  const user = firebaseAuth().currentUser;
+  if (!user) throw new Error("No signed-in Firebase user to verify");
+  await sendEmailVerification(user);
 }

@@ -7,6 +7,7 @@ import {
   FIREBASE_ENABLED,
   confirmPhoneOtp,
   resetRecaptcha,
+  resendEmailVerification,
   sendPhoneOtp,
   signInWithEmail,
 } from "@/lib/firebase";
@@ -40,11 +41,14 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"phone" | "email">("phone");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Set when the API answers 403 because the address is not confirmed yet.
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !password) return;
     setError("");
+    setNeedsVerification(false);
     setLoading(true);
     try {
       const idToken = await signInWithEmail(email, password);
@@ -56,7 +60,11 @@ export default function LoginPage() {
       // an address that does not exist, deliberately, so that the form cannot
       // be used to discover which accounts are real. Say the same here.
       const code = (err as { code?: string })?.code ?? "";
+      const status = (err as { response?: { status?: number } })?.response?.status;
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      // 403 means the password was right and the address is simply unconfirmed,
+      // so the page can offer the fix instead of just reporting a failure.
+      if (status === 403) setNeedsVerification(true);
       const msg = detail
         ?? (code.startsWith("auth/")
             ? "That email or password is not right."
@@ -159,6 +167,22 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
             {error && <p className="text-red-500 text-xs mb-4 px-1">{error}</p>}
+            {needsVerification && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await resendEmailVerification();
+                    showToast("Confirmation link sent - check your inbox", "success");
+                  } catch {
+                    showToast("Could not send the link. Try signing in again.", "error");
+                  }
+                }}
+                className="w-full mb-4 text-primary text-xs underline"
+              >
+                Re-send the confirmation link
+              </button>
+            )}
             <button
               type="submit"
               disabled={!email.trim() || !password || loading}
