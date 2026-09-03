@@ -107,11 +107,50 @@ class ProductBase(BaseModel):
         return v
 
 
-class ProductCreate(ProductBase):
+class LegalMetrologyFields(BaseModel):
+    """
+    The per-product declaration overrides, as an admin submits them.
+
+    Separate from `LegalMetrology` below, which is the *resolved* block the
+    storefront reads. These are the raw overrides: every one may be omitted, and
+    the brand-level default in settings fills the gap — except `dimensions`,
+    which has no honest brand-wide value and is therefore the one field an
+    apparel listing must actually carry. Shared by create and update so the two
+    cannot drift apart.
+    """
+
+    commodity_name: Optional[str] = Field(None, max_length=255)
+    net_quantity: Optional[str] = Field(None, max_length=120)
+    dimensions: Optional[str] = Field(None, max_length=255)
+    country_of_origin: Optional[str] = Field(None, max_length=120)
+    manufacturer_name: Optional[str] = Field(None, max_length=255)
+    manufacturer_address: Optional[str] = None
+
+    def declaration_values(self) -> dict:
+        """
+        Only the declaration keys actually supplied.
+
+        Restricted to this class's own fields on purpose: subclasses add `name`,
+        `base_price`, `variants` and the rest, and an unfiltered model_dump would
+        hand all of them to `Product(**values)` — duplicating arguments the
+        caller already passes and blowing up with a TypeError.
+
+        exclude_unset keeps an omitted field out entirely, so a PUT that changes
+        only the price cannot blank a product's dimensions by silence.
+        """
+        supplied = self.model_dump(exclude_unset=True, exclude_none=True)
+        own = set(LegalMetrologyFields.model_fields)
+        return {k: v for k, v in supplied.items() if k in own}
+
+
+LEGAL_METROLOGY_COLUMNS = tuple(LegalMetrologyFields.model_fields)
+
+
+class ProductCreate(ProductBase, LegalMetrologyFields):
     variants: List[ProductVariantCreate] = Field(..., min_length=1)
 
 
-class ProductUpdate(BaseModel):
+class ProductUpdate(LegalMetrologyFields):
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     base_price: Optional[int] = Field(None, ge=0)
@@ -185,6 +224,27 @@ class ProductResponse(ProductBase):
 
     class Config:
         from_attributes = True
+
+
+class AdminProductDetail(ProductResponse):
+    """
+    What the admin edit screen needs, which is not what the storefront needs.
+
+    `ProductResponse` hides the raw declaration columns on purpose: the
+    storefront must read the resolved `legal_metrology` block and never the
+    unresolved one. An editor is the opposite case — it has to show what is
+    actually stored, blank included, or it renders empty inputs and writes those
+    blanks back over real values on the next save.
+
+    Re-declaring the fields without `exclude` overrides the parent.
+    """
+
+    commodity_name: Optional[str] = None
+    net_quantity: Optional[str] = None
+    dimensions: Optional[str] = None
+    country_of_origin: Optional[str] = None
+    manufacturer_name: Optional[str] = None
+    manufacturer_address: Optional[str] = None
 
 
 class ProductListResponse(BaseModel):

@@ -23,6 +23,12 @@ export default function EditProductPage() {
     base_price_rupees: "",
     category_id: "",
     is_active: true,
+    dimensions: "",
+    net_quantity: "",
+    commodity_name: "",
+    country_of_origin: "",
+    manufacturer_name: "",
+    manufacturer_address: "",
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -52,6 +58,15 @@ export default function EditProductPage() {
       base_price_rupees: String(product.base_price / 100),
       category_id: product.category?.id ?? "",
       is_active: product.is_active ?? true,
+      // Read back from the admin detail response, which exposes the stored
+      // overrides. Without this the inputs render empty and the next save
+      // writes those blanks over real declarations.
+      dimensions: product.dimensions ?? "",
+      net_quantity: product.net_quantity ?? "",
+      commodity_name: product.commodity_name ?? "",
+      country_of_origin: product.country_of_origin ?? "",
+      manufacturer_name: product.manufacturer_name ?? "",
+      manufacturer_address: product.manufacturer_address ?? "",
     });
     setVariants(
       (product.variants ?? []).map((v: any) => ({
@@ -76,6 +91,12 @@ export default function EditProductPage() {
         base_price: priceToPaise(form.base_price_rupees),
         category_id: form.category_id || null,
         is_active: form.is_active,
+        dimensions: form.dimensions.trim(),
+        net_quantity: form.net_quantity.trim(),
+        commodity_name: form.commodity_name.trim(),
+        country_of_origin: form.country_of_origin.trim(),
+        manufacturer_name: form.manufacturer_name.trim(),
+        manufacturer_address: form.manufacturer_address.trim(),
       });
     },
     onSuccess: () => {

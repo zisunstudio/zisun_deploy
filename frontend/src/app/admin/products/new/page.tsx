@@ -34,6 +34,16 @@ export default function NewProductPage() {
         base_price: priceToPaise(form.base_price_rupees),
         category_id: form.category_id || null,
         is_active: form.is_active,
+        // Sent as an empty string, not null: the API drops nulls (so an
+        // omitted field is never blanked by accident) but stores "", and the
+        // resolver reads "" as "fall back to the brand default". That makes
+        // clearing a wrong value in the UI actually work.
+        dimensions: form.dimensions.trim(),
+        net_quantity: form.net_quantity.trim(),
+        commodity_name: form.commodity_name.trim(),
+        country_of_origin: form.country_of_origin.trim(),
+        manufacturer_name: form.manufacturer_name.trim(),
+        manufacturer_address: form.manufacturer_address.trim(),
         variants: variants.map((v) => ({
           sku: v.sku,
           size: v.size || null,

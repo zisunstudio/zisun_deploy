@@ -17,6 +17,8 @@ from app.core.storage import delete_r2_object, generate_upload_presigned_url
 from app.models.catalog import MediaType, Product, ProductMedia, ProductVariant
 from app.models.order import Order, OrderStatus
 from app.schemas.catalog import (
+    LEGAL_METROLOGY_COLUMNS,
+    AdminProductDetail,
     MediaConfirmRequest,
     MediaReorderRequest,
     ProductCreate,
@@ -92,7 +94,7 @@ async def admin_list_products(
 
 # ── POST / — create product ───────────────────────────────────────────────────
 
-@router.post("/", response_model=ProductResponse, status_code=201)
+@router.post("/", response_model=AdminProductDetail, status_code=201)
 async def admin_create_product(
     data: ProductCreate,
     db: AsyncSession = Depends(get_async_db),
@@ -104,6 +106,11 @@ async def admin_create_product(
         category_id=data.category_id,
         vendor_id=data.vendor_id,
         is_active=True,
+        # Legal Metrology overrides. Set from one shared tuple rather than eight
+        # named arguments, so adding a declaration to the schema cannot leave
+        # this call site silently dropping it — which is how a listing goes live
+        # missing a statutory field.
+        **data.declaration_values(),
     )
     db.add(product)
     await db.flush()
@@ -130,7 +137,7 @@ async def admin_create_product(
 
 # ── PUT /{id} — update product ────────────────────────────────────────────────
 
-@router.put("/{product_id}", response_model=ProductResponse)
+@router.put("/{product_id}", response_model=AdminProductDetail)
 async def admin_update_product(
     product_id: uuid.UUID,
     data: ProductUpdate,
@@ -145,6 +152,11 @@ async def admin_update_product(
         product.base_price = data.base_price
     if data.category_id is not None:
         product.category_id = data.category_id
+    # Only the declarations actually submitted, so editing a price cannot blank
+    # a product's dimensions by omission.
+    for column, value in data.declaration_values().items():
+        if column in LEGAL_METROLOGY_COLUMNS:
+            setattr(product, column, value)
     await db.commit()
     return await _get_product_or_404(product_id, db)
 
@@ -489,13 +501,21 @@ async def admin_bulk_stock_update_csv(
 # ─────────────────────────────────────────────────────────────────────────────
 
 BULK_IMPORT_REQUIRED_COLUMNS = {"name", "base_price_paise", "sku", "stock"}
+# `dimensions` is in the template because it is the one declaration with no
+# brand-level default: leave it blank and an apparel listing goes live without
+# the measurement the Packaged Commodities Rules require. The rest are optional
+# overrides and fall back to the brand-level value in settings when empty.
 BULK_IMPORT_TEMPLATE = (
     "name,description,base_price_paise,category_slug,sku,size,color,stock,"
-    "price_delta_paise,image_url\n"
+    "price_delta_paise,image_url,dimensions,net_quantity,commodity_name,"
+    "country_of_origin\n"
     "Indigo Cotton Kurta,Handwoven South Indian cotton. Breathable everyday wear.,"
-    "149900,kurtas,ZSN-KUR-IND-S,S,Indigo,12,0,\n"
-    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-M,M,Indigo,18,0,\n"
-    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-L,L,Indigo,10,0,\n"
+    "149900,kurtas,ZSN-KUR-IND-S,S,Indigo,12,0,,Bust 86 cm/Length 114 cm,"
+    "1 unit,Women's cotton garment,India\n"
+    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-M,M,Indigo,18,0,,"
+    "Bust 91 cm/Length 116 cm,1 unit,,\n"
+    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-L,L,Indigo,10,0,,"
+    "Bust 97 cm/Length 118 cm,1 unit,,\n"
 )
 
 
@@ -597,6 +617,13 @@ async def admin_bulk_import_products_csv(
             "color": _cell(row, "color") or None,
             "image_url": _cell(row, "image_url") or None,
             "base_price": base_price, "stock": stock, "price_delta": price_delta,
+            # Blank cells are left out entirely so the brand-level default
+            # applies, rather than writing an empty declaration to the row.
+            "declarations": {
+                col: _cell(row, col)
+                for col in LEGAL_METROLOGY_COLUMNS
+                if _cell(row, col)
+            },
         })
 
     if errors:
@@ -637,6 +664,8 @@ async def admin_bulk_import_products_csv(
             base_price=head["base_price"],
             category_id=slug_to_id.get(head["category_slug"]) if head["category_slug"] else None,
             is_active=True,
+            # First row wins, the same rule the other product-level fields follow.
+            **head["declarations"],
         )
         db.add(product)
         await db.flush()  # need product.id
@@ -666,3 +695,18 @@ async def admin_bulk_import_products_csv(
         "products": created_products,
         "errors": [],
     }
+
+
+# ── GET /{id} — single product for the admin editor ──────────────────────────
+#
+# The edit screen has always fetched this and it has never existed: POST /
+# redirects to /admin/products/{id}/edit, which then 404'd on load. Media upload
+# lives only on that screen, so in practice no product could be given an image
+# through the admin at all.
+
+@router.get("/{product_id}", response_model=AdminProductDetail)
+async def admin_get_product(
+    product_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_db),
+):
+    return await _get_product_or_404(product_id, db)

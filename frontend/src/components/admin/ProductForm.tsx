@@ -6,6 +6,19 @@ export interface ProductFormData {
   base_price_rupees: string; // user input in ₹, converted to paise on submit
   category_id: string;
   is_active: boolean;
+
+  /**
+   * Legal Metrology declarations. Optional: the API falls back to the
+   * brand-level default for all of them except `dimensions`, which has no
+   * honest brand-wide value — so an apparel listing that leaves it blank goes
+   * live without the measurement the Packaged Commodities Rules require.
+   */
+  dimensions: string;
+  net_quantity: string;
+  commodity_name: string;
+  country_of_origin: string;
+  manufacturer_name: string;
+  manufacturer_address: string;
 }
 
 interface Category {
@@ -21,7 +34,11 @@ interface Props {
 }
 
 export function emptyProductForm(): ProductFormData {
-  return { name: "", description: "", base_price_rupees: "", category_id: "", is_active: true };
+  return {
+    name: "", description: "", base_price_rupees: "", category_id: "", is_active: true,
+    dimensions: "", net_quantity: "", commodity_name: "", country_of_origin: "",
+    manufacturer_name: "", manufacturer_address: "",
+  };
 }
 
 export function priceToPaise(rupees: string): number {
@@ -99,6 +116,108 @@ export default function ProductForm({ data, onChange, categories }: Props) {
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* Legal Metrology declarations.
+          These are required on the listing before purchase, not optional
+          metadata. Dimensions is marked required in the UI even though the API
+          accepts it empty: it is the only one with no brand-level fallback, so
+          a blank here is a listing published without a statutory declaration.
+          The rest show their fallback as placeholder text, so it is obvious
+          that leaving them empty is safe rather than careless. */}
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-sm font-semibold text-gray-900">Product information</h3>
+        <p className="text-xs text-gray-500 mt-0.5 mb-3">
+          Shown on the product page before purchase, as the Legal Metrology rules
+          require. Blank fields fall back to the brand default — except dimensions.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Dimensions <span className="text-red-500">*</span>
+            </label>
+            <input
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              placeholder="Bust 86-102 cm, Length 114-120 cm (varies by size)"
+              value={data.dimensions}
+              onChange={f("dimensions")}
+            />
+            {!data.dimensions.trim() && (
+              <p className="text-xs text-amber-600 mt-1">
+                Required for apparel. There is no brand default for this one — leave it
+                blank and the product page shows no measurements at all.
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Net quantity</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="1 unit"
+                value={data.net_quantity}
+                onChange={f("net_quantity")}
+              />
+              <p className="text-xs text-gray-400 mt-1">A co-ord set is “1 set of 2 pieces”.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Commodity name</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="Women&rsquo;s cotton garment"
+                value={data.commodity_name}
+                onChange={f("commodity_name")}
+              />
+            </div>
+          </div>
+
+          <details className="text-sm">
+            <summary className="cursor-pointer text-gray-600 hover:text-gray-900">
+              Origin and packer — only for stock we did not pack ourselves
+            </summary>
+            <div className="mt-3 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Country of origin
+                  </label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                    placeholder="India"
+                    value={data.country_of_origin}
+                    onChange={f("country_of_origin")}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Marketed and packed by
+                  </label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                    placeholder="ZISUN"
+                    value={data.manufacturer_name}
+                    onChange={f("manufacturer_name")}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Packer address
+                </label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30 resize-none"
+                  rows={2}
+                  placeholder="Falls back to the registered ZISUN address"
+                  value={data.manufacturer_address}
+                  onChange={f("manufacturer_address")}
+                />
+              </div>
+            </div>
+          </details>
         </div>
       </div>
 
