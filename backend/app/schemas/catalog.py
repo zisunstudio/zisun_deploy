@@ -222,6 +222,34 @@ class LegalMetrology(BaseModel):
         )
 
 
+class FabricSpecs(BaseModel):
+    """What the product page shows under Fabric and care.
+
+    Absent fields stay absent. An empty row on a quality panel is worse than no
+    row: it reads as a specification we declined to give, on the exact question
+    the customer is already suspicious about.
+    """
+
+    fabric_composition: Optional[str] = None
+    fabric_gsm: Optional[int] = None
+    weave: Optional[str] = None
+    has_pockets: Optional[bool] = None
+    colourfastness: Optional[str] = None
+    wash_care: Optional[str] = None
+
+    @property
+    def is_empty(self) -> bool:
+        return not any(
+            v is not None for v in self.model_dump().values()
+        )
+
+    @classmethod
+    def resolve(cls, product) -> "FabricSpecs":
+        return cls(**{
+            name: getattr(product, name, None) for name in FABRIC_SPEC_COLUMNS
+        })
+
+
 class ProductResponse(ProductBase):
     id: uuid.UUID
     is_active: bool = True
@@ -290,34 +318,6 @@ class AdminProductDetail(ProductResponse):
     has_pockets: Optional[bool] = None
     colourfastness: Optional[str] = None
     wash_care: Optional[str] = None
-
-
-class FabricSpecs(BaseModel):
-    """What the product page shows under Fabric and care.
-
-    Absent fields stay absent. An empty row on a quality panel is worse than no
-    row: it reads as a specification we declined to give, on the exact question
-    the customer is already suspicious about.
-    """
-
-    fabric_composition: Optional[str] = None
-    fabric_gsm: Optional[int] = None
-    weave: Optional[str] = None
-    has_pockets: Optional[bool] = None
-    colourfastness: Optional[str] = None
-    wash_care: Optional[str] = None
-
-    @property
-    def is_empty(self) -> bool:
-        return not any(
-            v is not None for v in self.model_dump().values()
-        )
-
-    @classmethod
-    def resolve(cls, product) -> "FabricSpecs":
-        return cls(**{
-            name: getattr(product, name, None) for name in FABRIC_SPEC_COLUMNS
-        })
 
 
 class ProductListResponse(BaseModel):
