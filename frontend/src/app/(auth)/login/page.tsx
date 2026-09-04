@@ -131,9 +131,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
+    <div className="h-full w-full flex flex-col bg-background overflow-y-auto">
+      {/* On a phone the full-bleed column is right. The same markup on a desktop
+          stretched a ten-digit phone field to 1100px and left two thirds of the
+          window empty below it, so from lg up this becomes a centred column of
+          a readable width. Nothing about the mobile rendering changes. */}
+      <div className="w-full lg:max-w-md lg:mx-auto lg:my-auto">
       {/* Header */}
-      <div className="px-6 pt-16 pb-8">
+      <div className="px-6 pt-16 lg:pt-8 pb-8">
         <h1 className="font-serif text-3xl font-bold text-foreground">ZISUN</h1>
         <p className="text-primary text-[10px] font-semibold tracking-[0.22em] uppercase mt-0.5">
           Wear Your Story.
@@ -141,7 +146,7 @@ export default function LoginPage() {
       </div>
 
       {/* Form */}
-      <div className="flex-1 px-6">
+      <div className="px-6 pb-10">
         <h2 className="font-serif text-2xl font-bold text-foreground mb-1">Sign in</h2>
         <p className="text-muted text-sm mb-8">
           {mode === "email" ? "Staff sign-in" : "Enter your mobile number to continue"}
@@ -288,6 +293,7 @@ export default function LoginPage() {
           {" "}and{" "}
           <Link href="/privacy" className="text-primary underline">Privacy Policy</Link>
         </p>
+      </div>
       </div>
     </div>
   );
