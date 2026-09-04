@@ -188,3 +188,58 @@ class TestTheProductJoinActuallyBuilds:
         src = inspect.getsource(mod)
         assert '["product_id"].astext' not in src
         assert '.op("->>")' in src
+
+
+class TestItIsFastEnoughToOpen:
+    """
+    The first build issued eleven sequential queries and took five seconds
+    against Supabase in Sydney. A five-second overview is one nobody opens, so
+    it stops being a dashboard and becomes a page you avoid.
+    """
+
+    def test_the_funnel_is_one_query_not_one_per_step(self):
+        import inspect
+
+        from app.api.admin.endpoints import dashboard as mod
+
+        src = inspect.getsource(mod.admin_dashboard)
+        # The loop that issued a COUNT per funnel step.
+        assert "for key, event_type, label in FUNNEL_STEPS:" not in src
+        assert "group_by(AnalyticsEvent.event_type)" in src
+
+    def test_a_step_nobody_reached_still_reports_zero(self):
+        """
+        A GROUP BY omits absent rows entirely. Dropping a step from the funnel
+        hides exactly the gap the funnel exists to show.
+        """
+        import inspect
+
+        from app.api.admin.endpoints import dashboard as mod
+
+        assert "step_counts.get(event_type, 0)" in inspect.getsource(mod.admin_dashboard)
+
+    def test_the_standalone_counts_share_one_round_trip(self):
+        import inspect
+
+        from app.api.admin.endpoints import dashboard as mod
+
+        assert "scalar_subquery()" in inspect.getsource(mod.admin_dashboard)
+
+    def test_the_result_is_cached_briefly(self):
+        from app.api.admin.endpoints.dashboard import CACHE_SECONDS
+
+        # Long enough to make the page instant, short enough that stock and
+        # orders are never meaningfully stale.
+        assert 30 <= CACHE_SECONDS <= 300
+
+    def test_a_redis_failure_does_not_break_the_page(self):
+        """
+        Redis here is a convenience. The board must still render if the cache
+        is down — it has been down for over a week before now.
+        """
+        import inspect
+
+        src = inspect.getsource(
+            __import__("app.api.admin.endpoints.dashboard", fromlist=["x"]).admin_dashboard
+        )
+        assert src.count("except Exception:") >= 2

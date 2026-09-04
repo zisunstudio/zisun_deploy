@@ -12,6 +12,8 @@ at all", which is a different fact and the one worth showing.
 """
 from datetime import datetime, timedelta, timezone
 
+import json
+
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +21,7 @@ from sqlalchemy.future import select
 
 from app.core.config import settings
 from app.core.database import get_async_db
+from app.core.redis import get_redis
 from app.models.analytics import AnalyticsEvent
 from app.models.catalog import Product, ProductVariant
 from app.models.order import Order, OrderStatus, PaymentMethod
@@ -42,6 +45,14 @@ FUNNEL_STEPS = [
 # left" at five.
 LOW_STOCK_THRESHOLD = 5
 
+# The board is a glance, not a live feed, and every figure on it moves on the
+# scale of hours. Sixty seconds of cache turns a five-second page into an
+# instant one for everybody after the first, at a cost of two Redis commands
+# a minute - which matters, because the Upstash tier is metered and has been
+# exhausted once already.
+CACHE_KEY = "admin:dashboard:v1"
+CACHE_SECONDS = 60
+
 
 def product_id_matches(column):
     """Join `analytics_events.properties->>'product_id'` to a product id.
@@ -62,11 +73,50 @@ def product_id_matches(column):
 async def admin_dashboard(
     days: int = Query(30, ge=1, le=365, description="Window for time-bounded figures"),
     db: AsyncSession = Depends(get_async_db),
+    redis=Depends(get_redis),
 ):
+    cache_key = f"{CACHE_KEY}:{days}"
+    if redis is not None:
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            # A dashboard is not worth failing over a cache miss or a Redis
+            # hiccup; fall through and compute it.
+            pass
+
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
     # ── Commerce ─────────────────────────────────────────────────────────────
-    orders_total = (await db.execute(select(sa.func.count(Order.id)))).scalar() or 0
+    # Four independent counts in one round trip. Postgres evaluates the scalar
+    # subqueries together; issuing them separately cost four crossings to
+    # Sydney for four integers.
+    totals = (
+        await db.execute(
+            select(
+                select(sa.func.count(Order.id)).scalar_subquery().label("orders_total"),
+                select(sa.func.count(User.id))
+                .where(User.role == UserRole.user)
+                .scalar_subquery()
+                .label("customers"),
+                select(sa.func.count(AnalyticsEvent.id))
+                .scalar_subquery()
+                .label("events_total"),
+                select(sa.func.count(sa.distinct(AnalyticsEvent.session_id)))
+                .where(
+                    AnalyticsEvent.session_id.isnot(None),
+                    AnalyticsEvent.created_at >= since,
+                )
+                .scalar_subquery()
+                .label("sessions"),
+            )
+        )
+    ).one()
+    orders_total = int(totals.orders_total or 0)
+    customers = int(totals.customers or 0)
+    events_total = int(totals.events_total or 0)
+    sessions = int(totals.sessions or 0)
 
     revenue_row = (
         await db.execute(
@@ -102,41 +152,35 @@ async def admin_dashboard(
         ).all()
     }
 
-    customers = (
-        await db.execute(select(sa.func.count(User.id)).where(User.role == UserRole.user))
-    ).scalar() or 0
-
     # ── Attention ────────────────────────────────────────────────────────────
-    funnel = []
-    for key, event_type, label in FUNNEL_STEPS:
-        count = (
+    # One grouped query, not one per step. Five round trips to Sydney for five
+    # integers is most of a second on its own.
+    step_counts = {
+        et: int(n or 0)
+        for et, n in (
             await db.execute(
-                select(sa.func.count(AnalyticsEvent.id)).where(
-                    AnalyticsEvent.event_type == event_type,
+                select(AnalyticsEvent.event_type, sa.func.count(AnalyticsEvent.id))
+                .where(
+                    AnalyticsEvent.event_type.in_([e for _, e, _ in FUNNEL_STEPS]),
                     AnalyticsEvent.created_at >= since,
                 )
+                .group_by(AnalyticsEvent.event_type)
             )
-        ).scalar() or 0
-        funnel.append({"key": key, "event": event_type, "label": label, "count": int(count)})
+        ).all()
+    }
+    funnel = [
+        # A step nobody has reached is absent from the grouping, and must still
+        # appear as a zero — a gap in the funnel is the thing worth seeing.
+        {"key": key, "event": event_type, "label": label,
+         "count": step_counts.get(event_type, 0)}
+        for key, event_type, label in FUNNEL_STEPS
+    ]
     # Orders are the last step, and they come from the orders table rather than
     # an event: a purchase that only exists as an analytics event is a purchase
     # we cannot ship.
     funnel.append(
         {"key": "orders", "event": None, "label": "Ordered", "count": orders_window}
     )
-
-    sessions = (
-        await db.execute(
-            select(sa.func.count(sa.distinct(AnalyticsEvent.session_id))).where(
-                AnalyticsEvent.session_id.isnot(None),
-                AnalyticsEvent.created_at >= since,
-            )
-        )
-    ).scalar() or 0
-
-    events_total = (
-        await db.execute(select(sa.func.count(AnalyticsEvent.id)))
-    ).scalar() or 0
 
     # Views per product, including the ones nobody has opened — those are the
     # point. A left join keeps a product with zero views in the result, where an
@@ -202,7 +246,7 @@ async def admin_dashboard(
         for n, s, sku, st in low_rows
     ]
 
-    return {
+    payload = {
         # What the board needs to explain itself. A panel that knows *why* it is
         # empty can say so, instead of showing a zero the reader has to
         # interpret.
@@ -211,15 +255,15 @@ async def admin_dashboard(
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "checkout_enabled": settings.checkout_enabled,
             "launch_mode": settings.LAUNCH_MODE or "live",
-            "events_recorded": int(events_total),
+            "events_recorded": events_total,
         },
         "commerce": {
-            "orders_all_time": int(orders_total),
+            "orders_all_time": orders_total,
             "orders_window": orders_window,
             "revenue_window_paise": revenue_window,
             "by_payment_method": by_method,
             "by_status": by_status,
-            "customers": int(customers),
+            "customers": customers,
             # Stated rather than computed. The inputs -- cost per garment, real
             # shipping cost, gateway fee, RTO reserve -- have never existed in
             # this system, and a margin figure invented from the ones that do
@@ -233,7 +277,7 @@ async def admin_dashboard(
             ],
         },
         "attention": {
-            "sessions": int(sessions),
+            "sessions": sessions,
             "funnel": funnel,
             "products_by_views": products_by_views,
             "never_viewed": [p for p in products_by_views if p["views"] == 0],
@@ -246,3 +290,10 @@ async def admin_dashboard(
             "low_stock_threshold": LOW_STOCK_THRESHOLD,
         },
     }
+
+    if redis is not None:
+        try:
+            await redis.set(cache_key, json.dumps(payload), ex=CACHE_SECONDS)
+        except Exception:
+            pass
+    return payload
