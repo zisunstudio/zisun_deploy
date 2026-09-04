@@ -84,9 +84,12 @@ function Panel({
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {Icon && <Icon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-600 truncate">
+        <div className="flex items-start gap-2 min-w-0">
+          {Icon && <Icon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />}
+          {/* Wraps rather than truncates. Truncating clipped the titles that
+              carry the most meaning — "Contribution margin" became
+              "CONTRIBUTIO…", which names nothing. */}
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-600 leading-snug">
             {title}
           </h2>
         </div>
@@ -161,11 +164,11 @@ export default function AdminDashboard() {
             : browse ? "Opens when checkout does." : "No orders in this window."}
         />
         <Panel
-          title="Orders, all time"
+          title="Orders"
           Icon={ShoppingBag}
           value={commerce.orders_all_time}
           state={commerce.orders_all_time > 0 ? "live" : "none"}
-          note={Object.entries(commerce.by_status)
+          note={"All time. " + Object.entries(commerce.by_status)
             .map(([s, n]) => `${n} ${s.toLowerCase()}`)
             .join(" · ") || "Nothing yet."}
         />
