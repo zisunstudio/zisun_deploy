@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chartForCategory, HOW_TO_MEASURE } from "@/lib/sizeGuide";
+import { chartForCategory, HOW_TO_MEASURE, SIZE_CHART_NOTES } from "@/lib/sizeGuide";
 
 /**
  * The size guide is content, so what is worth testing is not that it renders
@@ -90,5 +90,33 @@ describe("how to measure", () => {
     const labels = HOW_TO_MEASURE.map((m) => m.label);
     expect(labels).toEqual(["Bust", "Waist", "Hip"]);
     for (const m of HOW_TO_MEASURE) expect(m.text.length).toBeGreaterThan(20);
+  });
+});
+
+describe("size chart disclaimer", () => {
+  const joined = SIZE_CHART_NOTES.join(" ").toLowerCase();
+
+  it("states the manual-measurement tolerance", () => {
+    // Size is the only reason an exchange is accepted, so a 1cm difference
+    // between two pieces of the same size has to be disclosed before the sale
+    // rather than argued about after it.
+    expect(joined).toMatch(/vari/);
+    expect(joined).toMatch(/cm|inch/);
+  });
+
+  it("tells a shopper to check the chart before ordering", () => {
+    expect(joined).toContain("before ordering");
+  });
+
+  it("repeats the between-sizes rule", () => {
+    expect(joined).toContain("between two sizes");
+    expect(joined).toContain("larger");
+  });
+
+  it("distinguishes body measurements from the garment", () => {
+    // The chart mixes both. Calling all of it "garment measurements" would
+    // make the bust/waist/hip columns mean something they do not.
+    expect(joined).toContain("body measurement");
+    expect(joined).toContain("finished garment");
   });
 });

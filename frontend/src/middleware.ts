@@ -25,7 +25,11 @@ const AUTH_AVAILABLE = Boolean(
 // In browse mode /checkout is allowed through so it can explain itself. Its
 // page renders a "checkout isn't open yet" message; bouncing to /login instead
 // would strand the visitor on a form that cannot possibly succeed.
-const BROWSE_ALLOWED = ["/checkout"];
+// /checkout is allowed through so it can explain itself. /wishlist is
+// allowed because sign-in works now — saving a piece needs an account but
+// not a checkout, and a shopper browsing before launch has somewhere to
+// put what they want. Both still require the API to agree.
+const BROWSE_ALLOWED = ["/checkout", "/wishlist"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

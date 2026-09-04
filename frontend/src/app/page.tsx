@@ -17,6 +17,7 @@ import { useCategories, useFeed } from "@/lib/queries/catalog";
 import { FeedCard, FeedItem } from "@/components/FeedCard";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
+import { FIREBASE_ENABLED } from "@/lib/firebase";
 import { LegalFooter } from "@/components/LegalFooter";
 
 // Every claim here is read as a promise. Three of the previous four were not
@@ -111,11 +112,16 @@ export default function HomePage() {
   const NAV_ITEMS = [
     { Icon: Home, label: "Home", id: "home", href: "/" },
     { Icon: Grid3X3, label: "Shop", id: "shop", href: "/shop" },
-    // Wishlist, Cart and Profile all need a signed-in user, and browse mode has
-    // no working login. Tabs that can only bounce the visitor back here are
-    // worse than no tabs, so the nav shrinks to what actually works.
-    ...(BROWSE_ONLY ? [] : [
+    // Wishlist needs an account, which now exists — so it comes back as soon
+    // as sign-in is configured, launch mode notwithstanding. Someone browsing
+    // before the store opens can still save what they want.
+    ...(FIREBASE_ENABLED ? [
       { Icon: Heart, label: "Wishlist", id: "wishlist", href: "/wishlist" },
+    ] : []),
+    // Cart and Profile stay out until commerce opens: the cart leads to a
+    // checkout that cannot take an order, and profile is mostly addresses,
+    // which only matter once there is something to deliver.
+    ...(BROWSE_ONLY ? [] : [
       { Icon: ShoppingBag, label: "Cart", id: "cart", href: null },
       { Icon: User, label: "Profile", id: "profile", href: "/profile" },
     ]),

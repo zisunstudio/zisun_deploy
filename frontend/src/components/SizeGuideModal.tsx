@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, X } from "lucide-react";
 import Link from "next/link";
 import { POLICY_TERMS } from "@/lib/legal";
-import { chartForCategory, HOW_TO_MEASURE } from "@/lib/sizeGuide";
+import { chartForCategory, HOW_TO_MEASURE, SIZE_CHART_NOTES } from "@/lib/sizeGuide";
 
 interface SizeGuideModalProps {
   isOpen: boolean;
@@ -170,10 +170,14 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                     })}
                   </tbody>
                 </table>
-                <p className="text-[11px] text-muted mt-2">
-                  Bust, waist and hip are <strong className="font-semibold">body</strong> measurements.
-                  Length is the finished garment.
-                </p>
+                <ul className="mt-3 space-y-1.5">
+                  {SIZE_CHART_NOTES.map((note) => (
+                    <li key={note} className="text-[11px] text-muted leading-relaxed flex gap-1.5">
+                      <span className="text-primary flex-shrink-0">·</span>
+                      <span>{note}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               <div>

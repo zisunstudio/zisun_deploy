@@ -112,3 +112,23 @@ export const HOW_TO_MEASURE = [
   { label: "Waist", text: "Around the narrowest part of your torso, usually just above the navel." },
   { label: "Hip", text: "Around the fullest part, roughly 20 cm below the waist, feet together." },
 ];
+
+/**
+ * The disclaimer, shown under every chart.
+ *
+ * Deliberately says which numbers are body measurements and which are the
+ * garment. The chart mixes both — bust, waist and hip are the body the size is
+ * cut to fit, length is the finished piece — and a blanket "these are garment
+ * measurements" would make the table mean something it does not. See the note
+ * in SizeChart above.
+ *
+ * The tolerance is real and worth stating: pieces are measured by hand, so two
+ * of the same size are not identical to the millimetre. Saying so before the
+ * sale is also what stops a 1cm difference becoming an exchange request, given
+ * that size is the only reason we accept one.
+ */
+export const SIZE_CHART_NOTES = [
+  "Bust, waist and hip are body measurements — match yourself against them. Length is the finished garment, measured flat.",
+  "Every piece is measured by hand, so allow a variation of 1–2.5 cm (about half an inch to an inch). Cut and fall also vary by design.",
+  "Please check the chart before ordering. If you fall between two sizes, take the larger one — cotton has no stretch.",
+];

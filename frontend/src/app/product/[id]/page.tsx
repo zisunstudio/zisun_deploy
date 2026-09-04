@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
+import { FIREBASE_ENABLED } from "@/lib/firebase";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { ProductAssurances } from "@/components/ProductAssurances";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
@@ -136,9 +137,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               <ChevronLeft className="w-4 h-4 text-foreground" />
             </button>
             <div className="flex gap-2">
-              {/* Same reason as the product card: no login in browse mode, so
-                  this could only bounce the visitor back to the catalogue. */}
-              {!BROWSE_ONLY && (
+              {/* Gated on sign-in working, not on browse mode. It used to be
+                  the latter, back when there was no login and the heart could
+                  only bounce a visitor to a dead end. Firebase changed that:
+                  saving a piece needs an account, not an open checkout. */}
+              {FIREBASE_ENABLED && (
                 <button
                   onClick={handleWishlistToggle}
                   aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
