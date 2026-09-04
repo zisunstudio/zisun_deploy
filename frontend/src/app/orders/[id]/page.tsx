@@ -93,7 +93,7 @@ export default function OrderDetailPage({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-6">
+      <div className="px-5 pb-6">
         {/* Status stepper */}
         <div className="py-5">
           {isCancelled ? (

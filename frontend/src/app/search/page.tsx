@@ -63,7 +63,7 @@ function SearchPageInner() {
   const [q, setQ] = useState(searchParams.get("q") ?? "");
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
+    <div className="w-full bg-background">
       {/* Header */}
       <div className="px-5 pt-12 pb-4 flex items-center gap-3">
         <button
@@ -82,7 +82,7 @@ function SearchPageInner() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6">
+      <div className="px-5 pb-6">
         <SearchResults q={q} />
       </div>
     </div>

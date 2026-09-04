@@ -14,7 +14,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
   const { data: category, isLoading } = useCategory(params.slug);
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
+    <div className="w-full bg-background">
       {/* Hero */}
       <div className="relative h-48 flex-shrink-0">
         <Image
@@ -45,7 +45,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
       </div>
 
       {/* Products grid */}
-      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6">
+      <div className="px-5 pt-5 pb-6">
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {Array(6).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}

@@ -127,8 +127,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-6">
+    <div className="w-full bg-background">
+      <div className="pb-6">
         {/* Profile header */}
         <div className="px-5 pt-14 pb-6 flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">

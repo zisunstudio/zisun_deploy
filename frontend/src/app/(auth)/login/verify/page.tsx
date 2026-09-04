@@ -119,7 +119,7 @@ export default function VerifyOTPPage() {
     : "";
 
   return (
-    <div className="h-full w-full flex flex-col bg-background px-6">
+    <div className="w-full bg-background px-6">
       {/* Back button */}
       <div className="pt-14 pb-6">
         <button

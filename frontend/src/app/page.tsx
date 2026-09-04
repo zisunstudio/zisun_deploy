@@ -122,8 +122,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
-      <div className="flex-1 overflow-y-auto no-scrollbar relative">
+    <div className="w-full bg-background">
+      <div className="relative">
 
         {/* Header — absolute over hero */}
         {/* Scrim: the header sits over an arbitrary photograph, so legibility
@@ -300,14 +300,15 @@ export default function HomePage() {
         <LegalFooter />
 
         {/* Clears the fixed tab bar, which only exists below lg. */}
-        <div className="h-20 lg:h-6" />
+        {/* Clears the fixed tab bar, which only exists below lg. */}
+        <div className="h-24 lg:h-8" />
       </div>
 
       {/* Bottom tab bar - phones and tablets only. It is a touch pattern:
           at 1440px it reads as a stray mobile chrome pinned across the
           foot of a wide window. Desktop gets the same destinations in the
           header instead. */}
-      <nav className="lg:hidden h-16 bg-white border-t border-gray-100 flex items-center justify-around px-1 flex-shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 h-16 max-w-md mx-auto bg-white border-t border-gray-100 flex items-center justify-around px-1 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         {NAV_ITEMS.map(({ Icon, label, id, href }) => {
           const isCart = id === "cart";
           const isActive = activeNav === id && !isCart;

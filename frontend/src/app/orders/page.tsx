@@ -33,7 +33,7 @@ export default function OrdersPage() {
         </h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-4">
+      <div className="px-5 py-4">
         {/* Loading skeletons */}
         {isLoading && (
           <div className="space-y-3">

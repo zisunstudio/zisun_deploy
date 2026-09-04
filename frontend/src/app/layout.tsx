@@ -61,7 +61,7 @@ export default function RootLayout({
                 browser chrome that hides on scroll, and scroll restoration on
                 back — but it touches every page, so it is a change of its own
                 rather than a rider on this one. */}
-            <main className="max-w-md lg:max-w-none mx-auto h-screen bg-background relative overflow-hidden sm:border-x sm:border-gray-200 lg:border-x-0">
+            <main className="max-w-md lg:max-w-none mx-auto min-h-screen bg-background relative sm:border-x sm:border-gray-200 lg:border-x-0">
               {children}
             </main>
           </ErrorBoundary>

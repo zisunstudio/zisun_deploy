@@ -11,7 +11,7 @@ export function LegalPage({
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <div className="bg-background">
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-gray-200 px-4 py-3 flex items-center gap-3 lg:px-8">
         <Link href="/" aria-label="Back to home" className="p-1 -ml-1">
           <ChevronLeft className="w-5 h-5 text-gray-700" />

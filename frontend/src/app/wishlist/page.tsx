@@ -41,7 +41,7 @@ export default function WishlistPage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
+    <div className="w-full bg-background">
       <div className="px-5 pt-12 pb-4">
         <h1 className="font-serif text-2xl font-bold text-foreground">Wishlist</h1>
         {!isLoading && (
@@ -49,7 +49,7 @@ export default function WishlistPage() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6">
+      <div className="px-5 pb-6">
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {Array(4).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}

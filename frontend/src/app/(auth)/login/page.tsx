@@ -137,7 +137,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-background overflow-y-auto">
+    <div className="w-full bg-background">
       {/* On a phone the full-bleed column is right. The same markup on a desktop
           stretched a ten-digit phone field to 1100px and left two thirds of the
           window empty below it, so from lg up this becomes a centred column of

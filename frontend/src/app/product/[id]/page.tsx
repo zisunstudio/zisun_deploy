@@ -108,8 +108,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+    <div className="w-full bg-background">
+      <div className="w-full">
         {/* Image carousel */}
         <div className="relative">
           {/* 3:4 is right on a phone. In a 1152px column it is over 1500px
@@ -247,7 +247,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
       {/* CTA — price, size and stock above stay visible either way; only the
           buy action changes while the store is in preview. */}
-      <div className="px-5 pb-8 pt-3 border-t border-gray-100 bg-background flex-shrink-0 lg:max-w-3xl lg:mx-auto lg:w-full">
+      {/* Sticky rather than a flex sibling: the page scrolls with the document
+          now, and the buy action should not scroll away from a shopper reading
+          the declarations. */}
+      <div className="sticky bottom-0 z-30 px-5 pb-6 pt-3 border-t border-gray-100 bg-background lg:max-w-3xl lg:mx-auto lg:w-full">
         {BROWSE_ONLY ? (
           <BrowseOnlyCTA productName={product.name} />
         ) : (

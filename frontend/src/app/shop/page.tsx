@@ -25,7 +25,7 @@ export default function ShopPage() {
   const { data: categories } = useCategories();
 
   return (
-    <div className="h-full w-full flex flex-col bg-background">
+    <div className="w-full bg-background">
       {/* Header */}
       <div className="px-5 pt-12 pb-4 flex items-center gap-3">
         <button onClick={() => router.back()} className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-100 shadow-sm">
@@ -90,7 +90,7 @@ export default function ShopPage() {
       {/* Grid */}
       {/* Own ceiling, now the shell has none: without it a four-up grid on a
           very wide display renders 600px product cards. */}
-      <div className="flex-1 overflow-y-auto px-5 lg:px-8 pb-6 w-full max-w-[1500px] mx-auto">
+      <div className="px-5 lg:px-8 pb-6 w-full max-w-[1500px] mx-auto">
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {Array(8).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}

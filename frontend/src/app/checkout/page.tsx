@@ -313,7 +313,7 @@ export default function CheckoutPage() {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-4">
+      <div className="px-5 pb-4">
         {/* Step 1: Cart Review */}
         {step === "cart" && (
           <div className="pt-4">
