@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { COMPANY } from "@/lib/legal";
+import { BRAND } from "@/lib/brand";
 
 const LINKS = [
   { href: "/privacy", label: "Privacy" },
@@ -24,7 +25,11 @@ export function LegalFooter() {
           </Link>
         ))}
       </nav>
-      <p className="mt-3 text-[11px] text-muted">
+      {/* The maker's line, above the legal one. It is set in the brand serif
+          and in lower case because it is a signature, not a second logo. */}
+      <p className="mt-4 font-serif italic text-sm text-foreground/70">{BRAND.signature}</p>
+
+      <p className="mt-2 text-[11px] text-muted">
         © {new Date().getFullYear()} {COMPANY.legalName}. All rights reserved.
       </p>
     </footer>

@@ -18,6 +18,8 @@ import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { FIREBASE_ENABLED } from "@/lib/firebase";
 import { LegalFooter } from "@/components/LegalFooter";
+import { Wordmark } from "@/components/Wordmark";
+import { FounderNote } from "@/components/FounderNote";
 
 // Every claim here is read as a promise. Three of the previous four were not
 // ones we could keep:
@@ -131,12 +133,9 @@ export default function HomePage() {
         <div className="absolute top-0 inset-x-0 h-32 z-[5] bg-gradient-to-b from-black/45 to-transparent pointer-events-none" />
         <header className="absolute top-0 w-full px-5 pt-5 z-10 flex justify-between items-start">
           <div>
-            <h1 className="font-serif text-2xl font-bold text-white leading-none tracking-wide drop-shadow-[0_1px_6px_rgba(0,0,0,0.55)]">
-              ZISUN
-            </h1>
-            <p className="text-white/90 text-[9px] font-semibold tracking-[0.22em] uppercase mt-0.5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
-              Cotton made for your climate
-            </p>
+            {/* The strapline used to repeat the hero headline word for word.
+                The tagline says something the headline does not. */}
+            <Wordmark tone="light" size="md" animate />
           </div>
 
           {/* Desktop nav. Same destinations and the same click handler as the
@@ -291,6 +290,13 @@ export default function HomePage() {
             }
           </div>
         </div>
+
+        {/* Who is behind this. The survey's two biggest objections were "will
+            the quality be there" and "can I send it back" - both are questions
+            about whether anyone stands behind the cloth, and neither is
+            answered by another product grid. One product travels with the note
+            so the section ends somewhere to buy. */}
+        <FounderNote feature={allFeedItems[0]} />
 
         {/* The policy links have to be reachable from the home page itself,
             not only from /shop. Google's app verification rejected the domain

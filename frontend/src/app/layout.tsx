@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { BRAND_TITLE } from "@/lib/brand";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastProvider";
@@ -11,7 +12,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
 
 export const metadata: Metadata = {
-  title: "ZISUN | Cotton made for your climate",
+  title: BRAND_TITLE,
   description:
     "Handwoven South Indian cotton, cut for the way you actually live. Kurtis and co-ords in breathable cotton, made for Bengaluru, Chennai and Kochi.",
   manifest: "/manifest.json",

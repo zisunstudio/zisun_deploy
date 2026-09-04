@@ -16,6 +16,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ChevronRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { Wordmark } from "@/components/Wordmark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -145,10 +146,9 @@ export default function LoginPage() {
       <div className="w-full lg:max-w-md lg:mx-auto lg:my-auto">
       {/* Header */}
       <div className="px-6 pt-16 lg:pt-8 pb-8">
-        <h1 className="font-serif text-3xl font-bold text-foreground">ZISUN</h1>
-        <p className="text-primary text-[10px] font-semibold tracking-[0.22em] uppercase mt-0.5">
-          Wear Your Story.
-        </p>
+        {/* The one screen a customer stares at while waiting for a code, so it
+            gets the animated lockup. */}
+        <Wordmark size="lg" animate />
       </div>
 
       {/* Form */}
