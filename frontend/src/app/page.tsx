@@ -184,7 +184,7 @@ export default function HomePage() {
         <div ref={heroRef} className="relative h-[72vh] lg:h-[52vh]">
           {allFeedItems[0] ? (
             <div className="absolute inset-0">
-              <FeedCard item={allFeedItems[0]} />
+              <FeedCard item={allFeedItems[0]} className="h-full" />
             </div>
           ) : (
             <>
@@ -265,8 +265,8 @@ export default function HomePage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {allFeedItems.map((feedItem) => (
-                <div key={feedItem.id} className="relative aspect-[3/4] overflow-hidden rounded-xl">
-                  <FeedCard item={feedItem} />
+                <div key={feedItem.id} className="overflow-hidden rounded-xl">
+                  <FeedCard item={feedItem} className="aspect-[3/4]" />
                 </div>
               ))}
             </div>

@@ -25,7 +25,16 @@ export interface FeedItem {
   products?: Array<{ id: string; name: string; base_price: number; media?: Array<{ url: string; cdn_url?: string }> }>;
 }
 
-export function FeedCard({ item }: { item: FeedItem }) {
+/**
+ * `className` replaces the default aspect ratio.
+ *
+ * The card was hard-wired to aspect-[9/16]. In the 72vh hero that computes
+ * taller than the container, so the caption pinned to the bottom fell below the
+ * visible area and disappeared under the trust badges — the hero had a Shop Now
+ * button nobody could reach. In a product grid it forces a portrait-video shape
+ * where a 3:4 card belongs.
+ */
+export function FeedCard({ item, className }: { item: FeedItem; className?: string }) {
   const router = useRouter();
 
   // Primary image, across both feed shapes. The product fallback -- which is
@@ -51,7 +60,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
   }
 
   return (
-    <div className="relative w-full aspect-[9/16] bg-gray-100 flex-shrink-0 overflow-hidden">
+    <div className={`relative w-full bg-gray-100 flex-shrink-0 overflow-hidden ${className ?? "aspect-[9/16]"}`}>
       {item.type === "VIDEO" && item.media_url ? (
         <video
           src={item.media_url}
@@ -77,7 +86,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
       {/* Caption + Shop Now */}
-      <div className="absolute bottom-20 left-0 right-0 px-5">
+      <div className="absolute bottom-5 left-0 right-0 px-5">
         {item.caption && (
           <p className="text-white text-sm font-medium mb-2 line-clamp-2">{item.caption}</p>
         )}
