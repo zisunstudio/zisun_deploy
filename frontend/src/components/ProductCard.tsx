@@ -8,6 +8,7 @@ import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from "@/lib/quer
 import { useAuthStore } from "@/store/useAuthStore";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
+import { useImpression } from "@/lib/useImpression";
 
 interface Props {
   product: Product;
@@ -16,6 +17,9 @@ interface Props {
 
 export function ProductCard({ product, className = "" }: Props) {
   const router = useRouter();
+  // Counts this card as shown once it has been half-visible for a
+  // moment, giving the view count a denominator.
+  const impressionRef = useImpression(product.id, "card");
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   const { data: wishlist } = useWishlist();
   const addToWishlist = useAddToWishlist();
@@ -42,6 +46,7 @@ export function ProductCard({ product, className = "" }: Props) {
 
   return (
     <div
+      ref={impressionRef as React.RefObject<HTMLDivElement>}
       className={`flex flex-col cursor-pointer group ${className}`}
       onClick={() => router.push(`/product/${product.id}`)}
     >

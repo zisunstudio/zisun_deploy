@@ -1,15 +1,30 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useSearch } from "@/lib/queries/catalog";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductCardSkeleton } from "@/components/skeletons/Skeleton";
 import { SearchBar } from "@/components/SearchBar";
+import { trackEvent } from "@/lib/queries/analytics";
 
 function SearchResults({ q }: { q: string }) {
   const { data, isLoading } = useSearch(q);
+
+  // Recorded once the results are actually in, so `results` is the real count
+  // rather than zero-while-loading. A search that finds nothing is the most
+  // useful row in this table: it is a customer naming something to stock, in
+  // their own words, and right now those queries vanish.
+  const lastLogged = useRef<string>("");
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2 || isLoading || !data) return;
+    const key = term.toLowerCase() + ":" + data.total;
+    if (lastLogged.current === key) return;
+    lastLogged.current = key;
+    trackEvent("search_performed", { query: term.toLowerCase(), results: data.total });
+  }, [q, data, isLoading]);
 
   if (q.trim().length < 2) return (
     <div className="flex items-center justify-center h-32">

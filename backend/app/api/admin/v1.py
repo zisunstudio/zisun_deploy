@@ -12,6 +12,7 @@ from app.models.order import Payment, PaymentStatus
 
 admin_router = APIRouter()
 
+from app.api.admin.endpoints import dashboard as admin_dashboard
 from app.api.admin.endpoints import products as admin_products
 from app.api.admin.endpoints import orders as admin_orders
 from app.api.admin.endpoints import content as admin_content
@@ -19,6 +20,13 @@ from app.api.admin.endpoints import categories as admin_categories
 from app.api.admin.endpoints import coupons as admin_coupons
 from app.api.admin.endpoints import reviews as admin_reviews
 
+# Read-only overview. Finance sees it too: the payment-method split is the
+# number that decides whether COD is worth running.
+admin_router.include_router(
+    admin_dashboard.router,
+    tags=["Admin - Dashboard"],
+    dependencies=[Depends(require_role("admin", "operations", "finance"))],
+)
 admin_router.include_router(
     admin_products.router,
     prefix="/products",

@@ -192,7 +192,17 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               <div className="flex items-center justify-between mb-2">
                 <p className="text-foreground text-sm font-semibold">Select Size</p>
                 <button
-                  onClick={() => setSizeGuideOpen(true)}
+                  onClick={() => {
+                    // Which pieces send people to the chart, and which size they
+                    // had selected, is early warning that a cut runs small -
+                    // before it turns into exchange requests.
+                    trackEvent("size_guide_opened", {
+                      product_id: product.id,
+                      category: product.category?.name ?? null,
+                      selected_size: selectedVariant?.size ?? null,
+                    });
+                    setSizeGuideOpen(true);
+                  }}
                   className="flex items-center gap-1 text-xs text-primary font-medium underline underline-offset-2"
                 >
                   <Ruler className="w-3.5 h-3.5" />
