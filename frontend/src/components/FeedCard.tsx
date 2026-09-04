@@ -14,18 +14,30 @@ export interface FeedItem {
   name?: string;
   base_price?: number;
   image?: string;
+  // The feed serves two shapes. A published ContentCard carries `products`;
+  // when there are none it falls back to plain products, which carry their
+  // media directly. Only the first shape was ever declared here, so every
+  // fallback item resolved to the placeholder.
+  // `cdn_url` is nullable to match ProductMedia: the feed hands these
+  // straight through from the catalogue, and a narrower type here makes
+  // Product structurally incompatible with FeedItem.
+  media?: Array<{ url: string; cdn_url?: string | null }>;
   products?: Array<{ id: string; name: string; base_price: number; media?: Array<{ url: string; cdn_url?: string }> }>;
 }
 
 export function FeedCard({ item }: { item: FeedItem }) {
   const router = useRouter();
 
-  // Determine primary image
+  // Primary image, across both feed shapes. The product fallback -- which is
+  // what the feed actually serves today, since no ContentCards are published --
+  // keeps its media on the item itself, and that branch was missing.
   const imageUrl = item.media_url
     ?? item.thumbnail_url
     ?? item.image
     ?? item.products?.[0]?.media?.[0]?.cdn_url
     ?? item.products?.[0]?.media?.[0]?.url
+    ?? item.media?.[0]?.cdn_url
+    ?? item.media?.[0]?.url
     ?? "/placeholder-hero.svg";
 
   // Primary product
