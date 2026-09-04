@@ -88,7 +88,9 @@ export default function ShopPage() {
       )}
 
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto px-5 lg:px-8 pb-6">
+      {/* Own ceiling, now the shell has none: without it a four-up grid on a
+          very wide display renders 600px product cards. */}
+      <div className="flex-1 overflow-y-auto px-5 lg:px-8 pb-6 w-full max-w-[1500px] mx-auto">
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {Array(8).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}

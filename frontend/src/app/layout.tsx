@@ -42,22 +42,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-foreground lg:bg-[#EFE6DA]`}>
+      <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-foreground`}>
         <SessionRestore />
         <OfflineBanner />
         <ReactQueryProvider>
         <ToastProvider>
           <ErrorBoundary>
-            {/* Phone-width column by design. On desktop it sits on a warm canvas with
-                rounded corners so it reads as an intentional mobile-first layout
-                rather than a page that failed to fill the screen. */}
-            {/* Phone-first, but not phone-only. The app-shell model is kept on
-                every size — a fixed viewport with its own scrolling regions —
-                because every page is built on `h-full` children and a fixed
-                bottom nav. What changes on a laptop is the width: the column
-                opens out to a real application canvas instead of a 448px strip
-                marooned in the middle of a 1440px display. */}
-            <main className="max-w-md lg:max-w-6xl mx-auto h-screen bg-background relative overflow-hidden shadow-2xl sm:border-x sm:border-gray-200 lg:h-[94vh] lg:my-[3vh] lg:rounded-2xl lg:border lg:border-[#DCCDBA]">
+            {/* The desktop treatment used to be a phone-shaped card floating on a
+                beige field — rounded corners, a drop shadow, a 3vh margin all
+                round. It reads as a 2016 app mockup rather than a shop, and it
+                spent most of a 1440px display on background. The shop now fills
+                the window and the ground is one colour everywhere.
+
+                The app-shell model stays: a fixed viewport with its own
+                scrolling regions, because every page is built on `h-full`
+                children and a pinned bottom nav below lg. Moving to ordinary
+                document scroll is the right next step — it would give back the
+                browser chrome that hides on scroll, and scroll restoration on
+                back — but it touches every page, so it is a change of its own
+                rather than a rider on this one. */}
+            <main className="max-w-md lg:max-w-none mx-auto h-screen bg-background relative overflow-hidden sm:border-x sm:border-gray-200 lg:border-x-0">
               {children}
             </main>
           </ErrorBoundary>

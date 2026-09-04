@@ -196,7 +196,7 @@ export default function HomePage() {
         </header>
 
         {/* Hero */}
-        <div ref={heroRef} className="relative h-[72vh] lg:h-[60vh]">
+        <div ref={heroRef} className="relative h-[72vh] lg:h-[52vh]">
           {allFeedItems[0] ? (
             <div className="absolute inset-0">
               <FeedCard item={allFeedItems[0]} />
