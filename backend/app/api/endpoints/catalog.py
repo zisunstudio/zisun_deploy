@@ -94,9 +94,21 @@ async def get_feed(
     db: AsyncSession = Depends(get_async_db),
     redis=Depends(get_redis),
 ):
-    """Curated feed of active products. Results cached in Redis for 5 minutes."""
+    """Curated feed of active products. Results cached in Redis for 5 minutes.
+
+    Wrapped in the same envelope the catalogue endpoints use. The service
+    returns a bare list, and the storefront reads `feedData.items` — so the home
+    page silently rendered no products at all: `undefined` is falsy, the feed
+    stayed empty, and the hero fell back to a static photograph. The page had no
+    price on it anywhere, which is not a small styling problem on a shop.
+
+    `total` is the size of this page, not of the feed: the service has no cheap
+    total to offer and the client uses `items.length < limit` to decide whether
+    to ask for more. Named honestly rather than invented.
+    """
     svc = CatalogService(db, redis=redis)
-    return await svc.get_feed(page=page, limit=limit, redis=redis)
+    items = await svc.get_feed(page=page, limit=limit, redis=redis)
+    return {"items": items, "total": len(items), "page": page, "limit": limit}
 
 
 # ── Admin: media upload URL ───────────────────────────────────────────────────

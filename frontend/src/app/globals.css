@@ -2,9 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Ground colour.
+ *
+ * This was #F7F0E8 — a saturated warm cream. On a shop that is a mistake: the
+ * ground tints every photograph on the page and competes with the garment,
+ * and it competes hardest with reds and pinks, which is what 14 of 26
+ * respondents said they actually wear. Earthy came last at 4 of 26, and cream
+ * is the interface saying "earthy" on every screen.
+ *
+ * The replacement is near-neutral with only a trace of warmth, so it reads as
+ * chosen rather than clinical and lets the clothes be the only saturated thing
+ * on the screen. Muted greys lose their brown cast for the same reason — body
+ * text should not be tinted by the brand.
+ *
+ * The brand brown stays as the accent and the buy button. It is the identity;
+ * it just no longer coats the whole page.
+ */
 :root {
-  --background: #F7F0E8;
-  --foreground: #1A0F0A;
+  --background: #F6F5F2;
+  --foreground: #17150F;
 }
 
 body {
