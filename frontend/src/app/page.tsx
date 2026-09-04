@@ -147,6 +147,26 @@ export default function HomePage() {
               Cotton made for your climate
             </p>
           </div>
+
+          {/* Desktop nav. Same destinations and the same click handler as the
+              tab bar, so the cart still opens the drawer rather than routing. */}
+          <nav className="hidden lg:flex items-center gap-9 mt-1">
+            {NAV_ITEMS.map(({ label, id, href }) => (
+              <button
+                key={id}
+                onClick={() => handleNavClick(id, href)}
+                className={`text-sm font-medium text-white/90 hover:text-white transition-colors drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] ${
+                  activeNav === id ? "text-white underline underline-offset-8 decoration-2" : ""
+                }`}
+              >
+                {label}
+                {id === "cart" && cartItemsCount > 0 && (
+                  <span className="ml-1.5 text-[10px] font-bold">({cartItemsCount})</span>
+                )}
+              </button>
+            ))}
+          </nav>
+
           <div className="flex gap-2 mt-0.5">
             <button
               onClick={() => router.push("/search")}
@@ -295,11 +315,15 @@ export default function HomePage() {
             and the e-commerce rules require the policies to be findable. */}
         <LegalFooter />
 
-        <div className="h-20" />
+        {/* Clears the fixed tab bar, which only exists below lg. */}
+        <div className="h-20 lg:h-6" />
       </div>
 
-      {/* Bottom nav */}
-      <nav className="h-16 bg-white border-t border-gray-100 flex items-center justify-around lg:justify-center lg:gap-24 px-1 flex-shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+      {/* Bottom tab bar - phones and tablets only. It is a touch pattern:
+          at 1440px it reads as a stray mobile chrome pinned across the
+          foot of a wide window. Desktop gets the same destinations in the
+          header instead. */}
+      <nav className="lg:hidden h-16 bg-white border-t border-gray-100 flex items-center justify-around px-1 flex-shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         {NAV_ITEMS.map(({ Icon, label, id, href }) => {
           const isCart = id === "cart";
           const isActive = activeNav === id && !isCart;

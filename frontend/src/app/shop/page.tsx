@@ -110,9 +110,13 @@ export default function ShopPage() {
             </div>
           </>
         )}
+
+        {/* Inside the scroll area, not beside it. As a sibling of the
+            scrolling div this pinned to the bottom of the window and the
+            product grid ran underneath it. */}
+        <LegalFooter />
       </div>
 
-      <LegalFooter />
     </div>
   );
 }
