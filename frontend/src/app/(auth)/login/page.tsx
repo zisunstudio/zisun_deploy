@@ -54,7 +54,7 @@ export default function LoginPage() {
       const idToken = await signInWithEmail(email, password);
       const res = await api.post("/auth/firebase", { id_token: idToken });
       setAuth(res.data.user, res.data.access_token);
-      router.push("/");
+      router.push(landingFor(res.data.user));
     } catch (err: unknown) {
       // Firebase returns auth/invalid-credential for a wrong password AND for
       // an address that does not exist, deliberately, so that the form cannot
@@ -77,6 +77,12 @@ export default function LoginPage() {
   }
 
   const isValid = /^[6-9]\d{9}$/.test(phone);
+
+  /** Staff belong in the admin, everyone else on the storefront. */
+  function landingFor(u: { role?: string } | null | undefined): string {
+    const r = u?.role;
+    return r === "admin" || r === "operations" || r === "finance" ? "/admin" : "/";
+  }
 
   async function handleSendOTP(e: React.FormEvent) {
     e.preventDefault();
@@ -118,7 +124,7 @@ export default function LoginPage() {
       const idToken = await confirmPhoneOtp(confirmation, code);
       const res = await api.post("/auth/firebase", { id_token: idToken });
       setAuth(res.data.user, res.data.access_token);
-      router.push("/");
+      router.push(landingFor(res.data.user));
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
