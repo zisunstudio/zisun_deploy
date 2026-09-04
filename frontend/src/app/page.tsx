@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ShoppingBag, Search, User, Truck, RefreshCcw,
   Leaf, Sun, Home, Grid3X3, Heart, ChevronRight,
 } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import BottomSheet from "@/components/BottomSheet";
 import CartDrawer from "@/components/CartDrawer";
 import { CategoryCard } from "@/components/CategoryCard";
@@ -58,15 +57,16 @@ export default function HomePage() {
   const [activeNav, setActiveNav] = useState("home");
   const [activeDot, setActiveDot] = useState(0);
   const [heroSrc, setHeroSrc] = useState(HERO_IMAGE);
-  const [feedPage, setFeedPage] = useState(1);
+  // Page 1 only for now. Eight products fit on one page; when the
+  // catalogue outgrows that this becomes a "load more" rather than the
+  // nested infinite scroller it used to be.
+  const [feedPage] = useState(1);
   const [allFeedItems, setAllFeedItems] = useState<FeedItem[]>([]);
-  const [hasMore, setHasMore] = useState(true);
   const toggleCart = useCartStore((state) => state.toggleCart);
   const cartItemsCount = useCartStore((state) => state.items.length);
   const { data: categories, isLoading: loadingCategories } = useCategories();
   const { data: feedData } = useFeed(feedPage);
   const heroRef = useRef<HTMLDivElement>(null);
-  const feedParentRef = useRef<HTMLDivElement>(null);
 
   // Accumulate feed pages
   useEffect(() => {
@@ -77,7 +77,6 @@ export default function HomePage() {
       return [...prev, ...newItems];
     });
     if (feedData.items.length < (feedData.limit ?? 20)) {
-      setHasMore(false);
     }
   }, [feedData]);
 
@@ -89,22 +88,8 @@ export default function HomePage() {
   }, [allFeedItems]);
 
   // Virtualizer for the feed section
-  const virtualizer = useVirtualizer({
-    count: allFeedItems.length,
-    getScrollElement: () => feedParentRef.current,
-    estimateSize: () => (typeof window !== "undefined" ? window.innerHeight : 700),
-    overscan: 2,
-  });
 
   // Load more when near the end
-  const handleFeedScroll = useCallback(() => {
-    const el = feedParentRef.current;
-    if (!el || !hasMore) return;
-    const nearEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - el.clientHeight * 1.5;
-    if (nearEnd) {
-      setFeedPage((p) => p + 1);
-    }
-  }, [hasMore]);
 
   // The cart tab is the last checkout entry point in the chrome. In preview
   // there is nothing it could lead to, so it is removed rather than disabled —
@@ -259,6 +244,35 @@ export default function HomePage() {
           ))}
         </div>
 
+        {/* Products first. This used to sit below the category rail, which put
+            it 2.7 screens down a desktop page — the shop's landing page reached
+            its first price after two and a half scrolls.
+
+            It also used to be a virtualised list inside a 100vh scrolling box,
+            nested inside the page's own scrolling box. A wheel over the feed
+            scrolled one thing and a wheel beside it scrolled another. Eight
+            products do not need virtualising; they need to be visible. */}
+        {allFeedItems.length > 0 && (
+          <div className="mt-6 px-5 lg:px-8">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-serif text-xl font-bold text-foreground">Latest Drops</h3>
+              <button
+                onClick={() => router.push("/shop")}
+                className="text-primary text-sm font-medium flex items-center gap-0.5 hover:underline"
+              >
+                See all <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {allFeedItems.map((feedItem) => (
+                <div key={feedItem.id} className="relative aspect-[3/4] overflow-hidden rounded-xl">
+                  <FeedCard item={feedItem} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Shop by Category — real data */}
         <div className="mt-6 px-5">
           <div className="flex justify-between items-center mb-3">
@@ -277,42 +291,6 @@ export default function HomePage() {
             }
           </div>
         </div>
-
-        {/* Virtualized Feed */}
-        {allFeedItems.length > 1 && (
-          <div className="mt-6 px-5">
-            <h3 className="font-serif text-xl font-bold text-foreground mb-3">Latest Drops</h3>
-          </div>
-        )}
-        {allFeedItems.length > 1 && (
-          <div
-            ref={feedParentRef}
-            onScroll={handleFeedScroll}
-            style={{ height: "100vh", overflow: "auto" }}
-            className="no-scrollbar"
-          >
-            <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
-              {virtualizer.getVirtualItems().map((virtualItem) => {
-                const feedItem = allFeedItems[virtualItem.index];
-                return (
-                  <div
-                    key={virtualItem.key}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: `${virtualItem.size}px`,
-                      transform: `translateY(${virtualItem.start}px)`,
-                    }}
-                  >
-                    <FeedCard item={feedItem} />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* The policy links have to be reachable from the home page itself,
             not only from /shop. Google's app verification rejected the domain
