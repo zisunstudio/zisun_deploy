@@ -49,6 +49,20 @@ export interface LegalMetrology {
   consumer_care_phone: string;
 }
 
+/**
+ * Fabric and care. Unlike LegalMetrology there are no brand-level fallbacks:
+ * every field is a measurement of one garment, so any of them may be absent and
+ * the panel simply omits that row.
+ */
+export interface FabricSpecs {
+  fabric_composition: string | null;
+  fabric_gsm: number | null;
+  weave: string | null;
+  has_pockets: boolean | null;
+  colourfastness: string | null;
+  wash_care: string | null;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -62,6 +76,7 @@ export interface Product {
   created_at: string;
   updated_at: string;
   legal_metrology: LegalMetrology;
+  fabric_specs: FabricSpecs;
 }
 
 export interface ProductListResponse {

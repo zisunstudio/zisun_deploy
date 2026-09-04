@@ -19,6 +19,17 @@ export interface ProductFormData {
   country_of_origin: string;
   manufacturer_name: string;
   manufacturer_address: string;
+  /**
+   * Fabric and care. All strings in the form, including gsm and pockets:
+   * an empty input has to stay unknown, and a number or boolean field
+   * cannot express that.
+   */
+  fabric_composition: string;
+  fabric_gsm: string;
+  weave: string;
+  has_pockets: string;
+  colourfastness: string;
+  wash_care: string;
 }
 
 interface Category {
@@ -38,6 +49,8 @@ export function emptyProductForm(): ProductFormData {
     name: "", description: "", base_price_rupees: "", category_id: "", is_active: true,
     dimensions: "", net_quantity: "", commodity_name: "", country_of_origin: "",
     manufacturer_name: "", manufacturer_address: "",
+    fabric_composition: "", fabric_gsm: "", weave: "",
+    has_pockets: "", colourfastness: "", wash_care: "",
   };
 }
 
@@ -116,6 +129,95 @@ export default function ProductForm({ data, onChange, categories }: Props) {
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* Fabric and care.
+          Above the statutory block because it is what the product page argues
+          with. Every field here answers something 26 survey respondents named:
+          quality doubt was the top reason they will not buy from a small brand,
+          and colour bleeding, missing pockets, creasing and heat were the
+          specific complaints. Blank stays blank — there is no brand default for
+          a measurement, and inventing one puts an unchecked claim on a live
+          page. */}
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-sm font-semibold text-gray-900">Fabric &amp; care</h3>
+        <p className="text-xs text-gray-500 mt-0.5 mb-3">
+          Shown open on the product page, above the legal declarations. Anything
+          left blank is simply not shown — never guessed.
+        </p>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fabric</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="100% handloom cotton"
+                value={data.fabric_composition}
+                onChange={f("fabric_composition")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Weight (GSM)</label>
+              <input
+                type="number" min="1" max="2000"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="120"
+                value={data.fabric_gsm}
+                onChange={f("fabric_gsm")}
+              />
+              <p className="text-xs text-gray-400 mt-1">Under 130 reads as light and breathable.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Weave</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="Plain handloom"
+                value={data.weave}
+                onChange={f("weave")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pockets</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                value={data.has_pockets}
+                onChange={f("has_pockets")}
+              >
+                <option value="">— not recorded —</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">7 of 26 named this unprompted.</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Colourfastness</label>
+            <input
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              placeholder="Colourfast to 30 washes"
+              value={data.colourfastness}
+              onChange={f("colourfastness")}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Fading was the single most common complaint about ethnic wear people already own.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Wash care</label>
+            <input
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              placeholder="Cold machine wash, dry in shade"
+              value={data.wash_care}
+              onChange={f("wash_care")}
+            />
+          </div>
         </div>
       </div>
 

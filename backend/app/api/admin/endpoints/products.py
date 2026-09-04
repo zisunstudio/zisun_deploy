@@ -17,6 +17,7 @@ from app.core.storage import delete_r2_object, generate_upload_presigned_url
 from app.models.catalog import MediaType, Product, ProductMedia, ProductVariant
 from app.models.order import Order, OrderStatus
 from app.schemas.catalog import (
+    FABRIC_SPEC_COLUMNS,
     LEGAL_METROLOGY_COLUMNS,
     AdminProductDetail,
     MediaConfirmRequest,
@@ -111,6 +112,7 @@ async def admin_create_product(
         # this call site silently dropping it — which is how a listing goes live
         # missing a statutory field.
         **data.declaration_values(),
+        **data.spec_values(),
     )
     db.add(product)
     await db.flush()
@@ -156,6 +158,9 @@ async def admin_update_product(
     # a product's dimensions by omission.
     for column, value in data.declaration_values().items():
         if column in LEGAL_METROLOGY_COLUMNS:
+            setattr(product, column, value)
+    for column, value in data.spec_values().items():
+        if column in FABRIC_SPEC_COLUMNS:
             setattr(product, column, value)
     await db.commit()
     return await _get_product_or_404(product_id, db)
@@ -503,20 +508,48 @@ async def admin_bulk_stock_update_csv(
 BULK_IMPORT_REQUIRED_COLUMNS = {"name", "base_price_paise", "sku", "stock"}
 # `dimensions` is in the template because it is the one declaration with no
 # brand-level default: leave it blank and an apparel listing goes live without
-# the measurement the Packaged Commodities Rules require. The rest are optional
-# overrides and fall back to the brand-level value in settings when empty.
-BULK_IMPORT_TEMPLATE = (
-    "name,description,base_price_paise,category_slug,sku,size,color,stock,"
-    "price_delta_paise,image_url,dimensions,net_quantity,commodity_name,"
-    "country_of_origin\n"
-    "Indigo Cotton Kurta,Handwoven South Indian cotton. Breathable everyday wear.,"
-    "149900,kurtas,ZSN-KUR-IND-S,S,Indigo,12,0,,Bust 86 cm/Length 114 cm,"
-    "1 unit,Women's cotton garment,India\n"
-    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-M,M,Indigo,18,0,,"
-    "Bust 91 cm/Length 116 cm,1 unit,,\n"
-    "Indigo Cotton Kurta,,149900,kurtas,ZSN-KUR-IND-L,L,Indigo,10,0,,"
-    "Bust 97 cm/Length 118 cm,1 unit,,\n"
-)
+# the measurement the Packaged Commodities Rules require. The fabric columns
+# have no defaults at all — they are measured facts about one garment, and an
+# invented value would be a claim nobody checked on a live product page.
+#
+# Built from a header and rows rather than a hand-typed block. Every time this
+# grew a column by hand, one of the sample rows lost a comma and the template
+# taught a shape that does not parse.
+BULK_IMPORT_COLUMNS = [
+    "name", "description", "base_price_paise", "category_slug", "sku", "size",
+    "color", "stock", "price_delta_paise", "image_url",
+    "dimensions", "net_quantity", "commodity_name", "country_of_origin",
+    "fabric_composition", "fabric_gsm", "weave", "has_pockets",
+    "colourfastness", "wash_care",
+]
+
+_TEMPLATE_ROWS = [
+    ["Indigo Cotton Kurta", "Handwoven South Indian cotton. Breathable everyday wear.",
+     "149900", "kurtas", "ZSN-KUR-IND-S", "S", "Indigo", "12", "0", "",
+     "Bust 86 cm/Length 114 cm", "1 unit", "Women's cotton garment", "India",
+     "100% handloom cotton", "120", "Plain handloom", "yes",
+     "Colourfast to 30 washes", "Cold machine wash, dry in shade"],
+    ["Indigo Cotton Kurta", "", "149900", "kurtas", "ZSN-KUR-IND-M", "M", "Indigo",
+     "18", "0", "", "Bust 91 cm/Length 116 cm", "1 unit", "", "", "", "", "", "", "", ""],
+    ["Indigo Cotton Kurta", "", "149900", "kurtas", "ZSN-KUR-IND-L", "L", "Indigo",
+     "10", "0", "", "Bust 97 cm/Length 118 cm", "1 unit", "", "", "", "", "", "", "", ""],
+]
+
+
+def _template_csv() -> str:
+    import csv as _csv
+    import io as _io
+
+    buf = _io.StringIO()
+    # chr(10) rather than an escape: the shell heredocs used to edit this
+    # file collapse backslashes, and a literal newline here is a syntax error.
+    w = _csv.writer(buf, lineterminator=chr(10))
+    w.writerow(BULK_IMPORT_COLUMNS)
+    w.writerows(_TEMPLATE_ROWS)
+    return buf.getvalue()
+
+
+BULK_IMPORT_TEMPLATE = _template_csv()
 
 
 @router.get("/bulk-import-template")
@@ -624,6 +657,20 @@ async def admin_bulk_import_products_csv(
                 for col in LEGAL_METROLOGY_COLUMNS
                 if _cell(row, col)
             },
+            # Fabric and care. gsm is the one number here, and has_pockets is a
+            # yes/no where a blank must stay unknown rather than become "no".
+            "specs": {
+                **{
+                    col: _cell(row, col)
+                    for col in FABRIC_SPEC_COLUMNS
+                    if col not in ("fabric_gsm", "has_pockets") and _cell(row, col)
+                },
+                **({"fabric_gsm": int(_cell(row, "fabric_gsm"))}
+                   if _cell(row, "fabric_gsm").isdigit() else {}),
+                **({"has_pockets": _cell(row, "has_pockets").lower()
+                    in ("yes", "y", "true", "1")}
+                   if _cell(row, "has_pockets") else {}),
+            },
         })
 
     if errors:
@@ -666,6 +713,7 @@ async def admin_bulk_import_products_csv(
             is_active=True,
             # First row wins, the same rule the other product-level fields follow.
             **head["declarations"],
+            **head["specs"],
         )
         db.add(product)
         await db.flush()  # need product.id

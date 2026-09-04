@@ -61,6 +61,27 @@ class Product(BaseModel):
     manufacturer_name: Mapped[Optional[str]] = mapped_column(String(255))
     manufacturer_address: Mapped[Optional[str]] = mapped_column(Text)
 
+    # ── Fabric and care ───────────────────────────────────────────────────────
+    # Every one of these answers something a real customer named. From 26 survey
+    # responses: doubt about quality was the top reason for not buying from a
+    # small brand (12), colour bleeding the top complaint about ethnic wear they
+    # already own (9), missing pockets second (7), and creasing and heat joint
+    # third (5 each).
+    #
+    # All nullable, and unlike the Legal Metrology block there are no
+    # brand-level defaults. These are measured facts about one garment; a
+    # fallback would be a claim nobody checked, printed on a product page.
+    fabric_composition: Mapped[Optional[str]] = mapped_column(String(255))
+    # Grams per square metre. The honest answer to "is it thin?" and, for
+    # cotton, to "will it be hot?".
+    fabric_gsm: Mapped[Optional[int]] = mapped_column(Integer)
+    weave: Mapped[Optional[str]] = mapped_column(String(120))
+    # Tri-state on purpose: true, false, and "nobody has checked yet" are three
+    # different things, and only the first two should be shown.
+    has_pockets: Mapped[Optional[bool]] = mapped_column(Boolean)
+    colourfastness: Mapped[Optional[str]] = mapped_column(String(255))
+    wash_care: Mapped[Optional[str]] = mapped_column(String(255))
+
     variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"
     )

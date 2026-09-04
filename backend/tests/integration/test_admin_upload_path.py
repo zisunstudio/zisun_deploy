@@ -187,3 +187,83 @@ class TestUpdateDoesNotBlankByOmission:
         assert values == {"dimensions": "Bust 91 cm, Length 116 cm"}
         for leaked in ("name", "base_price", "variants", "description"):
             assert leaked not in values
+
+
+class TestFabricSpecsNeverGuess:
+    """
+    The Legal Metrology block has brand-level defaults because those
+    declarations are true of everything ZISUN sells. Fabric specs must not: they
+    are measurements of one garment, and a fallback would put a claim nobody
+    checked on a live product page — on the exact question 12 of 26 survey
+    respondents said stops them buying.
+    """
+
+    async def test_an_unmeasured_product_reports_nothing(self):
+        import datetime
+        import uuid
+
+        from app.schemas.catalog import ProductResponse
+
+        class Row:
+            id = uuid.uuid4()
+            name = "Unmeasured Kurti"
+            description = None
+            base_price = 149900
+            category_id = vendor_id = None
+            is_active = True
+            created_at = updated_at = datetime.datetime.now(datetime.timezone.utc)
+            variants = []
+            media = []
+            category = None
+            commodity_name = net_quantity = dimensions = None
+            country_of_origin = manufacturer_name = manufacturer_address = None
+            fabric_composition = fabric_gsm = weave = None
+            has_pockets = colourfastness = wash_care = None
+
+        specs = ProductResponse.model_validate(Row(), from_attributes=True).model_dump()["fabric_specs"]
+        assert all(v is None for v in specs.values()), specs
+
+    async def test_no_pockets_is_recorded_as_false_not_missing(self):
+        """
+        Three states, not two. "No pockets" is worth saying — seven people named
+        it unprompted — and it must not collapse into "not recorded".
+        """
+        from app.schemas.catalog import FabricSpecFields
+
+        payload = FabricSpecFields.model_validate({"has_pockets": False})
+        assert payload.spec_values() == {"has_pockets": False}
+
+        blank = FabricSpecFields.model_validate({})
+        assert blank.spec_values() == {}
+
+    async def test_specs_and_declarations_do_not_bleed_into_each_other(self):
+        from app.schemas.catalog import ProductCreate
+
+        payload = ProductCreate.model_validate({
+            "name": "Sungudi Everyday Kurti",
+            "base_price": 149900,
+            "dimensions": "Bust 91 cm",
+            "fabric_gsm": 118,
+            "variants": [{"sku": "ZSN-9", "size": "M", "stock": 3, "price_delta": 0}],
+        })
+        assert payload.declaration_values() == {"dimensions": "Bust 91 cm"}
+        assert payload.spec_values() == {"fabric_gsm": 118}
+
+    def test_the_import_template_stays_parseable(self):
+        """
+        The template grew columns by hand twice and lost a comma both times,
+        teaching a shape that does not parse. It is generated now; this pins it.
+        """
+        import csv
+        import io as _io
+
+        from app.api.admin.endpoints.products import (
+            BULK_IMPORT_COLUMNS, BULK_IMPORT_TEMPLATE,
+        )
+
+        rows = list(csv.reader(_io.StringIO(BULK_IMPORT_TEMPLATE)))
+        assert rows[0] == BULK_IMPORT_COLUMNS
+        for i, row in enumerate(rows[1:], start=2):
+            assert len(row) == len(BULK_IMPORT_COLUMNS), f"row {i} has {len(row)} cells"
+        for col in ("fabric_composition", "fabric_gsm", "has_pockets", "wash_care"):
+            assert col in BULK_IMPORT_COLUMNS

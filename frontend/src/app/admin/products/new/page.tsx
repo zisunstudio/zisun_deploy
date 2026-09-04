@@ -44,6 +44,14 @@ export default function NewProductPage() {
         country_of_origin: form.country_of_origin.trim(),
         manufacturer_name: form.manufacturer_name.trim(),
         manufacturer_address: form.manufacturer_address.trim(),
+        // Blank stays out of the payload entirely, so an unfilled field is
+        // 'not recorded' rather than an empty claim.
+        fabric_composition: form.fabric_composition.trim(),
+        fabric_gsm: form.fabric_gsm ? Number(form.fabric_gsm) : null,
+        weave: form.weave.trim(),
+        has_pockets: form.has_pockets === "" ? null : form.has_pockets === "yes",
+        colourfastness: form.colourfastness.trim(),
+        wash_care: form.wash_care.trim(),
         variants: variants.map((v) => ({
           sku: v.sku,
           size: v.size || null,

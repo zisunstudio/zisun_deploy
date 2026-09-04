@@ -29,6 +29,12 @@ export default function EditProductPage() {
     country_of_origin: "",
     manufacturer_name: "",
     manufacturer_address: "",
+     fabric_composition: "",
+    fabric_gsm: "",
+    weave: "",
+    has_pockets: "",
+    colourfastness: "",
+    wash_care: "",
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -67,6 +73,15 @@ export default function EditProductPage() {
       country_of_origin: product.country_of_origin ?? "",
       manufacturer_name: product.manufacturer_name ?? "",
       manufacturer_address: product.manufacturer_address ?? "",
+      // Numbers and booleans become strings here: an empty input has to mean
+      // "not recorded", which neither type can express.
+      fabric_composition: product.fabric_composition ?? "",
+      fabric_gsm: product.fabric_gsm == null ? "" : String(product.fabric_gsm),
+      weave: product.weave ?? "",
+      has_pockets:
+        product.has_pockets == null ? "" : product.has_pockets ? "yes" : "no",
+      colourfastness: product.colourfastness ?? "",
+      wash_care: product.wash_care ?? "",
     });
     setVariants(
       (product.variants ?? []).map((v: any) => ({
@@ -97,6 +112,12 @@ export default function EditProductPage() {
         country_of_origin: form.country_of_origin.trim(),
         manufacturer_name: form.manufacturer_name.trim(),
         manufacturer_address: form.manufacturer_address.trim(),
+        fabric_composition: form.fabric_composition.trim(),
+        fabric_gsm: form.fabric_gsm ? Number(form.fabric_gsm) : null,
+        weave: form.weave.trim(),
+        has_pockets: form.has_pockets === "" ? null : form.has_pockets === "yes",
+        colourfastness: form.colourfastness.trim(),
+        wash_care: form.wash_care.trim(),
       });
     },
     onSuccess: () => {

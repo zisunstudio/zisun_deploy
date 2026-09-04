@@ -19,6 +19,7 @@ import { ProductAssurances } from "@/components/ProductAssurances";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 import { SizeGuideModal } from "@/components/SizeGuideModal";
 import { ProductDeclarations } from "@/components/ProductDeclarations";
+import { FabricSpecs } from "@/components/FabricSpecs";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -238,6 +239,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             the dye lot all shift it. Small irregularities in handwoven cotton are part
             of the cloth. Neither is a defect, and neither is grounds for an exchange.
           </p>
+
+          {/* Above the statutory declarations, and open rather than behind a
+              toggle: this is the argument for buying, and the block below is a
+              legal obligation. */}
+          {product.fabric_specs && <FabricSpecs specs={product.fabric_specs} />}
 
           {product.legal_metrology && (
             <ProductDeclarations declarations={product.legal_metrology} price={price} />

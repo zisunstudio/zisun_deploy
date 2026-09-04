@@ -107,6 +107,32 @@ class ProductBase(BaseModel):
         return v
 
 
+class FabricSpecFields(BaseModel):
+    """Fabric and care, as an admin enters them.
+
+    No brand-level defaults anywhere in here, unlike the Legal Metrology block.
+    Those declarations are true of everything ZISUN sells; these are measured
+    facts about one garment, and a fallback would put a claim nobody checked on
+    a live product page.
+    """
+
+    fabric_composition: Optional[str] = Field(None, max_length=255)
+    fabric_gsm: Optional[int] = Field(None, ge=1, le=2000)
+    weave: Optional[str] = Field(None, max_length=120)
+    has_pockets: Optional[bool] = None
+    colourfastness: Optional[str] = Field(None, max_length=255)
+    wash_care: Optional[str] = Field(None, max_length=255)
+
+    def spec_values(self) -> dict:
+        """Only this class's own supplied keys — see LegalMetrologyFields."""
+        supplied = self.model_dump(exclude_unset=True, exclude_none=True)
+        own = set(FabricSpecFields.model_fields)
+        return {k: v for k, v in supplied.items() if k in own}
+
+
+FABRIC_SPEC_COLUMNS = tuple(FabricSpecFields.model_fields)
+
+
 class LegalMetrologyFields(BaseModel):
     """
     The per-product declaration overrides, as an admin submits them.
@@ -146,11 +172,11 @@ class LegalMetrologyFields(BaseModel):
 LEGAL_METROLOGY_COLUMNS = tuple(LegalMetrologyFields.model_fields)
 
 
-class ProductCreate(ProductBase, LegalMetrologyFields):
+class ProductCreate(ProductBase, LegalMetrologyFields, FabricSpecFields):
     variants: List[ProductVariantCreate] = Field(..., min_length=1)
 
 
-class ProductUpdate(LegalMetrologyFields):
+class ProductUpdate(LegalMetrologyFields, FabricSpecFields):
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     base_price: Optional[int] = Field(None, ge=0)
@@ -214,6 +240,12 @@ class ProductResponse(ProductBase):
     country_of_origin: Optional[str] = Field(None, exclude=True)
     manufacturer_name: Optional[str] = Field(None, exclude=True)
     manufacturer_address: Optional[str] = Field(None, exclude=True)
+    fabric_composition: Optional[str] = Field(None, exclude=True)
+    fabric_gsm: Optional[int] = Field(None, exclude=True)
+    weave: Optional[str] = Field(None, exclude=True)
+    has_pockets: Optional[bool] = Field(None, exclude=True)
+    colourfastness: Optional[str] = Field(None, exclude=True)
+    wash_care: Optional[str] = Field(None, exclude=True)
 
     # Declarations the buyer must be able to read before paying. Computed, so
     # it needs no work at any of the call sites that build a ProductResponse.
@@ -221,6 +253,13 @@ class ProductResponse(ProductBase):
     @property
     def legal_metrology(self) -> LegalMetrology:
         return LegalMetrology.resolve(self)
+
+    # Fabric and care. Computed like the block above so no call site that builds
+    # a ProductResponse has to remember it.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def fabric_specs(self) -> FabricSpecs:
+        return FabricSpecs.resolve(self)
 
     class Config:
         from_attributes = True
@@ -245,6 +284,40 @@ class AdminProductDetail(ProductResponse):
     country_of_origin: Optional[str] = None
     manufacturer_name: Optional[str] = None
     manufacturer_address: Optional[str] = None
+    fabric_composition: Optional[str] = None
+    fabric_gsm: Optional[int] = None
+    weave: Optional[str] = None
+    has_pockets: Optional[bool] = None
+    colourfastness: Optional[str] = None
+    wash_care: Optional[str] = None
+
+
+class FabricSpecs(BaseModel):
+    """What the product page shows under Fabric and care.
+
+    Absent fields stay absent. An empty row on a quality panel is worse than no
+    row: it reads as a specification we declined to give, on the exact question
+    the customer is already suspicious about.
+    """
+
+    fabric_composition: Optional[str] = None
+    fabric_gsm: Optional[int] = None
+    weave: Optional[str] = None
+    has_pockets: Optional[bool] = None
+    colourfastness: Optional[str] = None
+    wash_care: Optional[str] = None
+
+    @property
+    def is_empty(self) -> bool:
+        return not any(
+            v is not None for v in self.model_dump().values()
+        )
+
+    @classmethod
+    def resolve(cls, product) -> "FabricSpecs":
+        return cls(**{
+            name: getattr(product, name, None) for name in FABRIC_SPEC_COLUMNS
+        })
 
 
 class ProductListResponse(BaseModel):
