@@ -14,11 +14,30 @@ from app.core.security import create_access_token
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# SameSite=None, and it has to be, for as long as the API and the storefront
+# live on different hosts. The browser is at zisun-web-production.up.railway.app
+# and this API answers from zisun-api-production.up.railway.app, so every
+# request between them is cross-site. Under "strict" the browser accepted this
+# cookie and then never sent it back: sign-in appeared to work, the access token
+# sat in memory, and the first full page load lost the session and bounced the
+# user to /login with a bare 401 from /auth/refresh.
+#
+# What keeps "none" safe here is CORS. `allow_origins` is an explicit
+# three-entry allowlist, never "*", so another origin can cause this request to
+# be sent but cannot read the response — and the access token is only ever in
+# the response body, never in a cookie. The residual risk is a cross-site POST
+# rotating the refresh token, which logs the user out. Irritating, not dangerous.
+#
+# The proper fix is to stop being cross-site: serve the storefront from
+# www.zisun.in and this API from api.zisun.in. Both are then under the same
+# registrable domain, the cookie is first-party again, and this should go back
+# to "lax". Worth doing — Safari blocks third-party cookies outright, so signed-
+# in sessions are unreliable there until it happens.
 _REFRESH_COOKIE = dict(
     key="refresh_token",
     httponly=True,
     secure=True,
-    samesite="strict",
+    samesite="none",
     max_age=30 * 24 * 60 * 60,
     path="/api/v1/auth",
 )
