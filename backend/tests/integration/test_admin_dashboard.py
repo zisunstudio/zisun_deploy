@@ -145,3 +145,46 @@ class TestHonestyRules:
         src = inspect.getsource(mod)
         assert ".outerjoin(" in src
         assert '"never_viewed"' in src
+
+
+class TestTheProductJoinActuallyBuilds:
+    """
+    This one is here because it shipped broken. `.astext` exists only on JSONB
+    and `analytics_events.properties` is plain JSON, so the expression raised an
+    AttributeError while the query was being *constructed* — not a SQL error a
+    database could have caught, and invisible until the endpoint was called.
+    """
+
+    def test_the_join_condition_constructs(self):
+        from app.api.admin.endpoints.dashboard import product_id_matches
+        from app.models.catalog import Product
+
+        # Constructing it is the whole test: the bug was a raise right here.
+        expr = product_id_matches(Product.id)
+        assert expr is not None
+
+    def test_it_compiles_to_the_json_text_operator(self):
+        from sqlalchemy.dialects import postgresql
+
+        from app.api.admin.endpoints.dashboard import product_id_matches
+        from app.models.catalog import Product
+
+        sql = str(
+            product_id_matches(Product.id).compile(dialect=postgresql.dialect())
+        )
+        assert "->>" in sql, sql
+
+    def test_the_broken_accessor_is_not_reintroduced(self):
+        """
+        Guards the exact expression that shipped broken, rather than the word
+        `.astext` — which the helper's own docstring uses to explain why it is
+        wrong, and which a blunter check would flag as the bug it is warning
+        about.
+        """
+        import inspect
+
+        from app.api.admin.endpoints import dashboard as mod
+
+        src = inspect.getsource(mod)
+        assert '["product_id"].astext' not in src
+        assert '.op("->>")' in src

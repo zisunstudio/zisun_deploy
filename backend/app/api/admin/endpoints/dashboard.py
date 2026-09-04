@@ -43,6 +43,21 @@ FUNNEL_STEPS = [
 LOW_STOCK_THRESHOLD = 5
 
 
+def product_id_matches(column):
+    """Join `analytics_events.properties->>'product_id'` to a product id.
+
+    Uses the `->>` operator rather than `.astext`, which exists only on JSONB.
+    `AnalyticsEvent.properties` is plain `JSON`, so `.astext` raises at query
+    *construction* time — an AttributeError, not a SQL error, which means it
+    cannot be caught by any amount of care about the database and only shows up
+    when the endpoint is actually called. `->>` is valid for both json and jsonb
+    and returns text either way.
+
+    Extracted so a test can build it without a database.
+    """
+    return AnalyticsEvent.properties.op("->>")("product_id") == sa.cast(column, sa.Text)
+
+
 @router.get("/dashboard", tags=["Admin — Dashboard"])
 async def admin_dashboard(
     days: int = Query(30, ge=1, le=365, description="Window for time-bounded figures"),
@@ -138,8 +153,7 @@ async def admin_dashboard(
                 AnalyticsEvent,
                 sa.and_(
                     AnalyticsEvent.event_type == "product_viewed",
-                    AnalyticsEvent.properties["product_id"].astext
-                    == sa.cast(Product.id, sa.Text),
+                    product_id_matches(Product.id),
                 ),
             )
             .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
