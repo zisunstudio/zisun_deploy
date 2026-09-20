@@ -7,6 +7,7 @@ import { adminApi } from "@/lib/adminApi";
 import { BulkProductImport } from "@/components/admin/BulkProductImport";
 import { formatPrice } from "@/lib/queries/catalog";
 import Image from "next/image";
+import { Page, Card, LinkButton, Button, TableScroll, StockBadge, Pill, EmptyState, th, td } from "@/components/admin/ui";
 
 type Variant = { id: string; sku: string; stock: number; size?: string; color?: string };
 type ProductMedia = { url: string; cdn_url?: string | null };
@@ -65,101 +66,79 @@ export default function AdminProductsPage() {
     return m.cdn_url ?? m.url ?? null;
   }
 
+  const rows = products ?? [];
+  const Thumb = ({ src, alt, size = "w-10 h-10" }: { src: string | null; alt: string; size?: string }) => (
+    <div className={`relative ${size} rounded-lg overflow-hidden bg-gray-100 flex-shrink-0`}>
+      {src ? <Image src={src} alt={alt} fill className="object-cover" sizes="64px" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">—</div>}
+    </div>
+  );
+  const Actions = ({ p }: { p: Product }) => (
+    <>
+      <LinkButton href={`/admin/products/${p.id}/edit`} size="sm" variant="primary">Edit</LinkButton>
+      <Button size="sm" onClick={() => openEdit(p)}>Quick</Button>
+      <Button size="sm" onClick={() => updateProduct.mutate({ id: p.id, data: { is_active: !p.is_active } })}>{p.is_active ? "Hide" : "Show"}</Button>
+      <Button size="sm" variant="danger" onClick={() => { if (confirm(`Delete "${p.name}"?\n\nIt disappears from the shop and this list. Its photographs stay in storage.`)) softDelete.mutate(p.id); }}>Delete</Button>
+    </>
+  );
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-        <Link
-          href="/admin/products/new"
-          className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4a2a12]"
-        >
-          <Plus className="w-4 h-4" /> New Product
-        </Link>
-      </div>
+    <Page title="Products" description={`${rows.length} in the catalogue.`} actions={<LinkButton href="/admin/products/new" variant="primary"><Plus className="w-4 h-4" /> New product</LinkButton>}>
       {isLoading ? (
-        <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />)}</div>
+        <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+      ) : rows.length === 0 ? (
+        <Card><EmptyState title="No products yet" body="Say the product on the New product page and the form fills itself." action={<LinkButton href="/admin/products/new" variant="primary">New product</LinkButton>} /></Card>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                {["", "Name", "Category", "Base Price", "Variants", "Stock", "Status", "Actions"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left font-semibold text-gray-600">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {(products ?? []).map((p) => {
-                const thumb = thumbnailUrl(p.media ?? []);
-                return (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                        {thumb ? (
-                          <Image
-                            src={thumb}
-                            alt={p.name}
-                            fill
-                            className="object-cover"
-                            sizes="40px"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">—</div>
-                        )}
+        <>
+          {/* Phone: cards */}
+          <ul className="sm:hidden space-y-3">
+            {rows.map((p) => (
+              <li key={p.id}>
+                <Card padded={false}>
+                  <div className="p-4 flex gap-3">
+                    <Thumb src={thumbnailUrl(p.media ?? [])} alt={p.name} size="w-16 h-20" />
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/admin/products/${p.id}/edit`} className="font-semibold text-gray-900 leading-snug line-clamp-2 hover:underline underline-offset-2">{p.name}</Link>
+                      <p className="mt-1 text-xs text-gray-500">{p.category?.name ?? "No category"} · {(p.variants ?? []).length} {(p.variants ?? []).length === 1 ? "variant" : "variants"}</p>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-gray-900 tabular-nums">{formatPrice(p.base_price)}</span>
+                        <Link href={`/admin/inventory?product=${p.id}`} className="inline-flex items-center gap-1 text-xs text-gray-600 hover:underline">stock <StockBadge n={totalStock(p.variants ?? [])} /></Link>
+                        <Pill tone={p.is_active ? "good" : "neutral"}>{p.is_active ? "Live" : "Hidden"}</Pill>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.category?.name ?? "—"}</td>
-                    <td className="px-4 py-3 font-semibold">{formatPrice(p.base_price)}</td>
-                    <td className="px-4 py-3 text-gray-600">{(p.variants ?? []).length}</td>
-                    <td className="px-4 py-3">
-                      <Link href={`/admin/inventory?product=${p.id}`} title="Adjust stock"
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold hover:underline underline-offset-2 ${
-                          totalStock(p.variants ?? []) === 0 ? "bg-red-50 text-red-700" : totalStock(p.variants ?? []) <= 5 ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
-                        {totalStock(p.variants ?? [])} <span className="font-normal text-[10px] opacity-70">stock ›</span>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-semibold ${p.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                        {p.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/admin/products/${p.id}/edit`}
-                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold hover:bg-blue-200"
-                        >Edit</Link>
-                        <button
-                          onClick={() => openEdit(p)}
-                          className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-semibold hover:bg-gray-200"
-                        >Quick</button>
-                        {/* Two different things, named as such. Hide takes it off
-                            the shop and keeps everything; Delete removes the
-                            listing (photographs stay in storage). The old
-                            "Deactivate" button actually deleted. */}
-                        <button
-                          onClick={() => updateProduct.mutate({ id: p.id, data: { is_active: !p.is_active } })}
-                          className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-semibold hover:bg-gray-200"
-                        >{p.is_active ? "Hide" : "Show"}</button>
-                        <button
-                          onClick={() => { if (confirm(`Delete "${p.name}"?\n\nIt disappears from the shop and this list. Its photographs stay in storage.`)) softDelete.mutate(p.id); }}
-                          className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-semibold hover:bg-red-200"
-                        >Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    </div>
+                  </div>
+                  <div className="px-4 pb-4 flex flex-wrap gap-2"><Actions p={p} /></div>
+                </Card>
+              </li>
+            ))}
+          </ul>
 
+          {/* Laptop: the table */}
+          <Card padded={false} className="hidden sm:block">
+            <TableScroll minWidth={760}>
+              <table className="w-full">
+                <thead className="border-b border-gray-100"><tr>{["", "Name", "Category", "Price", "Variants", "Stock", "Status", ""].map((h, i) => <th key={i} className={th}>{h}</th>)}</tr></thead>
+                <tbody className="divide-y divide-gray-100">
+                  {rows.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className={td}><Thumb src={thumbnailUrl(p.media ?? [])} alt={p.name} /></td>
+                      <td className={`${td} font-medium text-gray-900`}><Link href={`/admin/products/${p.id}/edit`} className="hover:underline underline-offset-2">{p.name}</Link></td>
+                      <td className={`${td} text-gray-600`}>{p.category?.name ?? "—"}</td>
+                      <td className={`${td} font-semibold tabular-nums`}>{formatPrice(p.base_price)}</td>
+                      <td className={`${td} text-gray-600`}>{(p.variants ?? []).length}</td>
+                      <td className={td}><Link href={`/admin/inventory?product=${p.id}`} title="Adjust stock" className="inline-flex items-center gap-1 hover:underline underline-offset-2"><StockBadge n={totalStock(p.variants ?? [])} /><span className="text-[10px] text-gray-500">stock ›</span></Link></td>
+                      <td className={td}><Pill tone={p.is_active ? "good" : "neutral"}>{p.is_active ? "Live" : "Hidden"}</Pill></td>
+                      <td className={`${td} text-right whitespace-nowrap`}><div className="inline-flex gap-1.5"><Actions p={p} /></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroll>
+          </Card>
+        </>
+      )}
       {/* Edit modal */}
       {editId && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-80 shadow-xl">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-5 sm:p-6 w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
             <h2 className="font-bold text-gray-900 mb-4">Edit Product</h2>
             <div className="space-y-3">
               <div>
@@ -194,6 +173,6 @@ export default function AdminProductsPage() {
       )}
 
       <BulkProductImport />
-    </div>
+    </Page>
   );
 }

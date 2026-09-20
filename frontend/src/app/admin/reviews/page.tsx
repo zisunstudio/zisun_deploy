@@ -1,4 +1,5 @@
 "use client";
+import { Page, Card, TableScroll } from "@/components/admin/ui";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
@@ -59,8 +60,7 @@ export default function AdminReviewsPage() {
   });
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Reviews</h1>
+    <Page title="Reviews" description="Approve what customers wrote before it shows on a product.">
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 border-b border-gray-200">
@@ -90,7 +90,7 @@ export default function AdminReviewsPage() {
       ) : (
         <div className="space-y-3">
           {reviews.map((r) => (
-            <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-5">
+            <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
@@ -136,6 +136,6 @@ export default function AdminReviewsPage() {
           ))}
         </div>
       )}
-    </div>
+    </Page>
   );
 }

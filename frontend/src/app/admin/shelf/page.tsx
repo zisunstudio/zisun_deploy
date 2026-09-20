@@ -71,17 +71,17 @@ export default function ShelfPage() {
   const pct = (v: number | null | undefined) => (v == null ? "—" : `${Math.round(v * 100)}%`);
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Shelf</h1>
+    <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-8 max-w-5xl">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+        <div className="min-w-0">
+          <h1 className="text-[22px] sm:text-2xl font-semibold text-gray-900">Shelf</h1>
           <p className="text-sm text-gray-500 mt-1">
             Drag to choose what sits at the front. Everything you don&apos;t pin is arranged by attention
             {dash?.attention.ranking ? ` — recent activity counts most, halving every ${dash.attention.ranking.half_life_days} days.` : "."}
           </p>
         </div>
         <button onClick={() => save.mutate()} disabled={!dirty || save.isPending}
-          className="inline-flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
+          className="self-start inline-flex items-center gap-2 h-10 bg-ink text-white px-4 rounded-lg text-sm font-semibold whitespace-nowrap disabled:opacity-40 sm:shrink-0">
           {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save order
         </button>
       </div>
@@ -91,11 +91,11 @@ export default function ShelfPage() {
         {pinned.length === 0 ? (
           <p className="text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl p-6 text-center">Nothing pinned. The whole shelf is arranged by attention. Pin a product below to put it up front.</p>
         ) : (
-          <ol className="grid gap-2">
+          <ol className="space-y-2">
             {pinned.map((p, i) => (
               <li key={p.id} draggable onDragStart={() => (dragIdx.current = i)} onDragEnter={() => onDragEnter(i)}
                 onDragEnd={() => (dragIdx.current = null)} onDragOver={(e) => e.preventDefault()}
-                className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-2 pr-3 cursor-grab active:cursor-grabbing">
+                className="flex items-center gap-3 min-w-0 bg-white border border-gray-200 rounded-xl p-2 pr-3 cursor-grab active:cursor-grabbing">
                 <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
                 <span className="w-6 text-center text-xs font-bold text-ink tabular-nums">{i + 1}</span>
                 <div className="relative w-12 h-14 rounded-md overflow-hidden bg-gray-100 shrink-0">
@@ -103,7 +103,7 @@ export default function ShelfPage() {
                 </div>
                 <span className="flex-1 text-sm font-medium text-gray-900 truncate">{p.name}</span>
                 <span className="hidden sm:inline text-xs text-gray-400 tabular-nums">{attention.get(p.id)?.views ?? 0} views · ctr {pct(attention.get(p.id)?.ctr)}</span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => move(i, -1)} className="p-1 text-gray-400 hover:text-gray-700 text-xs" aria-label="Move up">▲</button>
                   <button onClick={() => move(i, 1)} className="p-1 text-gray-400 hover:text-gray-700 text-xs" aria-label="Move down">▼</button>
                   <button onClick={() => unpin(p.id)} className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50" aria-label="Unpin"><PinOff className="w-4 h-4" /></button>
@@ -117,11 +117,11 @@ export default function ShelfPage() {
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Arranged by attention</h2>
         {isLoading ? <p className="text-sm text-gray-400">Loading…</p> : (
-          <ol className="grid gap-2">
+          <ol className="space-y-2">
             {auto.map((p, i) => {
               const a = attention.get(p.id);
               return (
-                <li key={p.id} className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-2 pr-3">
+                <li key={p.id} className="flex items-center gap-3 min-w-0 bg-white border border-gray-100 rounded-xl p-2 pr-3">
                   <span className="w-6 text-center text-xs text-gray-400 tabular-nums">{pinned.length + i + 1}</span>
                   <div className="relative w-12 h-14 rounded-md overflow-hidden bg-gray-100 shrink-0">
                     {thumb(p) && <Image src={thumb(p)!} alt="" fill sizes="48px" className="object-cover" />}
@@ -132,7 +132,7 @@ export default function ShelfPage() {
                       {a ? `${a.impressions} shown · ${a.views} opened · ${a.add_to_cart} bagged · ctr ${pct(a.ctr)} · score ${a.attention}` : "no activity yet"}
                     </p>
                   </div>
-                  <button onClick={() => pin(p)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:border-ink hover:text-ink">
+                  <button onClick={() => pin(p)} className="shrink-0 inline-flex items-center gap-1 h-9 px-2.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:border-ink hover:text-ink">
                     <Pin className="w-3.5 h-3.5" /> Pin
                   </button>
                 </li>

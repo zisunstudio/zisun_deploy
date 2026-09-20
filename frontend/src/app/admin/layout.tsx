@@ -71,13 +71,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="px-4 py-5 border-b border-gray-100">
           <div className="flex items-start justify-between">
             <div>
-              <span className="font-serif font-bold text-xl text-ink">ZISUN</span>
-              <span className="block text-xs text-muted mt-0.5">Admin Panel</span>
+              <span className="font-display text-2xl uppercase tracking-[0.14em] text-ink">ZISUN</span>
+              <span className="block text-xs text-muted mt-0.5">Console</span>
             </div>
             <button
               onClick={() => setNavOpen(false)}
               aria-label="Close menu"
-              className="lg:hidden -mr-1 p-1 text-gray-500 hover:text-gray-800"
+              className="lg:hidden h-10 w-10 -mr-2 inline-flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
             >
               <X className="w-5 h-5" />
             </button>
@@ -87,7 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {NAV.map(({ href, label, Icon }) => (
             <Link key={href} href={href} onClick={() => setNavOpen(false)}
               aria-current={(href === "/admin" ? pathname === "/admin" : pathname.startsWith(href)) ? "page" : undefined}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              className={`flex items-center gap-3 px-3 h-11 rounded-lg text-sm transition-colors ${
                 (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href))
                   ? "bg-gray-900 text-white font-medium"
                   : "text-gray-700 hover:bg-gray-100"}`}>
@@ -112,14 +112,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button
             onClick={() => setNavOpen(true)}
             aria-label="Open menu"
-            className="p-1 -ml-1 text-gray-700"
+            className="h-10 w-10 -ml-2 inline-flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-serif font-bold text-ink">ZISUN</span>
-          <span className="text-xs text-muted">Admin</span>
+          <span className="font-display text-xl uppercase tracking-[0.14em] text-ink">ZISUN</span>
+          <span className="text-xs text-muted">Console</span>
         </header>
-        <main className="flex-1 overflow-y-auto min-w-0">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 pb-[env(safe-area-inset-bottom)]">{children}</main>
       </div>
     </div>
   );

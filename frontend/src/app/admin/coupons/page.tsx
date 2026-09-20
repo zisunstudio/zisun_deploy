@@ -1,4 +1,5 @@
 "use client";
+import { Page, Card, TableScroll } from "@/components/admin/ui";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
@@ -119,21 +120,17 @@ export default function AdminCouponsPage() {
     "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30";
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Coupons</h1>
-        <button
+    <Page title="Coupons" description="Live codes are advertised on the home page and under every price." actions={<><button
           onClick={() => { setShowForm((s) => !s); setFormError(null); }}
           className="text-sm bg-ink text-white px-4 py-2 rounded-lg font-semibold hover:bg-ink/90"
         >
           {showForm ? "Cancel" : "+ New Coupon"}
-        </button>
-      </div>
+        </button></>}>
 
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="mb-8 bg-white rounded-xl border border-gray-200 p-5 space-y-4"
+          className="mb-8 bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
@@ -255,8 +252,8 @@ export default function AdminCouponsPage() {
           No coupons yet. Create your first one above.
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto overscroll-x-contain">
+          <table className="w-full text-sm min-w-[560px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 {["Code", "Type", "Value", "Min Order", "Max Disc.", "Usage Limit", "Per User", "Expires", "Status", ""].map((h) => (
@@ -303,6 +300,6 @@ export default function AdminCouponsPage() {
           </table>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

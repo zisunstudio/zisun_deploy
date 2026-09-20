@@ -211,9 +211,9 @@ export default function AdminDashboard() {
   const maxFunnel = Math.max(1, ...attention.funnel.map((f) => f.count));
 
   return (
-    <div className="p-4 lg:p-6 max-w-6xl">
+    <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-8 max-w-6xl">
       <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
-        <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
+        <h1 className="text-[22px] sm:text-2xl font-semibold text-gray-900">Overview</h1>
         <p className="text-xs text-gray-500">Last {meta.window_days} days</p>
       </div>
 

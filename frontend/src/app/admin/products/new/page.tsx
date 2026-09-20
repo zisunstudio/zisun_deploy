@@ -120,12 +120,12 @@ export default function NewProductPage() {
   });
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-700">
+    <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-8 max-w-2xl">
+      <div className="flex items-center gap-2 mb-5">
+        <button onClick={() => router.back()} aria-label="Back" className="h-10 w-10 -ml-2 inline-flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">New Product</h1>
+        <h1 className="text-[22px] sm:text-2xl font-semibold text-gray-900">New product</h1>
       </div>
 
       {error && (
@@ -137,7 +137,7 @@ export default function NewProductPage() {
       <div className="mb-4">
         <AiComposer onDraft={applyDraft} />
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
         <ProductForm data={form} onChange={setForm} categories={categories}  compact />
 
         <hr className="border-gray-100" />
@@ -155,14 +155,14 @@ export default function NewProductPage() {
             type="button"
             onClick={() => createProduct.mutate()}
             disabled={createProduct.isPending}
-            className="flex-1 bg-ink text-white py-2.5 rounded-lg font-semibold text-sm disabled:opacity-50"
+            className="flex-1 h-11 bg-ink text-white rounded-lg font-semibold text-sm disabled:opacity-50"
           >
-            {createProduct.isPending ? "Creating…" : "Create Product"}
+            {createProduct.isPending ? "Creating…" : "Create product"}
           </button>
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex-1 border border-gray-300 py-2.5 rounded-lg font-semibold text-sm text-gray-700"
+            className="flex-1 h-11 border border-gray-300 rounded-lg font-semibold text-sm text-gray-700"
           >
             Cancel
           </button>

@@ -306,8 +306,8 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
 
       {/* Table */}
       {(variants.length > 0 || adding) && (
-        <div className="border border-gray-200 rounded-lg overflow-hidden text-sm">
-          <table className="w-full">
+        <div className="border border-gray-200 rounded-lg overflow-x-auto overscroll-x-contain text-sm -mx-4 px-0 sm:mx-0">
+          <table className="w-full min-w-[600px]">
             <thead className="bg-gray-50 text-xs text-gray-500">
               <tr>
                 {["SKU", "Size", "Colour", "Price", "Stock", ""].map((h) => (
@@ -329,7 +329,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
                   />
                 ) : (
                   <tr key={v.id ?? idx} className={`hover:bg-gray-50 ${!v.is_active ? "opacity-40" : ""}`}>
-                    <td className="px-3 py-2 font-mono text-xs">{v.sku}</td>
+                    <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{v.sku}</td>
                     <td className="px-3 py-2 text-gray-600">{v.size || "—"}</td>
                     <td className="px-3 py-2 text-gray-600">
                       {v.color ? (

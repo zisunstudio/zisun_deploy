@@ -121,6 +121,17 @@ offer it in a picker and the storefront draws swatches from it. A colour
 that is not in the palette still round-trips (old rows stay selectable)
 but new ones should be added to the palette, not typed.
 
+**The console is phone-first and built from `components/admin/ui.tsx`.**
+The founder runs the shop from her phone. `Page`, `Card`, `CardHeader`,
+`Button`, `TableScroll`, `StockBadge`, `Sku` and friends are the only way
+to lay out a console page: headers stack, actions wrap, every table either
+scrolls inside its own frame or gives way to stacked rows below `sm`, and
+no list is a CSS grid (an implicit grid track's minimum is its row's
+min-content width, which is how the Shelf's pin buttons ended up off the
+right edge). `scratchpad/admin-review.js` renders every console page at
+phone width with a faked session — run it before calling a console change
+done.
+
 **Claude runs only behind the admin role.** `app/services/ai.py` is called
 from `/admin/ai/*` and `/admin/dashboard/brief` and nowhere else, so the
 Anthropic bill is bounded by the founder's own use. Every feature degrades

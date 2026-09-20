@@ -1,4 +1,5 @@
 "use client";
+import { Page, Card, TableScroll } from "@/components/admin/ui";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
 
@@ -46,18 +47,14 @@ export default function ReconciliationPage() {
   });
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Finance Reconciliation</h1>
-        {data && (
+    <Page title="Finance Reconciliation" description="Captured payments over the last 30 days." actions={<>{data && (
           <button
             onClick={() => downloadCSV(data)}
             className="bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-ink/90"
           >
             Export CSV
           </button>
-        )}
-      </div>
+        )}</>}>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -92,7 +89,7 @@ export default function ReconciliationPage() {
 
           {/* Detailed table */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[520px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">Source</th>
@@ -123,6 +120,6 @@ export default function ReconciliationPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </Page>
   );
 }

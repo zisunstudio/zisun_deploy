@@ -1,4 +1,5 @@
 "use client";
+import { Page, Card, TableScroll } from "@/components/admin/ui";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
@@ -39,13 +40,9 @@ export default function AdminContentPage() {
   });
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Content</h1>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-ink/90">
+    <Page title="Content" description="A published card becomes the home page's hero: its photograph, and the piece it links." actions={<><button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-ink/90">
           <PlusCircle className="w-4 h-4" /> Create Card
-        </button>
-      </div>
+        </button></>}>
 
       {isLoading ? (
         <div className="grid grid-cols-3 gap-4">{[1,2,3].map((i) => <div key={i} className="h-48 bg-gray-100 rounded-xl animate-pulse" />)}</div>
@@ -92,8 +89,8 @@ export default function AdminContentPage() {
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-5 sm:p-6 w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
             <h2 className="font-bold text-gray-900 mb-4">Create Content Card</h2>
             <div className="space-y-3">
               <div>
@@ -121,6 +118,6 @@ export default function AdminContentPage() {
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

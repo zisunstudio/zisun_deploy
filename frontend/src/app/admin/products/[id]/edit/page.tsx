@@ -207,12 +207,12 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-700">
+    <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-8 max-w-2xl">
+      <div className="flex items-center gap-2 mb-5">
+        <button onClick={() => router.back()} aria-label="Back" className="h-10 w-10 -ml-2 shrink-0 inline-flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900 truncate">
+        <h1 className="text-[22px] sm:text-2xl font-semibold text-gray-900 truncate">
           {product?.name ?? "Edit Product"}
         </h1>
       </div>
@@ -230,24 +230,24 @@ export default function EditProductPage() {
 
       <div className="space-y-6">
         {/* Product details */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Product Details</h2>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <h2 className="font-semibold text-gray-900 mb-4">Product details</h2>
           <ProductForm data={form} onChange={setForm} categories={categories} />
           <div className="mt-4">
             <button
               type="button"
               onClick={() => updateProduct.mutate()}
               disabled={updateProduct.isPending}
-              className="bg-ink text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+              className="h-11 bg-ink text-white px-5 rounded-lg text-sm font-semibold disabled:opacity-50"
             >
-              {updateProduct.isPending ? "Saving…" : "Save Details"}
+              {updateProduct.isPending ? "Saving…" : "Save details"}
             </button>
           </div>
         </div>
 
         {/* Media */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 id="photos" className="font-semibold text-gray-900 mb-4 scroll-mt-24">Photos & Videos</h2>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <h2 id="photos" className="font-semibold text-gray-900 mb-4 scroll-mt-24">Photos &amp; videos</h2>
           <MediaUploader
             variants={variants.map((v) => ({ id: v.id, color: v.color, size: v.size }))}
             productId={productId}
@@ -257,7 +257,7 @@ export default function EditProductPage() {
         </div>
 
         {/* Variants */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">Variants</h2>
           <VariantEditor
             variants={variants}
