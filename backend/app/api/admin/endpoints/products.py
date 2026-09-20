@@ -18,6 +18,7 @@ from app.models.catalog import MediaType, Product, ProductMedia, ProductVariant
 from app.models.order import Order, OrderStatus
 from app.schemas.catalog import (
     FABRIC_SPEC_COLUMNS,
+    GARMENT_ATTRIBUTE_COLUMNS,
     LEGAL_METROLOGY_COLUMNS,
     AdminProductDetail,
     MediaConfirmRequest,
@@ -113,6 +114,7 @@ async def admin_create_product(
         # missing a statutory field.
         **data.declaration_values(),
         **data.spec_values(),
+        **data.attribute_values(),
     )
     db.add(product)
     await db.flush()
@@ -161,6 +163,9 @@ async def admin_update_product(
             setattr(product, column, value)
     for column, value in data.spec_values().items():
         if column in FABRIC_SPEC_COLUMNS:
+            setattr(product, column, value)
+    for column, value in data.attribute_values().items():
+        if column in GARMENT_ATTRIBUTE_COLUMNS:
             setattr(product, column, value)
     await db.commit()
     return await _get_product_or_404(product_id, db)

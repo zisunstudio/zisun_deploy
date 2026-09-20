@@ -20,6 +20,7 @@ import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 import { SizeGuideModal } from "@/components/SizeGuideModal";
 import { ProductDeclarations } from "@/components/ProductDeclarations";
 import { FabricSpecs } from "@/components/FabricSpecs";
+import { GarmentDetails } from "@/components/GarmentDetails";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -244,6 +245,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               toggle: this is the argument for buying, and the block below is a
               legal obligation. */}
           {product.fabric_specs && <FabricSpecs specs={product.fabric_specs} />}
+          {product.garment_attributes && (
+            <GarmentDetails attributes={product.garment_attributes} />
+          )}
 
           {product.legal_metrology && (
             <ProductDeclarations declarations={product.legal_metrology} price={price} />

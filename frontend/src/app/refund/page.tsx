@@ -5,7 +5,7 @@ import { COMPANY, POLICY_TERMS } from "@/lib/legal";
 export const metadata: Metadata = {
   title: "Exchange & Cancellation Policy | ZISUN",
   description:
-    "ZISUN does not offer returns. Size exchanges within 3 days of delivery, with video proof. Cancellations before dispatch.",
+    "ZISUN does not offer returns. Size exchanges raised within 24 hours of delivery, with video proof, then 3 days to post back. Cancellations before dispatch.",
 };
 
 /**
@@ -21,8 +21,11 @@ export default function RefundPage() {
         Please read this before you order. {COMPANY.legalName} does{" "}
         <strong>not offer returns or change-of-mind refunds</strong>. We offer one
         thing: an exchange if the size does not fit, raised within{" "}
-        <strong>{POLICY_TERMS.exchangeWindowDays} days of delivery</strong>. Everything
-        below explains exactly how that works and what it does not cover.
+        <strong>{POLICY_TERMS.exchangeRaiseWindowHours} hours of delivery</strong>. Once
+        we approve it you have{" "}
+        <strong>{POLICY_TERMS.exchangeReturnWindowDays} days</strong> to post the piece
+        back. Everything below explains exactly how that works and what it does not
+        cover.
       </p>
 
       <Section heading="1. Cancelling an order">
@@ -58,8 +61,9 @@ export default function RefundPage() {
         <ul className="list-disc list-inside space-y-1">
           <li>
             Raise the request within{" "}
-            <strong>{POLICY_TERMS.exchangeWindowDays} days of delivery</strong>. After
-            that we cannot help.
+            <strong>{POLICY_TERMS.exchangeRaiseWindowHours} hours of delivery</strong>.
+            After that we cannot help. Once approved, post it back within{" "}
+            <strong>{POLICY_TERMS.exchangeReturnWindowDays} days</strong>.
           </li>
           <li>
             <strong>Size is the only accepted reason.</strong> Not colour, not fabric
@@ -147,8 +151,8 @@ export default function RefundPage() {
       <Section heading="7. How an exchange works">
         <ol className="list-decimal list-inside space-y-1">
           <li>
-            Within {POLICY_TERMS.exchangeWindowDays} days of delivery, WhatsApp or email
-            us your order number, the size you need, and the unboxing video.
+            Within {POLICY_TERMS.exchangeRaiseWindowHours} hours of delivery, WhatsApp
+            or email us your order number, the size you need, and the unboxing video.
           </li>
           <li>We confirm the exchange and that your size is in stock.</li>
           <li>

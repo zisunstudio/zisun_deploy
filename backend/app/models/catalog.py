@@ -82,6 +82,25 @@ class Product(BaseModel):
     colourfastness: Mapped[Optional[str]] = mapped_column(String(255))
     wash_care: Mapped[Optional[str]] = mapped_column(String(255))
 
+    # ── Garment attributes ────────────────────────────────────────────────────
+    # The questions a customer asks before buying ethnic wear, and the ones the
+    # founder is answering by hand in the WhatsApp group today. Every one is a
+    # fact about the garment, so all are nullable with no brand-level default —
+    # the panel omits what nobody has filled in rather than guessing.
+    #
+    # Colour lives here as well as on the variant: the variant's colour is the
+    # one you are ordering, this is the garment's described colour ("Indigo with
+    # off-white border"), which is what a listing photograph needs explaining.
+    colour: Mapped[Optional[str]] = mapped_column(String(120))
+    print_type: Mapped[Optional[str]] = mapped_column(String(120))
+    pattern: Mapped[Optional[str]] = mapped_column(String(120))
+    neck_type: Mapped[Optional[str]] = mapped_column(String(120))
+    sleeve_type: Mapped[Optional[str]] = mapped_column(String(120))
+    # Tri-state, like has_pockets: attached, not attached, and not yet checked
+    # are three different answers and only the first two should be printed.
+    sleeve_attached: Mapped[Optional[bool]] = mapped_column(Boolean)
+    dupatta_included: Mapped[Optional[bool]] = mapped_column(Boolean)
+
     variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"
     )

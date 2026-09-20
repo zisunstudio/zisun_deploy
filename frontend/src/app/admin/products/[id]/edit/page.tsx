@@ -35,6 +35,13 @@ export default function EditProductPage() {
     has_pockets: "",
     colourfastness: "",
     wash_care: "",
+    colour: "",
+    print_type: "",
+    pattern: "",
+    neck_type: "",
+    sleeve_type: "",
+    sleeve_attached: "",
+    dupatta_included: "",
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -82,6 +89,15 @@ export default function EditProductPage() {
         product.has_pockets == null ? "" : product.has_pockets ? "yes" : "no",
       colourfastness: product.colourfastness ?? "",
       wash_care: product.wash_care ?? "",
+      colour: product.colour ?? "",
+      print_type: product.print_type ?? "",
+      pattern: product.pattern ?? "",
+      neck_type: product.neck_type ?? "",
+      sleeve_type: product.sleeve_type ?? "",
+      sleeve_attached:
+        product.sleeve_attached == null ? "" : product.sleeve_attached ? "yes" : "no",
+      dupatta_included:
+        product.dupatta_included == null ? "" : product.dupatta_included ? "yes" : "no",
     });
     setVariants(
       (product.variants ?? []).map((v: any) => ({
@@ -118,6 +134,15 @@ export default function EditProductPage() {
         has_pockets: form.has_pockets === "" ? null : form.has_pockets === "yes",
         colourfastness: form.colourfastness.trim(),
         wash_care: form.wash_care.trim(),
+        colour: form.colour.trim(),
+        print_type: form.print_type.trim(),
+        pattern: form.pattern.trim(),
+        neck_type: form.neck_type.trim(),
+        sleeve_type: form.sleeve_type.trim(),
+        sleeve_attached:
+          form.sleeve_attached === "" ? null : form.sleeve_attached === "yes",
+        dupatta_included:
+          form.dupatta_included === "" ? null : form.dupatta_included === "yes",
       });
     },
     onSuccess: () => {

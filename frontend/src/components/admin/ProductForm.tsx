@@ -30,6 +30,18 @@ export interface ProductFormData {
   has_pockets: string;
   colourfastness: string;
   wash_care: string;
+  /**
+   * Garment attributes. Strings for the same reason as above — the two boolean
+   * fields have to be able to say "nobody has recorded this yet", which a real
+   * boolean cannot.
+   */
+  colour: string;
+  print_type: string;
+  pattern: string;
+  neck_type: string;
+  sleeve_type: string;
+  sleeve_attached: string;
+  dupatta_included: string;
 }
 
 interface Category {
@@ -51,6 +63,8 @@ export function emptyProductForm(): ProductFormData {
     manufacturer_name: "", manufacturer_address: "",
     fabric_composition: "", fabric_gsm: "", weave: "",
     has_pockets: "", colourfastness: "", wash_care: "",
+    colour: "", print_type: "", pattern: "", neck_type: "",
+    sleeve_type: "", sleeve_attached: "", dupatta_included: "",
   };
 }
 
@@ -217,6 +231,92 @@ export default function ProductForm({ data, onChange, categories }: Props) {
               value={data.wash_care}
               onChange={f("wash_care")}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Garment details.
+          The seven questions the founder answers by hand in the WhatsApp group
+          every day. Left blank, a field simply does not appear on the product
+          page — there are no defaults here, because these are facts about one
+          garment and a fallback would print a claim nobody checked. */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 className="text-sm font-semibold text-gray-900">Product details</h3>
+        <p className="text-xs text-gray-400 mt-1 mb-4">
+          Shown on the product page. Anything left blank is simply omitted.
+        </p>
+
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Colour</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="Indigo with off-white border"
+                value={data.colour}
+                onChange={f("colour")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Print</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="Ajrakh block print"
+                value={data.print_type}
+                onChange={f("print_type")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pattern</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="Straight cut, side slits"
+                value={data.pattern}
+                onChange={f("pattern")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Neck</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="V-neck with piping"
+                value={data.neck_type}
+                onChange={f("neck_type")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sleeve type</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                placeholder="Three-quarter"
+                value={data.sleeve_type}
+                onChange={f("sleeve_type")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sleeve attached</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                value={data.sleeve_attached}
+                onChange={f("sleeve_attached")}
+              >
+                <option value="">— not recorded —</option>
+                <option value="yes">Attached</option>
+                <option value="no">Not attached</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dupatta included</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                value={data.dupatta_included}
+                onChange={f("dupatta_included")}
+              >
+                <option value="">— not recorded —</option>
+                <option value="yes">Included</option>
+                <option value="no">Not included</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

@@ -133,6 +133,32 @@ class FabricSpecFields(BaseModel):
 FABRIC_SPEC_COLUMNS = tuple(FabricSpecFields.model_fields)
 
 
+class GarmentAttributeFields(BaseModel):
+    """The garment attributes, as an admin submits them.
+
+    The seven questions a customer asks before buying ethnic wear. Same rule as
+    the fabric block: nullable, no brand-level defaults, because these are facts
+    about one garment rather than a house style.
+    """
+
+    colour: Optional[str] = Field(None, max_length=120)
+    print_type: Optional[str] = Field(None, max_length=120)
+    pattern: Optional[str] = Field(None, max_length=120)
+    neck_type: Optional[str] = Field(None, max_length=120)
+    sleeve_type: Optional[str] = Field(None, max_length=120)
+    sleeve_attached: Optional[bool] = None
+    dupatta_included: Optional[bool] = None
+
+    def attribute_values(self) -> dict:
+        """Only this class's own supplied keys — see LegalMetrologyFields."""
+        supplied = self.model_dump(exclude_unset=True, exclude_none=True)
+        own = set(GarmentAttributeFields.model_fields)
+        return {k: v for k, v in supplied.items() if k in own}
+
+
+GARMENT_ATTRIBUTE_COLUMNS = tuple(GarmentAttributeFields.model_fields)
+
+
 class LegalMetrologyFields(BaseModel):
     """
     The per-product declaration overrides, as an admin submits them.
@@ -172,11 +198,11 @@ class LegalMetrologyFields(BaseModel):
 LEGAL_METROLOGY_COLUMNS = tuple(LegalMetrologyFields.model_fields)
 
 
-class ProductCreate(ProductBase, LegalMetrologyFields, FabricSpecFields):
+class ProductCreate(ProductBase, LegalMetrologyFields, FabricSpecFields, GarmentAttributeFields):
     variants: List[ProductVariantCreate] = Field(..., min_length=1)
 
 
-class ProductUpdate(LegalMetrologyFields, FabricSpecFields):
+class ProductUpdate(LegalMetrologyFields, FabricSpecFields, GarmentAttributeFields):
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     base_price: Optional[int] = Field(None, ge=0)
@@ -250,6 +276,33 @@ class FabricSpecs(BaseModel):
         })
 
 
+class GarmentAttributes(BaseModel):
+    """What the product page shows under the garment's details.
+
+    Absent fields stay absent, for the same reason as FabricSpecs: a blank row
+    reads as a detail we declined to give, on exactly the question the customer
+    is trying to answer.
+    """
+
+    colour: Optional[str] = None
+    print_type: Optional[str] = None
+    pattern: Optional[str] = None
+    neck_type: Optional[str] = None
+    sleeve_type: Optional[str] = None
+    sleeve_attached: Optional[bool] = None
+    dupatta_included: Optional[bool] = None
+
+    @property
+    def is_empty(self) -> bool:
+        return not any(v is not None for v in self.model_dump().values())
+
+    @classmethod
+    def resolve(cls, product) -> "GarmentAttributes":
+        return cls(**{
+            name: getattr(product, name, None) for name in GARMENT_ATTRIBUTE_COLUMNS
+        })
+
+
 class ProductResponse(ProductBase):
     id: uuid.UUID
     is_active: bool = True
@@ -288,6 +341,13 @@ class ProductResponse(ProductBase):
     @property
     def fabric_specs(self) -> FabricSpecs:
         return FabricSpecs.resolve(self)
+
+    # Garment attributes. Same pattern again so no call site building a
+    # ProductResponse has to remember to attach it.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def garment_attributes(self) -> GarmentAttributes:
+        return GarmentAttributes.resolve(self)
 
     class Config:
         from_attributes = True

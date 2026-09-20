@@ -67,7 +67,7 @@ export default function TermsPage() {
             Shipping Policy
           </Link>
           . We do not offer returns. Size exchanges — including the{" "}
-          {POLICY_TERMS.exchangeWindowDays}-day window and the video-proof requirement —
+          {POLICY_TERMS.exchangeRaiseWindowHours}-hour window to raise it and the video-proof requirement —
           and the limited cases in which a refund arises are set out in our{" "}
           <Link href="/refund" className="text-primary underline">
             Exchange &amp; Cancellation Policy

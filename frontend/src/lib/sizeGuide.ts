@@ -23,6 +23,15 @@ export type SizeRow = {
   hip: number;
   /** Finished garment length, shoulder to hem, in cm. */
   length: number;
+  /**
+   * Bottom length, in cm, for sets sold with trousers — ankle-length for a
+   * straight pant, and the measurement people actually get wrong.
+   *
+   * Absent on a single garment, and the table omits the column entirely rather
+   * than printing a dash: a blank cell on a size chart reads as a measurement
+   * we would not give, which is the opposite of what this page is for.
+   */
+  bottomLength?: number;
 };
 
 export type SizeChart = {

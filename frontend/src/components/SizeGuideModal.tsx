@@ -51,6 +51,8 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
   if (!mounted) return null;
 
   const chart = chartForCategory(categoryName);
+  // Only render the bottom-length column when this chart actually measures one.
+  const hasBottom = chart?.rows.some((r) => r.bottomLength != null) ?? false;
 
   return createPortal(
     <AnimatePresence>
@@ -111,7 +113,7 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                       We do not accept returns. If the size does not fit we will exchange
                       it within{" "}
                       <strong className="font-semibold text-foreground">
-                        {POLICY_TERMS.exchangeWindowDays} days of delivery
+                        {POLICY_TERMS.exchangeRaiseWindowHours} hours of delivery
                       </strong>
                       , and size is the only reason we can accept.
                     </p>
@@ -134,6 +136,11 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
               </div>
 
 
+              {/* A set sold with trousers needs both lengths; a single garment
+                  has one. Showing an empty "Bottom length" column on a kurti
+                  reads as a measurement we declined to give — on the page whose
+                  whole job is preventing a sizing return — so the column only
+                  exists when the chart actually carries the data. */}
               <div className="overflow-x-auto -mx-1 px-1">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -142,7 +149,10 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                       <th className="py-2 pr-3 font-medium">Bust</th>
                       <th className="py-2 pr-3 font-medium">Waist</th>
                       <th className="py-2 pr-3 font-medium">Hip</th>
-                      <th className="py-2 font-medium">Length</th>
+                      <th className={hasBottom ? "py-2 pr-3 font-medium" : "py-2 font-medium"}>
+                        {hasBottom ? "Top length" : "Length"}
+                      </th>
+                      {hasBottom && <th className="py-2 font-medium">Bottom length</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -164,7 +174,8 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                           <td className="py-2.5 pr-3">{r.bust}</td>
                           <td className="py-2.5 pr-3">{r.waist}</td>
                           <td className="py-2.5 pr-3">{r.hip}</td>
-                          <td className="py-2.5">{r.length}</td>
+                          <td className={hasBottom ? "py-2.5 pr-3" : "py-2.5"}>{r.length}</td>
+                          {hasBottom && <td className="py-2.5">{r.bottomLength ?? "—"}</td>}
                         </tr>
                       );
                     })}

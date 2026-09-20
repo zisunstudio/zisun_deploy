@@ -63,6 +63,16 @@ export interface FabricSpecs {
   wash_care: string | null;
 }
 
+export interface GarmentAttributes {
+  colour: string | null;
+  print_type: string | null;
+  pattern: string | null;
+  neck_type: string | null;
+  sleeve_type: string | null;
+  sleeve_attached: boolean | null;
+  dupatta_included: boolean | null;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -77,6 +87,7 @@ export interface Product {
   updated_at: string;
   legal_metrology: LegalMetrology;
   fabric_specs: FabricSpecs;
+  garment_attributes: GarmentAttributes;
 }
 
 export interface ProductListResponse {

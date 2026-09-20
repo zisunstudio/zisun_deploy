@@ -37,7 +37,7 @@ const ITEMS: Assurance[] = [
     // returns" was, and it has to be here anyway: a customer who finds out
     // after delivery that there is no return is a customer who charges back.
     Icon: RefreshCcw,
-    text: `${POLICY_TERMS.exchangeWindowDays}-day size exchange · no returns`,
+    text: `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange · no returns`,
     href: "/refund",
   },
   {

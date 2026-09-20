@@ -14,7 +14,11 @@ import { POLICY_TERMS } from "@/lib/legal";
  */
 describe("policy terms", () => {
   it("offers a 3-day exchange window", () => {
-    expect(POLICY_TERMS.exchangeWindowDays).toBe(3);
+    // Two clocks, deliberately: telling us is quick and bounded tightly so the
+    // claim stays close to the unboxing video; posting back depends on a
+    // courier and is not.
+    expect(POLICY_TERMS.exchangeRaiseWindowHours).toBe(24);
+    expect(POLICY_TERMS.exchangeReturnWindowDays).toBe(3);
   });
 
   it("has no return window, because there is no returns programme", () => {

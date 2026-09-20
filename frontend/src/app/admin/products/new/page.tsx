@@ -52,6 +52,15 @@ export default function NewProductPage() {
         has_pockets: form.has_pockets === "" ? null : form.has_pockets === "yes",
         colourfastness: form.colourfastness.trim(),
         wash_care: form.wash_care.trim(),
+        colour: form.colour.trim(),
+        print_type: form.print_type.trim(),
+        pattern: form.pattern.trim(),
+        neck_type: form.neck_type.trim(),
+        sleeve_type: form.sleeve_type.trim(),
+        sleeve_attached:
+          form.sleeve_attached === "" ? null : form.sleeve_attached === "yes",
+        dupatta_included:
+          form.dupatta_included === "" ? null : form.dupatta_included === "yes",
         variants: variants.map((v) => ({
           sku: v.sku,
           size: v.size || null,

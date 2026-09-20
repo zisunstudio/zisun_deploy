@@ -64,16 +64,24 @@ export const POLICY_LAST_UPDATED = "22 August 2026";
  * it covers one thing: a size that does not fit. That is a deliberate commercial
  * decision for a business with no warehouse and a 26% COD return rate, and it is
  * stated in the same words everywhere it appears — on the product page, on the
- * home page and in the policy — because a three-day window that a customer only
- * discovers after delivery is the kind of surprise the dark-pattern rules exist
- * to stop.
+ * home page and in the policy — because a window a customer only discovers
+ * after delivery is the kind of surprise the dark-pattern rules exist to stop.
+ *
+ * The window has two halves, and they are not the same clock. Telling us is
+ * quick, so it is bounded tightly at 24 hours from delivery — it keeps the claim
+ * close to the unboxing video it depends on. Posting a parcel back is not quick
+ * and depends on a courier, so once a request is approved the customer gets
+ * three days to ship. Collapsing both into one number would either make the
+ * claim too loose or the return impossible for someone who works weekdays.
  *
  * `refundProcessingDays` survives because refunds still happen: a cancellation
  * before dispatch, and the statutory case in section 5 of the exchange policy.
  */
 export const POLICY_TERMS = {
-  /** Days from delivery to raise a size exchange. Not a return window. */
-  exchangeWindowDays: 3,
+  /** Hours from delivery to RAISE a size exchange. Not a return window. */
+  exchangeRaiseWindowHours: 24,
+  /** Days from approval to SHIP the piece back. */
+  exchangeReturnWindowDays: 3,
   refundProcessingDays: "5–7 business days",
   dispatchTimeframe: "2–3 business days",
   deliveryTimeframe: "4–8 business days",
