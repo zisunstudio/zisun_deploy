@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, Heart, ShoppingBag, Share2, Ruler } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { trackEvent } from "@/lib/queries/analytics";
-import { BROWSE_ONLY } from "@/lib/launchMode";
+import { BROWSE_ONLY, whatsappOrderUrl } from "@/lib/launchMode";
 import { FIREBASE_ENABLED } from "@/lib/firebase";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { ProductAssurances } from "@/components/ProductAssurances";
@@ -39,6 +39,19 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [imageIdx, setImageIdx] = useState(0);
+  const galleryRef = useRef<HTMLDivElement>(null);
+  function scrollGalleryTo(i: number) {
+    const el = galleryRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+    setImageIdx(i);
+  }
+  function onGalleryScroll() {
+    const el = galleryRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    if (i !== imageIdx) setImageIdx(i);
+  }
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const { data: coupons } = useActiveCoupons();
 
@@ -83,7 +96,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     const same = product!.variants.find((v) => v.color === colour && v.size === selectedVariant?.size && v.stock > 0);
     const first = product!.variants.find((v) => v.color === colour && v.stock > 0)
       ?? product!.variants.find((v) => v.color === colour);
-    if (same ?? first) { setSelectedVariantId((same ?? first)!.id); setImageIdx(0); }
+    if (same ?? first) { setSelectedVariantId((same ?? first)!.id); setImageIdx(0); galleryRef.current?.scrollTo({ left: 0 }); }
   }
   const price = selectedVariant
     ? product.base_price + selectedVariant.price_delta
@@ -126,18 +139,21 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   }
 
   function handleAddToCart() {
-    if (!product || !selectedVariant) { showToast("Please select a size/variant", "warning"); return; }
-    trackEvent("add_to_cart", { product_id: product.id, variant_id: selectedVariant.id, price });
+    if (!product) return;
+    if (!selectedVariant && !BROWSE_ONLY) { showToast("Please select a size", "warning"); return; }
+    trackEvent("add_to_cart", { product_id: product.id, variant_id: selectedVariant?.id ?? null, price });
     addItem({
-      id: selectedVariant.id,
+      id: selectedVariant?.id ?? product.id,
       name: product.name,
       price: price / 100,
       quantity: 1,
       image: images[0],
-      size: selectedVariant.size ?? undefined,
+      size: selectedVariant?.size ?? undefined,
+      color: selectedVariant?.color ?? selectedColour ?? undefined,
+      productId: product.id,
     });
     toggleCart();
-    showToast("Added to cart", "success");
+    showToast("Added to your bag", "success");
   }
 
   return (
@@ -147,17 +163,30 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         <div className="relative">
           {/* 3:4 is right on a phone. In a 1152px column it is over 1500px
               tall, so the image gets a landscape ratio on large screens. */}
-          <div className="relative w-full aspect-[3/4] lg:aspect-[16/9] bg-rose">
-            <Image
-              src={images[imageIdx]}
-              alt={product.name}
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
+          {/* Every photograph in one horizontal strip that snaps, so a thumb
+              swipes between them the way it does everywhere else on a phone.
+              The dots and thumbnails below scroll the strip; the strip's own
+              scroll updates them. Five photographs used to be one image and
+              five 8px dots, and nobody found the other four. */}
+          <div
+            ref={galleryRef}
+            onScroll={onGalleryScroll}
+            className="flex w-full overflow-x-auto snap-x snap-mandatory no-scrollbar bg-rose"
+            aria-label={`${product.name} photographs`}
+          >
+            {images.map((src, i) => (
+              <div key={i} className="relative w-full shrink-0 snap-center aspect-[3/4] lg:aspect-[16/9]">
+                <Image
+                  src={src}
+                  alt={`${product.name}${images.length > 1 ? ` — photo ${i + 1} of ${images.length}` : ""}`}
+                  fill
+                  priority={i === 0}
+                  sizes="100vw"
+                  className="object-cover"
+                />
+              </div>
+            ))}
           </div>
-
           <RepresentativeImage className="absolute bottom-3 left-4 text-[10px] px-2.5 py-1 z-10" />
 
           {/* Top controls */}
@@ -193,19 +222,43 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             </div>
           </div>
 
-          {/* Image dots */}
+          {/* Counter and dots over the strip */}
           {images.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {images.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setImageIdx(i)}
-                  className={`rounded-full transition-all ${i === imageIdx ? "w-4 h-2 bg-white" : "w-2 h-2 bg-white/50"}`}
-                />
-              ))}
-            </div>
+            <>
+              <span className="absolute top-12 left-1/2 -translate-x-1/2 rounded-full bg-ink/60 text-white text-[11px] font-semibold px-2 py-0.5 tabular-nums pointer-events-none">
+                {imageIdx + 1} / {images.length}
+              </span>
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5" role="tablist" aria-label="Choose photograph">
+                {images.map((_, i) => (
+                  <button
+                    key={i}
+                    role="tab"
+                    aria-selected={i === imageIdx}
+                    aria-label={`Photo ${i + 1}`}
+                    onClick={() => scrollGalleryTo(i)}
+                    className={`rounded-full transition-all ${i === imageIdx ? "w-4 h-2 bg-white" : "w-2 h-2 bg-white/50"}`}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
+        {/* Thumbnails: the other photographs, visibly there. */}
+        {images.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar px-5 pt-3 lg:max-w-3xl lg:mx-auto lg:w-full">
+            {images.map((src, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => scrollGalleryTo(i)}
+                aria-label={`Show photo ${i + 1}`}
+                className={`relative h-16 w-12 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${i === imageIdx ? "border-ink" : "border-transparent opacity-80"}`}
+              >
+                <Image src={src} alt="" fill sizes="48px" className="object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Product info */}
         <div className="px-5 pt-5 pb-4 lg:max-w-3xl lg:mx-auto lg:w-full">
@@ -338,7 +391,28 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           the declarations. */}
       <div className="sticky bottom-0 z-30 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-line bg-background/90 backdrop-blur-md lg:max-w-3xl lg:mx-auto lg:w-full">
         {BROWSE_ONLY ? (
-          <BrowseOnlyCTA productName={product.name} />
+          // The bag works while checkout is closed; it ends in a WhatsApp
+          // order instead of a payment page. A direct line for this one piece
+          // sits under it for people who would rather just ask.
+          <div>
+            <button
+              onClick={handleAddToCart}
+              className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-ink/90 transition-all shadow-lift active:scale-[0.99]"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              Add to bag
+            </button>
+            {whatsappOrderUrl(`${product.name}${selectedVariant?.size ? `, size ${selectedVariant.size}` : ""}${selectedColour ? `, ${selectedColour}` : ""}`) && (
+              <a
+                href={whatsappOrderUrl(`${product.name}${selectedVariant?.size ? `, size ${selectedVariant.size}` : ""}${selectedColour ? `, ${selectedColour}` : ""}`) ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center text-xs text-muted mt-2 underline underline-offset-4 decoration-line hover:text-ink"
+              >
+                or ask about this piece on WhatsApp
+              </a>
+            )}
+          </div>
         ) : (
           <button
             onClick={handleAddToCart}

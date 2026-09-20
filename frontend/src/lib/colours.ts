@@ -22,6 +22,7 @@ export const PALETTE: PaletteColour[] = [
   { name: "Rani Pink", hex: "#D81E6B", code: "RNI" },
   { name: "Red", hex: "#C8102E", code: "RED" },
   { name: "Maroon", hex: "#7A1F2B", code: "MRN" },
+  { name: "Burgundy", hex: "#7A1F3A", code: "BGY" },
   { name: "Wine", hex: "#5E1A3A", code: "WIN" },
   { name: "Rust", hex: "#B5471F", code: "RST" },
   { name: "Orange", hex: "#F27A1A", code: "ORG" },

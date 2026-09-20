@@ -9,9 +9,11 @@ import { PALETTE, SIZE_PRESETS, swatchStyle } from "@/lib/colours";
 
 type Variant = { id: string; sku: string; stock: number; size?: string | null; color?: string | null; price_delta: number; is_active: boolean };
 type Product = { id: string; name: string; base_price: number; variants: Variant[] };
-type Draft = { sku: string; size: string; color: string; stock: number; price_delta: number; is_active: boolean };
+// Strings on purpose: a controlled number input cannot be emptied. Price is
+// the variant's own selling price in rupees; the delta is computed at save.
+type Draft = { sku: string; size: string; color: string; stock: string; price_rupees: string; is_active: boolean };
 
-const EMPTY: Draft = { sku: "", size: "", color: "", stock: 0, price_delta: 0, is_active: true };
+const EMPTY: Draft = { sku: "", size: "", color: "", stock: "", price_rupees: "", is_active: true };
 
 /**
  * Inventory: every size and colour of every product, editable in place.
@@ -38,8 +40,13 @@ export default function AdminInventoryPage() {
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["admin", "inventory"] }); qc.invalidateQueries({ queryKey: ["admin", "products"] }); };
 
   const save = useMutation({
-    mutationFn: async ({ productId, variantId, d }: { productId: string; variantId: string | null; d: Draft }) => {
-      const body = { size: d.size || null, color: d.color || null, stock: d.stock, price_delta: d.price_delta, is_active: d.is_active };
+    mutationFn: async ({ productId, variantId, d, basePrice }: { productId: string; variantId: string | null; d: Draft; basePrice: number }) => {
+      const rupees = d.price_rupees.trim() === "" ? null : Number(d.price_rupees);
+      const body = {
+        size: d.size || null, color: d.color || null, is_active: d.is_active,
+        stock: d.stock.trim() === "" ? 0 : Math.max(0, Math.floor(Number(d.stock) || 0)),
+        price_delta: rupees == null || Number.isNaN(rupees) ? 0 : Math.round(rupees * 100) - basePrice,
+      };
       if (variantId) return adminApi.put(`/products/${productId}/variants/${variantId}`, body);
       return adminApi.post(`/products/${productId}/variants/`, { sku: d.sku.trim(), ...body });
     },
@@ -67,9 +74,10 @@ export default function AdminInventoryPage() {
     const a = document.createElement("a"); a.href = url; a.download = "inventory_template.csv"; a.click();
     URL.revokeObjectURL(url);
   }
-  function startEdit(productId: string, v: Variant) {
+  function startEdit(productId: string, v: Variant, basePrice: number) {
     setEditing({ productId, variantId: v.id });
-    setDraft({ sku: v.sku, size: v.size ?? "", color: v.color ?? "", stock: v.stock, price_delta: v.price_delta ?? 0, is_active: v.is_active });
+    setDraft({ sku: v.sku, size: v.size ?? "", color: v.color ?? "", stock: String(v.stock), is_active: v.is_active,
+      price_rupees: v.price_delta ? String(Math.round((basePrice + v.price_delta) / 100)) : "" });
     setErr(null);
   }
   function startAdd(productId: string) {
@@ -79,14 +87,14 @@ export default function AdminInventoryPage() {
   }
   const field = (key: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const el = e.target as HTMLInputElement;
-    const val = el.type === "number" ? Number(el.value) : el.type === "checkbox" ? el.checked : el.value;
+    const val = el.type === "checkbox" ? el.checked : el.value;
     setDraft((d) => ({ ...d, [key]: val }));
   };
 
   const shown = (products ?? []).filter((p) => !onlyProduct || p.id === onlyProduct);
   const rupees = (paise: number) => `₹${Math.round(paise / 100).toLocaleString("en-IN")}`;
 
-  function EditRow({ productId, variantId }: { productId: string; variantId: string | null }) {
+  function EditRow({ productId, variantId, basePrice }: { productId: string; variantId: string | null; basePrice: number }) {
     return (
       <tr className="bg-rose/60">
         <td className="px-3 py-2">
@@ -106,12 +114,16 @@ export default function AdminInventoryPage() {
             </select>
           </span>
         </td>
-        <td className="px-3 py-2"><input type="number" className="w-20 border rounded px-2 py-1 text-xs" value={draft.price_delta} onChange={field("price_delta")} title="Paise added to the base price" /></td>
-        <td className="px-3 py-2"><input type="number" min={0} className="w-16 border rounded px-2 py-1 text-xs" value={draft.stock} onChange={field("stock")} /></td>
+        <td className="px-3 py-2">
+          <span className="inline-flex items-center gap-1"><span className="text-xs text-gray-500">₹</span>
+            <input type="text" inputMode="numeric" className="w-20 border rounded px-2 py-1 text-xs" placeholder={String(Math.round(basePrice / 100))} value={draft.price_rupees} onChange={field("price_rupees")} title="This variant's own price. Blank = base price." />
+          </span>
+        </td>
+        <td className="px-3 py-2"><input type="text" inputMode="numeric" className="w-16 border rounded px-2 py-1 text-xs" placeholder="0" value={draft.stock} onChange={field("stock")} /></td>
         <td className="px-3 py-2"><input type="checkbox" checked={draft.is_active} onChange={field("is_active")} /></td>
         <td className="px-3 py-2">
           <div className="flex gap-1.5">
-            <button onClick={() => { if (!variantId && !draft.sku.trim()) { setErr("SKU is required"); return; } save.mutate({ productId, variantId, d: draft }); }}
+            <button onClick={() => { if (!variantId && !draft.sku.trim()) { setErr("SKU is required"); return; } save.mutate({ productId, variantId, d: draft, basePrice }); }}
               disabled={save.isPending} className="text-green-700 hover:text-green-900 disabled:opacity-50" aria-label="Save"><Check className="w-4 h-4" /></button>
             <button onClick={() => setEditing(null)} className="text-gray-500 hover:text-gray-700" aria-label="Cancel"><X className="w-4 h-4" /></button>
           </div>
@@ -150,11 +162,11 @@ export default function AdminInventoryPage() {
                 </div>
                 <table className="w-full text-sm">
                   <thead className="text-xs text-gray-500">
-                    <tr>{["SKU", "Size", "Colour", "Price ±", "Stock", "On", ""].map((h) => <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>)}</tr>
+                    <tr>{["SKU", "Size", "Colour", "Price", "Stock", "On", ""].map((h) => <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {p.variants.map((v) => editing?.productId === p.id && editing.variantId === v.id ? (
-                      <EditRow key={v.id} productId={p.id} variantId={v.id} />
+                      <EditRow key={v.id} productId={p.id} variantId={v.id} basePrice={p.base_price} />
                     ) : (
                       <tr key={v.id} className={`hover:bg-gray-50 ${!v.is_active ? "opacity-50" : ""}`}>
                         <td className="px-3 py-2 font-mono text-xs text-gray-700">{v.sku}</td>
@@ -162,18 +174,18 @@ export default function AdminInventoryPage() {
                         <td className="px-3 py-2 text-gray-700">
                           {v.color ? <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full border border-black/10" style={swatchStyle(v.color)} />{v.color}</span> : "—"}
                         </td>
-                        <td className="px-3 py-2 text-gray-600 text-xs">{v.price_delta ? `${v.price_delta > 0 ? "+" : "−"}${rupees(Math.abs(v.price_delta))}` : "—"}</td>
+                        <td className="px-3 py-2 text-gray-700 text-xs tabular-nums">{rupees(p.base_price + (v.price_delta ?? 0))}</td>
                         <td className="px-3 py-2"><span className={`font-bold ${v.stock === 0 ? "text-red-500" : v.stock <= 5 ? "text-amber-600" : "text-green-700"}`}>{v.stock}</span></td>
                         <td className="px-3 py-2 text-xs">{v.is_active ? "Yes" : "No"}</td>
                         <td className="px-3 py-2">
                           <div className="flex gap-2">
-                            <button onClick={() => startEdit(p.id, v)} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-semibold hover:bg-gray-200">Edit</button>
+                            <button onClick={() => startEdit(p.id, v, p.base_price)} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-semibold hover:bg-gray-200">Edit</button>
                             <button onClick={() => { if (confirm(`Delete ${v.sku}?`)) remove.mutate({ productId: p.id, variantId: v.id }); }} className="text-xs text-red-600 hover:bg-red-50 px-1.5 py-1 rounded" aria-label={`Delete ${v.sku}`}><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {editing?.productId === p.id && editing.variantId === null && <EditRow productId={p.id} variantId={null} />}
+                    {editing?.productId === p.id && editing.variantId === null && <EditRow productId={p.id} variantId={null} basePrice={p.base_price} />}
                     {p.variants.length === 0 && editing?.productId !== p.id && (
                       <tr><td colSpan={7} className="px-3 py-3 text-xs text-gray-500">No sizes or colours yet — add one, or open the product and use Colours × sizes.</td></tr>
                     )}

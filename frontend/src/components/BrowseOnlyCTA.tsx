@@ -18,8 +18,8 @@ export function BrowseOnlyCTA({ productName }: { productName?: string }) {
     // button that goes nowhere.
     return (
       <div className="w-full bg-rose border border-line text-center py-4 rounded-full">
-        <p className="text-foreground text-sm font-semibold">Launching soon</p>
-        <p className="text-muted text-xs mt-0.5">Online ordering opens shortly.</p>
+        <p className="text-foreground text-sm font-semibold">Ask us about this piece</p>
+        <p className="text-muted text-xs mt-0.5">Orders are taken over WhatsApp for now.</p>
       </div>
     );
   }
@@ -32,7 +32,7 @@ export function BrowseOnlyCTA({ productName }: { productName?: string }) {
       className="w-full bg-[#25D366] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#1FB855] transition-colors shadow-md"
     >
       <MessageCircle className="w-5 h-5" />
-      Launching soon — order on WhatsApp
+      Order on WhatsApp
     </a>
   );
 }
@@ -41,7 +41,7 @@ export function BrowseOnlyCTA({ productName }: { productName?: string }) {
 export function BrowseOnlyNote({ className = "" }: { className?: string }) {
   return (
     <p className={`text-muted text-xs text-center ${className}`}>
-      Online checkout opens soon — browse freely in the meantime.
+      Orders are confirmed on WhatsApp for now — size, delivery and payment (COD or UPI).
     </p>
   );
 }

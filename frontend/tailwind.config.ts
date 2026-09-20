@@ -9,9 +9,11 @@ import type { Config } from "tailwindcss";
  * porcelain the ground. Near-neutral with a trace of warmth, for the same
  *          reason the old cream went: the garment is the only saturated
  *          thing on the screen.
- * rani     the accent. "Pink is the navy blue of India" — rani pink is the
- *          one colour that is at once Indian, feminine and loud, and it is
- *          spent only where a thumb should stop: offers, timers, the heart.
+ * burgundy the brand colour — the founder's covers and cards are burgundy,
+ *          so the site is too. Spent where a thumb should stop: offers,
+ *          timers, the heart, the underline under a heading, the footer.
+ *          Never as a wash over a whole screen; a splash of it is the point.
+ *          `rani` is the same colour under the name the code grew up with.
  * haldi    turmeric. Tickets, stickers and the ribbon — the joyful things.
  * rose     the soft panel. Chips, the founder's band, the cart rows.
  * moss     the founder's ink, sampled from her drawing. Trust, signatures.
@@ -33,9 +35,11 @@ const config: Config = {
         foreground: "#1A1417",
         ink: "#1A1417",
         porcelain: "#FAF8F6",
-        rani: { DEFAULT: "#D81E6B", soft: "#FBE4EE" },
+        burgundy: { DEFAULT: "#7A1F3A", deep: "#5E1630", soft: "#F5E6EA" },
+        rani: { DEFAULT: "#7A1F3A", soft: "#F5E6EA" },
         haldi: { DEFAULT: "#F2C14E", deep: "#D9A62E" },
         rose: "#F6ECEA",
+        blush: "#FBF1F0",
         moss: "#465C41",
         primary: {
           DEFAULT: "#1A1417",

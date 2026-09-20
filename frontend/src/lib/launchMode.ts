@@ -53,3 +53,31 @@ export function whatsappOrderUrl(productName?: string): string | null {
     : "Hi ZISUN — I'd like to place an order.";
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }
+
+/**
+ * The bag, as a WhatsApp message Sushmita can answer.
+ *
+ * While checkout is closed this IS the order form: every line, size and
+ * colour, the total, and a link per piece so she can open it on her phone.
+ * Ends with the two things she needs to ask anyway. Null when there is no
+ * number to send it to.
+ */
+export function whatsappCartUrl(
+  items: Array<{ name: string; size?: string; color?: string; quantity: number; price: number; productId?: string }>,
+  totalRupees: number,
+  origin = "https://zisun.in",
+): string | null {
+  if (!HAS_WHATSAPP || items.length === 0) return null;
+  const lines = items.map((i) => {
+    const bits = [i.size && `Size ${i.size}`, i.color].filter(Boolean).join(", ");
+    return `• ${i.name}${bits ? ` (${bits})` : ""} × ${i.quantity} — ₹${(i.price * i.quantity).toLocaleString("en-IN")}${i.productId ? `\n  ${origin}/product/${i.productId}` : ""}`;
+  });
+  const text = [
+    "Hi ZISUN — I'd like to order:",
+    ...lines,
+    `Total: ₹${totalRupees.toLocaleString("en-IN")}`,
+    "",
+    "My name and delivery pincode:",
+  ].join("\n");
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+}

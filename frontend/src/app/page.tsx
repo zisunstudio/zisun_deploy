@@ -8,7 +8,6 @@ import {
   Leaf, Sun, Home, Grid3X3, Heart, ChevronRight, ArrowUpRight,
 } from "lucide-react";
 import BottomSheet from "@/components/BottomSheet";
-import CartDrawer from "@/components/CartDrawer";
 import { CategoryCard } from "@/components/CategoryCard";
 import { CategoryCardSkeleton } from "@/components/skeletons/Skeleton";
 import { useCartStore } from "@/store/useCartStore";
@@ -114,8 +113,11 @@ export default function HomePage() {
     // Cart and Profile stay out until commerce opens: the cart leads to a
     // checkout that cannot take an order, and profile is mostly addresses,
     // which only matter once there is something to deliver.
+    // The bag is back in browse mode: it now ends in a WhatsApp order rather
+    // than a checkout, so it leads somewhere. Profile stays out until there
+    // are orders to show.
+    { Icon: ShoppingBag, label: "Bag", id: "cart", href: null },
     ...(BROWSE_ONLY ? [] : [
-      { Icon: ShoppingBag, label: "Cart", id: "cart", href: null },
       { Icon: User, label: "Profile", id: "profile", href: "/profile" },
     ]),
   ];
@@ -336,7 +338,7 @@ export default function HomePage() {
         <LegalFooter />
 
         {/* Clears the fixed tab bar, which only exists below lg. */}
-        <div className="h-20 lg:h-0 bg-ink" />
+        <div className="h-20 lg:h-0 bg-burgundy" />
       </div>
 
       {/* Bottom tab bar - phones and tablets only. It is a touch pattern:
@@ -375,7 +377,6 @@ export default function HomePage() {
       </nav>
 
       <BottomSheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} />
-      <CartDrawer />
     </div>
   );
 }

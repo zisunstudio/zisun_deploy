@@ -15,10 +15,11 @@ const LINKS = [
 ];
 
 /**
- * The footer, in ink.
+ * The footer, in burgundy.
  *
- * A dark foot anchors a light page: it is where the scroll ends, and it says
- * so. The name is set very large and cropped by the edge on purpose - the one
+ * The brand colour as a whole surface, once, at the foot of the page - the
+ * "cover" the founder plans everything else around. A dark foot anchors a
+ * light page: it is where the scroll ends, and it says so. The name is set very large and cropped by the edge on purpose - the one
  * place the wordmark is allowed to be a shape rather than a label. The policy
  * links stay, and stay on the home page: Google's app verification and
  * Razorpay's onboarding both look for them here.
@@ -26,7 +27,7 @@ const LINKS = [
 export function LegalFooter() {
   const wa = whatsappContactUrl();
   return (
-    <footer className="mt-16 bg-ink text-porcelain overflow-hidden">
+    <footer className="mt-16 bg-burgundy text-porcelain overflow-hidden">
       <div className="mx-auto max-w-6xl px-5 lg:px-8 pt-12 pb-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -49,7 +50,7 @@ export function LegalFooter() {
             )}
           </nav>
         </div>
-        <p aria-hidden className="font-display font-semibold text-porcelain/[0.07] leading-none select-none mt-10 -mb-6 text-[26vw] lg:text-[13rem] tracking-tight whitespace-nowrap">
+        <p aria-hidden className="font-display font-semibold text-porcelain/[0.09] leading-none select-none mt-10 -mb-6 text-[26vw] lg:text-[13rem] tracking-tight whitespace-nowrap">
           {BRAND.name}
         </p>
         <p className="relative mt-8 text-[11px] text-porcelain/50">

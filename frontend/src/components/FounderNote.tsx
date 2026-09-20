@@ -41,7 +41,7 @@ export function FounderNote({ feature }: Props) {
     >
       {/* The embroidered flower from the first kurti, drawn in one line and
           set faintly behind her words. Decoration that comes from the cloth. */}
-      <Bloom className="absolute -left-6 top-6 h-64 w-auto text-rani/20 lg:h-80 lg:left-4 pointer-events-none" />
+      <Bloom className="absolute -left-6 top-6 h-64 w-auto text-burgundy/15 lg:h-80 lg:left-4 pointer-events-none" />
       <div className="mx-auto max-w-6xl px-5 lg:px-8 py-12 lg:py-16 relative">
         <div className="grid gap-10 lg:gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           {/* The words */}

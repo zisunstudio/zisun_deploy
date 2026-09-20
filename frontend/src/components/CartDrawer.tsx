@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { X, Minus, Plus, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
-import { BROWSE_ONLY } from "@/lib/launchMode";
+import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
+import { MessageCircle } from "lucide-react";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
 export default function CartDrawer() {
@@ -118,7 +119,28 @@ export default function CartDrawer() {
                   </span>
                 </div>
                 {BROWSE_ONLY ? (
-                  <BrowseOnlyCTA />
+                  // The bag is the order form while checkout is closed: one
+                  // tap opens WhatsApp with every line, size, colour and the
+                  // total already written, so Sushmita only has to reply.
+                  (() => {
+                    const href = whatsappCartUrl(items, getCartTotal(), typeof window !== "undefined" ? window.location.origin : undefined);
+                    return href ? (
+                      <div>
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full bg-[#25D366] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#1FB855] transition-colors shadow-md"
+                        >
+                          <MessageCircle className="w-5 h-5" />
+                          Order on WhatsApp
+                        </a>
+                        <p className="text-muted text-[11px] text-center mt-2 leading-snug">
+                          Sushmita confirms size, delivery and payment (COD or UPI) on WhatsApp.
+                        </p>
+                      </div>
+                    ) : <BrowseOnlyCTA />;
+                  })()
                 ) : (
                   <button
                     onClick={() => {

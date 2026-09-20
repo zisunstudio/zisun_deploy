@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ReactQueryProvider } from "@/lib/ReactQueryProvider";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
+import CartDrawer from "@/components/CartDrawer";
 import { SessionRestore } from "@/components/SessionRestore";
 
 // Three faces, one job each. Fraunces is the voice - a soft, slightly wonky
@@ -54,6 +55,9 @@ export default function RootLayout({
         <SessionRestore />
         <OfflineBanner />
         <WhatsAppFab />
+        {/* Mounted once, here: the bag opens from every product page, not
+            just the home page where it used to live. */}
+        <CartDrawer />
         <ReactQueryProvider>
         <ToastProvider>
           <ErrorBoundary>

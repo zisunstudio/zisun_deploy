@@ -87,7 +87,7 @@ A dead worker is silent: orders reach PAID, then nothing ships, stock never
 returns from expired carts, and no error appears anywhere.
 
 **The storefront has one palette and it lives in `frontend/tailwind.config.ts`.**
-Ink, porcelain, rani, haldi, rose, moss — every button, badge and panel uses a
+Ink, porcelain, burgundy (`rani` is its old name in code), haldi, rose, moss — every button, badge and panel uses a
 token; there are no raw hex colours in `src/` (a grep for `#5C3317` should
 stay empty). `primary` is an alias for ink kept for old call sites. Type is
 Fraunces (`font-display`/`font-serif`), Instrument Sans (`font-sans`) and
@@ -238,6 +238,13 @@ Overview. `ANTHROPIC_API_KEY` is set on `zisun-api` but the Anthropic
 account had **no credits** on 2026-09-20 — the features report exactly that
 until credits are added. WhatsApp buttons open a direct chat with the
 support number (`COMPANY.phone`), no longer the group.
+
+**Redis moved to a fresh Upstash database on 2026-09-20** (`mature-gannet-288205`).
+The api is on it and healthy. Worker and beat are held by `CELERY_PAUSED=1`
+until the BRPOP patch in `app/celery_app.py` is deployed; with it, an idle
+worker costs ~3.5k commands/day instead of 86k, which is what makes the
+free tier survivable (budget ≈ 240k/month of the 500k). The old database
+(`emerging-zebra-161921`) is spent and can be deleted.
 
 **Celery is still down** — Upstash's free quota is spent and writes are
 refused. Harmless while no order can be created; must be resolved (Railway

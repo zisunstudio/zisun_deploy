@@ -90,6 +90,27 @@ celery_app.conf.timezone = "Asia/Kolkata"
 # crashed, Railway exhausted its restart retries, and background processing
 # stopped silently for eight days. Nothing alerted, because a dead worker
 # produces no errors — only work that never happens.
+# ── Fewer polls of an empty queue ─────────────────────────────────────────
+#
+# kombu's Redis transport issues BRPOP with a hard-coded 1-second timeout and
+# no setting to change it (kombu/transport/redis.py, `_brpop_start(timeout=1)`,
+# called with the default). On an idle queue that is 86,400 billed commands a
+# day per worker - 2.6 million a month against Upstash's 500,000 - and it is
+# the single reason the free tier could not host this worker. A 25-second
+# wait is 3,456 a day. Latency is unchanged: BRPOP returns the moment a
+# message arrives. Kept below socket_timeout (30s) so the client never gives
+# up on a legitimately blocking read.
+from kombu.transport import redis as _kombu_redis  # noqa: E402
+
+_ORIGINAL_BRPOP_START = _kombu_redis.Channel._brpop_start
+
+
+def _patient_brpop_start(self, timeout=25):
+    return _ORIGINAL_BRPOP_START(self, timeout=timeout)
+
+
+_kombu_redis.Channel._brpop_start = _patient_brpop_start
+
 celery_app.conf.update(
     # Nothing in this codebase reads a task result (no AsyncResult anywhere), but
     # storing one costs a SET plus an EXPIRE for every task, forever.

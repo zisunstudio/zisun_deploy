@@ -6,6 +6,10 @@ import SizeChartEditor from "@/components/admin/SizeChartEditor";
 import { adminApi } from "@/lib/adminApi";
 import { PALETTE, swatchStyle } from "@/lib/colours";
 
+/** The price points this label sells at. Edit freely; it is a shortcut, not a rule. */
+const PRICE_PRESETS = [799, 999, 1199, 1299, 1499, 1799, 1999, 2499];
+const REFINE_TONES: Array<[string, string]> = [["Shorter", "make it shorter, under 60 words"], ["Warmer", "warmer and more personal, still plain"], ["More detail", "add the fabric, cut and care details in one more sentence"], ["Simpler", "simpler English, shorter sentences"]];
+
 export interface ProductFormData {
   name: string;
   description: string;
@@ -99,7 +103,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
   // The model only sees what is on the form. It cannot invent a fabric the
   // founder did not enter, which is the whole point of feeding it facts
   // rather than a name.
-  async function writeDescription() {
+  async function writeDescription(tone?: string) {
     setWriting(true); setAiNote(null);
     try {
       const category = categories.find((c) => c.id === data.category_id)?.name ?? null;
@@ -113,6 +117,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           sleeve_attached: data.sleeve_attached, dupatta_included: data.dupatta_included,
           existing_description: data.description || null,
         },
+        tone: tone ?? null,
       });
       onChange({ ...data, description: res.data.description });
     } catch (e: any) {
@@ -146,7 +151,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           <label className="block text-sm font-medium text-gray-700">Description</label>
           <button
             type="button"
-            onClick={writeDescription}
+            onClick={() => writeDescription()}
             disabled={writing || !data.name.trim()}
             title={data.name.trim() ? "Draft a description from the facts on this form" : "Give the product a name first"}
             className="inline-flex items-center gap-1 text-xs font-semibold text-ink disabled:opacity-40 hover:underline"
@@ -155,6 +160,17 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           </button>
         </div>
         {aiNote && <p className="text-[11px] text-amber-700 mb-1">{aiNote}</p>}
+        {data.description && (
+          <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-gray-500">Refine:</span>
+            {REFINE_TONES.map(([label, note]) => (
+              <button key={label} type="button" disabled={writing} onClick={() => writeDescription(note)}
+                className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:border-ink disabled:opacity-40">
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30 resize-none"
           rows={3}
@@ -172,21 +188,30 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           <div className="relative">
             <span className="absolute left-3 top-2 text-sm text-gray-500">₹</span>
             <input
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="numeric"
               className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
-              placeholder="999"
+              placeholder="1499"
               value={data.base_price_rupees}
               onChange={f("base_price_rupees")}
               required
             />
           </div>
-          {data.base_price_rupees && (
-            <p className="text-xs text-gray-400 mt-1">
-              = {priceToPaise(data.base_price_rupees)} paise
-            </p>
-          )}
+          {/* The prices this label actually uses, one tap each. Typing is
+              still there for anything else. */}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {PRICE_PRESETS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => onChange({ ...data, base_price_rupees: String(r) })}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  Number(data.base_price_rupees) === r ? "border-ink bg-ink text-white" : "border-gray-300 bg-white text-gray-700 hover:border-ink"}`}
+              >
+                ₹{r.toLocaleString("en-IN")}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div>

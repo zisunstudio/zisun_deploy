@@ -48,14 +48,38 @@ export function gridVariants(
   return rows;
 }
 
-const EMPTY: Omit<VariantRow, "id"> = {
-  sku: "",
-  size: "",
-  color: "",
-  price_delta: 0,
-  stock: 0,
-  is_active: true,
-};
+/**
+ * What the input row edits. Strings, deliberately: a controlled number
+ * input cannot be emptied (clearing it yields 0, which re-renders as "0"),
+ * which is the "there is already a zero I can't delete" bug. Price is the
+ * variant's own selling price in rupees - the founder thinks in prices, not
+ * in paise added to a base - and becomes a delta only at commit.
+ */
+interface Draft {
+  sku: string;
+  size: string;
+  color: string;
+  price_rupees: string;
+  stock: string;
+  is_active: boolean;
+}
+const EMPTY: Draft = { sku: "", size: "", color: "", price_rupees: "", stock: "", is_active: true };
+
+function toDraft(v: VariantRow, basePricePaise: number): Draft {
+  return {
+    sku: v.sku, size: v.size ?? "", color: v.color ?? "", is_active: v.is_active,
+    price_rupees: v.price_delta ? String(Math.round((basePricePaise + v.price_delta) / 100)) : "",
+    stock: String(v.stock ?? 0),
+  };
+}
+function fromDraft(d: Draft, basePricePaise: number): Omit<VariantRow, "id"> {
+  const rupees = d.price_rupees.trim() === "" ? null : Number(d.price_rupees);
+  return {
+    sku: d.sku.trim(), size: d.size.trim(), color: d.color, is_active: d.is_active,
+    price_delta: rupees == null || Number.isNaN(rupees) ? 0 : Math.round(rupees * 100) - basePricePaise,
+    stock: d.stock.trim() === "" ? 0 : Math.max(0, Math.floor(Number(d.stock) || 0)),
+  };
+}
 
 export interface VariantEditorHandle {
   /**
@@ -101,7 +125,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
     }
   }
   const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [draft, setDraft] = useState<Omit<VariantRow, "id">>(EMPTY);
+  const [draft, setDraft] = useState<Draft>(EMPTY);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -115,8 +139,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
 
   function startEdit(idx: number) {
     setEditIdx(idx);
-    const { id: _id, ...rest } = variants[idx];
-    setDraft({ ...rest });
+    setDraft(toDraft(variants[idx], basePricePaise));
     setAdding(false);
     setErr(null);
   }
@@ -127,9 +150,10 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
     setErr(null);
   }
 
-  function validate(d: typeof draft): string | null {
+  function validate(d: Draft): string | null {
     if (!d.sku.trim()) return "SKU is required";
-    if (d.stock < 0) return "Stock cannot be negative";
+    if (d.stock.trim() !== "" && (Number.isNaN(Number(d.stock)) || Number(d.stock) < 0)) return "Stock must be a whole number";
+    if (d.price_rupees.trim() !== "" && (Number.isNaN(Number(d.price_rupees)) || Number(d.price_rupees) < 0)) return "Price must be a number in rupees";
     return null;
   }
 
@@ -139,7 +163,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
     setSaving(true);
     setErr(null);
     try {
-      const newRow: VariantRow = { ...draft };
+      const newRow: VariantRow = { ...fromDraft(draft, basePricePaise) };
       const saved = onSaveRow ? await onSaveRow(newRow) : newRow;
       onChange([...variants, saved]);
       setAdding(false);
@@ -157,7 +181,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
     setSaving(true);
     setErr(null);
     try {
-      const updated: VariantRow = { ...variants[idx], ...draft };
+      const updated: VariantRow = { ...variants[idx], ...fromDraft(draft, basePricePaise) };
       const saved = onSaveRow ? await onSaveRow(updated) : updated;
       const next = [...variants];
       next[idx] = saved;
@@ -188,17 +212,17 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
     flushDraft: () => {
       if (!adding) return null;
       // A pristine draft is the "Add variant" button being open, not a row.
-      const untouched = !draft.sku.trim() && !draft.size && !draft.color && draft.stock === 0;
+      const untouched = !draft.sku.trim() && !draft.size && !draft.color && draft.stock.trim() === "";
       if (untouched) return null;
       const v = validate(draft);
       if (v) throw new Error(`Variant row: ${v}`);
-      const row: VariantRow = { ...draft };
+      const row: VariantRow = { ...fromDraft(draft, basePricePaise) };
       onChange([...variants, row]);
       setAdding(false);
       setDraft({ ...EMPTY });
       return row;
     },
-  }), [adding, draft, variants, onChange]);
+  }), [adding, draft, variants, onChange, basePricePaise]);
 
   const effectivePrice = (delta: number) =>
     `₹${((basePricePaise + delta) / 100).toFixed(0)}`;
@@ -298,6 +322,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
                     key={idx}
                     draft={draft}
                     onChange={setDraft}
+                    basePricePaise={basePricePaise}
                     onSave={() => commitEdit(idx)}
                     onCancel={cancelEdit}
                     saving={saving}
@@ -341,6 +366,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
                 <VariantInputRow
                   draft={draft}
                   onChange={setDraft}
+                  basePricePaise={basePricePaise}
                   onSave={commitAdd}
                   onCancel={cancelEdit}
                   saving={saving}
@@ -366,16 +392,17 @@ function VariantInputRow({
   onSave,
   onCancel,
   saving,
+  basePricePaise,
 }: {
-  draft: Omit<VariantRow, "id">;
-  onChange: (d: Omit<VariantRow, "id">) => void;
+  draft: Draft;
+  onChange: (d: Draft) => void;
+  basePricePaise: number;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
 }) {
-  const field = (key: keyof typeof draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const val = e.target.type === "number" ? Number(e.target.value) : e.target.value;
-    onChange({ ...draft, [key]: val });
+  const field = (key: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    onChange({ ...draft, [key]: e.target.value });
   };
   return (
     <tr className="bg-blue-50">
@@ -414,20 +441,25 @@ function VariantInputRow({
         </span>
       </td>
       <td className="px-2 py-1">
-        <input
-          type="number"
-          className="w-20 border rounded px-2 py-1 text-xs"
-          placeholder="0"
-          value={draft.price_delta}
-          onChange={field("price_delta")}
-        />
-        <span className="text-xs text-gray-400 ml-1">paise</span>
+        <span className="inline-flex items-center gap-1">
+          <span className="text-xs text-gray-500">₹</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            className="w-20 border rounded px-2 py-1 text-xs"
+            placeholder={basePricePaise ? String(Math.round(basePricePaise / 100)) : "same"}
+            title="This variant's own price. Leave blank to use the base price."
+            value={draft.price_rupees}
+            onChange={field("price_rupees")}
+          />
+        </span>
       </td>
       <td className="px-2 py-1">
         <input
-          type="number"
-          min="0"
+          type="text"
+          inputMode="numeric"
           className="w-16 border rounded px-2 py-1 text-xs"
+          placeholder="0"
           value={draft.stock}
           onChange={field("stock")}
         />
