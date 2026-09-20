@@ -8,6 +8,7 @@ import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from "@/lib/quer
 import { useAuthStore } from "@/store/useAuthStore";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
+import { OfferBadge } from "@/components/OfferBadge";
 import { useImpression } from "@/lib/useImpression";
 
 interface Props {
@@ -61,6 +62,12 @@ export function ProductCard({ product, className = "" }: Props) {
           blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         />
         <RepresentativeImage className="absolute bottom-2 left-2 text-[9px] px-2 py-[3px] z-10" />
+        <OfferBadge offer={product.offer} className="absolute top-2.5 left-2.5 z-10 shadow-sm" />
+        {/* "New" for two weeks after listing, only when there is no offer badge
+            in that corner — two pills stacked in one corner read as clutter. */}
+        {!product.offer?.active && Date.now() - new Date(product.created_at).getTime() < 14 * 86400000 && (
+          <span className="absolute top-2.5 left-2.5 z-10 rounded-md bg-white/95 text-foreground text-[10px] font-bold px-1.5 py-0.5 tracking-wide shadow-sm">NEW</span>
+        )}
         {isOutOfStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="text-white text-xs font-semibold bg-black/60 px-2.5 py-1 rounded-full">
@@ -85,7 +92,20 @@ export function ProductCard({ product, className = "" }: Props) {
         )}
       </div>
       <p className="text-foreground font-semibold text-sm mt-2 leading-tight line-clamp-2">{product.name}</p>
-      <p className="text-primary font-bold text-sm mt-0.5">{formatPrice(price)}</p>
+      {(() => {
+        // Scarcity only when it is true and small. "Only 2 left" on a piece
+        // with 2 left is information; on every card it is a dark pattern.
+        const left = product.variants.filter((v) => v.is_active).reduce((s, v) => s + v.stock, 0);
+        return left > 0 && left <= 3
+          ? <p className="text-[11px] text-[#B4232C] font-semibold mt-1">Only {left} left</p>
+          : null;
+      })()}
+      <p className="mt-0.5 flex items-baseline gap-1.5">
+        <span className="text-primary font-bold text-sm">{formatPrice(price)}</span>
+        {product.offer?.active && product.offer.compare_at_price ? (
+          <span className="text-muted text-xs line-through">{formatPrice(product.offer.compare_at_price)}</span>
+        ) : null}
+      </p>
     </div>
   );
 }

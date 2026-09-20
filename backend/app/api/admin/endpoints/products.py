@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,6 +19,7 @@ from app.models.order import Order, OrderStatus
 from app.schemas.catalog import (
     FABRIC_SPEC_COLUMNS,
     GARMENT_ATTRIBUTE_COLUMNS,
+    MERCHANDISING_COLUMNS,
     LEGAL_METROLOGY_COLUMNS,
     AdminProductDetail,
     MediaConfirmRequest,
@@ -61,6 +62,23 @@ async def _get_product_or_404(
 
 class StockUpdateRequest(BaseModel):
     stock: int
+
+
+def _validate_offer(product) -> None:
+    """A markdown must mark DOWN.
+
+    compare_at_price is the price shown struck through; if it is not above the
+    selling price the badge would read "-0%" or worse "-(-20)%". Checked
+    against the base_price that will actually be stored, so an update that
+    changes both in one request is judged on its own numbers.
+    """
+    cmp = getattr(product, "compare_at_price", None)
+    if cmp is not None and cmp <= product.base_price:
+        raise HTTPException(
+            422,
+            "compare_at_price must be higher than the selling price — it is the "
+            "price the product is marked down from.",
+        )
 
 
 @router.get("/", response_model=List[ProductResponse])
@@ -115,7 +133,9 @@ async def admin_create_product(
         **data.declaration_values(),
         **data.spec_values(),
         **data.attribute_values(),
+        **data.merchandising_values(),
     )
+    _validate_offer(product)
     db.add(product)
     await db.flush()
 
@@ -167,6 +187,10 @@ async def admin_update_product(
     for column, value in data.attribute_values().items():
         if column in GARMENT_ATTRIBUTE_COLUMNS:
             setattr(product, column, value)
+    for column, value in data.merchandising_values().items():
+        if column in MERCHANDISING_COLUMNS:
+            setattr(product, column, value)
+    _validate_offer(product)
     await db.commit()
     return await _get_product_or_404(product_id, db)
 
@@ -332,6 +356,7 @@ async def admin_confirm_media_upload(
         cdn_url=body.cdn_url,
         type=media_type,
         display_order=body.display_order,
+        variant_id=body.variant_id,
     )
     db.add(media)
     await db.commit()
@@ -763,3 +788,71 @@ async def admin_get_product(
     db: AsyncSession = Depends(get_async_db),
 ):
     return await _get_product_or_404(product_id, db)
+
+
+# ── PUT /shelf-order — the founder's drag-to-arrange ─────────────────────────
+
+class ShelfOrderRequest(BaseModel):
+    """Product ids in the order they should sit, front of shelf first.
+
+    Only the ids listed are pinned; every other product has its pin cleared and
+    returns to attention ordering. Sending an empty list therefore means "let
+    the algorithm arrange everything", which is the documented default.
+    """
+    ids: List[uuid.UUID] = Field(default_factory=list, max_length=500)
+
+
+@router.put("/shelf-order", status_code=204)
+async def admin_set_shelf_order(
+    body: ShelfOrderRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    listed = {pid: i for i, pid in enumerate(body.ids)}
+    result = await db.execute(
+        select(Product).where(Product.deleted_at.is_(None))
+    )
+    for product in result.scalars().all():
+        product.shelf_rank = listed.get(product.id)
+    await db.commit()
+
+
+# ── PATCH /{id}/media/{mid} — which colour a photograph shows ────────────────
+
+class MediaVariantRequest(BaseModel):
+    """None detaches the photograph from any colour: it shows for all of them."""
+    variant_id: Optional[uuid.UUID] = None
+
+
+@router.patch("/{product_id}/media/{media_id}", response_model=ProductMediaResponse)
+async def admin_set_media_variant(
+    product_id: uuid.UUID,
+    media_id: uuid.UUID,
+    body: MediaVariantRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    media = (
+        await db.execute(
+            select(ProductMedia).where(
+                ProductMedia.id == media_id, ProductMedia.product_id == product_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not media:
+        raise HTTPException(404, "Media not found")
+    if body.variant_id is not None:
+        # The variant must belong to this product; a photo of one kurti must
+        # not be attachable to a colour of another by guessing ids.
+        variant = (
+            await db.execute(
+                select(ProductVariant).where(
+                    ProductVariant.id == body.variant_id,
+                    ProductVariant.product_id == product_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if not variant:
+            raise HTTPException(404, "Variant not found on this product")
+    media.variant_id = body.variant_id
+    await db.commit()
+    await db.refresh(media)
+    return media

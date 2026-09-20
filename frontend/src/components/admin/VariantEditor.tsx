@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { Plus, Trash2, Check, X } from "lucide-react";
 
 export interface VariantRow {
@@ -30,13 +30,28 @@ const EMPTY: Omit<VariantRow, "id"> = {
   is_active: true,
 };
 
-export default function VariantEditor({
+export interface VariantEditorHandle {
+  /**
+   * Commit a row the user filled in but never confirmed with the tick.
+   *
+   * The founder typed a SKU, size, colour and stock, saw a complete-looking
+   * row, and clicked Create Product — which then said "Add at least one
+   * variant". The row was a local draft; nothing had told the parent. This
+   * lets the parent flush that draft at submit time rather than lose it.
+   *
+   * Returns the committed row, null if there was nothing pending, and throws
+   * with the validation message if the draft is unusable.
+   */
+  flushDraft: () => VariantRow | null;
+}
+
+const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEditor({
   variants,
   onChange,
   onSaveRow,
   onDeleteRow,
   basePricePaise = 0,
-}: Props) {
+}: Props, ref) {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<Omit<VariantRow, "id">>(EMPTY);
   const [adding, setAdding] = useState(false);
@@ -120,6 +135,22 @@ export default function VariantEditor({
       setSaving(false);
     }
   }
+
+  useImperativeHandle(ref, () => ({
+    flushDraft: () => {
+      if (!adding) return null;
+      // A pristine draft is the "Add variant" button being open, not a row.
+      const untouched = !draft.sku.trim() && !draft.size && !draft.color && draft.stock === 0;
+      if (untouched) return null;
+      const v = validate(draft);
+      if (v) throw new Error(`Variant row: ${v}`);
+      const row: VariantRow = { ...draft };
+      onChange([...variants, row]);
+      setAdding(false);
+      setDraft({ ...EMPTY });
+      return row;
+    },
+  }), [adding, draft, variants, onChange]);
 
   const effectivePrice = (delta: number) =>
     `₹${((basePricePaise + delta) / 100).toFixed(0)}`;
@@ -210,7 +241,9 @@ export default function VariantEditor({
       )}
     </div>
   );
-}
+});
+
+export default VariantEditor;
 
 function VariantInputRow({
   draft,

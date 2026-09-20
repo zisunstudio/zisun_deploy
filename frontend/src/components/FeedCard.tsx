@@ -59,8 +59,19 @@ export function FeedCard({ item, className }: { item: FeedItem; className?: stri
     router.push(`/product/${productId}`);
   }
 
+  // The whole card is the target. People tap the photograph, the name, the
+  // price — a card where only the small white button responds reads as a
+  // broken page, not a considered one. The button stays as the affordance;
+  // it just isn't the only thing that works.
   return (
-    <div className={`relative w-full bg-gray-100 flex-shrink-0 overflow-hidden ${className ?? "aspect-[9/16]"}`}>
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label={`${productName} — view product`}
+      onClick={handleShopNow}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleShopNow(); } }}
+      className={`relative w-full bg-gray-100 flex-shrink-0 overflow-hidden cursor-pointer ${className ?? "aspect-[9/16]"}`}
+    >
       {item.type === "VIDEO" && item.media_url ? (
         <video
           src={item.media_url}
@@ -95,7 +106,7 @@ export function FeedCard({ item, className }: { item: FeedItem; className?: stri
           <p className="text-white/80 text-sm mb-3">{formatPrice(price)}</p>
         )}
         <button
-          onClick={handleShopNow}
+          onClick={(e) => { e.stopPropagation(); handleShopNow(); }}
           className="flex items-center gap-2 bg-white text-[#5C3317] px-5 py-2.5 rounded-full font-semibold text-sm shadow-lg"
         >
           <ShoppingBag className="w-4 h-4" />

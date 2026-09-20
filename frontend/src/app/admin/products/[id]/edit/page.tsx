@@ -42,6 +42,9 @@ export default function EditProductPage() {
     sleeve_type: "",
     sleeve_attached: "",
     dupatta_included: "",
+    compare_at_rupees: "",
+    offer_ends_at: "",
+    size_chart: null,
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -98,6 +101,12 @@ export default function EditProductPage() {
         product.sleeve_attached == null ? "" : product.sleeve_attached ? "yes" : "no",
       dupatta_included:
         product.dupatta_included == null ? "" : product.dupatta_included ? "yes" : "no",
+      compare_at_rupees: product.compare_at_price == null ? "" : String(product.compare_at_price / 100),
+      // datetime-local wants local wall-clock time without the zone suffix.
+      offer_ends_at: product.offer_ends_at
+        ? new Date(new Date(product.offer_ends_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+        : "",
+      size_chart: product.size_chart ?? null,
     });
     setVariants(
       (product.variants ?? []).map((v: any) => ({
@@ -143,6 +152,10 @@ export default function EditProductPage() {
           form.sleeve_attached === "" ? null : form.sleeve_attached === "yes",
         dupatta_included:
           form.dupatta_included === "" ? null : form.dupatta_included === "yes",
+        // Offer: rupees -> paise, "" -> null (clears the offer on update).
+        compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
+        offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
+        size_chart: form.size_chart,
       });
     },
     onSuccess: () => {
@@ -234,8 +247,9 @@ export default function EditProductPage() {
 
         {/* Media */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Photos & Videos</h2>
+          <h2 id="photos" className="font-semibold text-gray-900 mb-4 scroll-mt-24">Photos & Videos</h2>
           <MediaUploader
+            variants={variants.map((v) => ({ id: v.id, color: v.color, size: v.size }))}
             productId={productId}
             media={media}
             onChange={setMedia}

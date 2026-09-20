@@ -21,6 +21,7 @@ import { SizeGuideModal } from "@/components/SizeGuideModal";
 import { ProductDeclarations } from "@/components/ProductDeclarations";
 import { FabricSpecs } from "@/components/FabricSpecs";
 import { GarmentDetails } from "@/components/GarmentDetails";
+import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -49,11 +50,37 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     </div>
   );
 
-  const images = product.media.length > 0
-    ? product.media.map((m) => m.cdn_url ?? m.url)
-    : [productImageUrl(product)];
 
   const selectedVariant = product.variants.find((v) => v.id === selectedVariantId) ?? product.variants[0] ?? null;
+
+  // Colours are a first-class choice, sizes are a choice within a colour.
+  // The variants table is flat (one row per size x colour), so the colour
+  // list is the distinct colours, and the size list is the sizes that exist
+  // in the chosen colour — otherwise a size that only comes in Indigo would
+  // be offered under Red and fail at the bag.
+  const colours = Array.from(new Set(product.variants.filter((v) => v.is_active && v.color).map((v) => v.color as string)));
+  const selectedColour = selectedVariant?.color ?? colours[0] ?? null;
+  const variantsInColour = selectedColour
+    ? product.variants.filter((v) => v.color === selectedColour)
+    : product.variants;
+  const variantIdsInColour = new Set(variantsInColour.map((v) => v.id));
+
+  // Photographs tagged with a colour show for that colour; untagged ones show
+  // for every colour. If nothing is tagged, all photographs show — tagging is
+  // optional and an untagged catalogue must look exactly as it did before.
+  const colourMedia = product.media.filter((m) => !m.variant_id || variantIdsInColour.has(m.variant_id));
+  const gallery = colourMedia.length > 0 ? colourMedia : product.media;
+  const images = gallery.length > 0
+    ? gallery.map((m) => m.cdn_url ?? m.url)
+    : [productImageUrl(product)];
+
+  function selectColour(colour: string) {
+    // Prefer the same size in the new colour; fall back to the first in stock.
+    const same = product!.variants.find((v) => v.color === colour && v.size === selectedVariant?.size && v.stock > 0);
+    const first = product!.variants.find((v) => v.color === colour && v.stock > 0)
+      ?? product!.variants.find((v) => v.color === colour);
+    if (same ?? first) { setSelectedVariantId((same ?? first)!.id); setImageIdx(0); }
+  }
   const price = selectedVariant
     ? product.base_price + selectedVariant.price_delta
     : product.base_price;
@@ -186,10 +213,49 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <h1 className="font-serif text-2xl font-bold text-foreground leading-tight mb-2">
             {product.name}
           </h1>
-          <p className="text-primary text-xl font-bold mb-4">{formatPrice(price)}</p>
-
+          <div className="mb-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-primary text-xl font-bold">{formatPrice(price)}</p>
+              {product.offer?.active && product.offer.compare_at_price ? (
+                <>
+                  <span className="text-muted text-base line-through">{formatPrice(product.offer.compare_at_price)}</span>
+                  <OfferBadge offer={product.offer} />
+                </>
+              ) : null}
+            </div>
+            <OfferCountdown offer={product.offer} className="mt-1" />
+          </div>
+          {/* In the page, not in the sticky bar. Three rows of assurances
+              inside a bottom-pinned bar made it 200px tall — on a phone that
+              covered the price at first paint. Here they read as part of the
+              decision, and the bar shrinks to the one thing that must stay
+              reachable: the buy action. */}
+          <ProductAssurances />
+          {/* Colour, when there is more than one. Each swatch is the colour's
+              name in a chip — a coloured dot would need a hex code nobody has
+              entered, and "Indigo" is what the customer would say anyway. */}
+          {colours.length > 1 && (
+            <div className="mb-4">
+              <p className="text-foreground text-sm font-semibold mb-2">
+                Colour <span className="text-muted font-normal">· {selectedColour}</span>
+              </p>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Colour">
+                {colours.map((c) => {
+                  const any = product.variants.some((v) => v.color === c && v.stock > 0);
+                  const on = c === selectedColour;
+                  return (
+                    <button key={c} type="button" role="radio" aria-checked={on} onClick={() => selectColour(c)}
+                      className={`h-10 px-3.5 rounded-full border text-xs font-semibold transition-all
+                        ${on ? "border-primary bg-primary text-white" : any ? "border-gray-200 text-gray-700 hover:border-primary hover:text-primary" : "border-gray-200 text-gray-300 line-through"}`}>
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {/* Variant selector */}
-          {product.variants.length > 1 && (
+          {variantsInColour.length > 1 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-foreground text-sm font-semibold">Select Size</p>
@@ -212,7 +278,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 </button>
               </div>
               <VariantSelector
-                variants={product.variants}
+                variants={variantsInColour}
                 selected={selectedVariantId ?? selectedVariant?.id ?? null}
                 onSelect={setSelectedVariantId}
                 groupBy="size"
@@ -260,7 +326,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       {/* Sticky rather than a flex sibling: the page scrolls with the document
           now, and the buy action should not scroll away from a shopper reading
           the declarations. */}
-      <div className="sticky bottom-0 z-30 px-5 pb-6 pt-3 border-t border-gray-100 bg-background lg:max-w-3xl lg:mx-auto lg:w-full">
+      <div className="sticky bottom-0 z-30 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 bg-background lg:max-w-3xl lg:mx-auto lg:w-full">
         {BROWSE_ONLY ? (
           <BrowseOnlyCTA productName={product.name} />
         ) : (
@@ -273,7 +339,6 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             {isOutOfStock ? "Out of Stock" : "Add to Cart"}
           </button>
         )}
-        <ProductAssurances />
       </div>
 
       <SizeGuideModal
@@ -281,6 +346,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         onClose={() => setSizeGuideOpen(false)}
         categoryName={product.category?.name}
         selectedSize={selectedVariant?.size ?? null}
+        chart={product.size_chart}
       />
     </div>
   );

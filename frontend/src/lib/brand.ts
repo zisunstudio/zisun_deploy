@@ -66,10 +66,14 @@ export const FOUNDER = {
   role: "Founder",
 
   /** One or two sentences, in her voice. Replace with the real story. */
-  story: null as string | null,
+  // Drafted from her own words in the ZISUN Tales announcement ("a small space
+  // for my close friends and those looking for their next dreamy dress … your
+  // thoughts will help me understand what to bring next"). Hers to edit.
+  story:
+    "I started ZISUN as a small space for my close friends, and for anyone looking for their next dreamy dress. Handwoven South Indian cotton, cut for the way we actually live — every piece here is one I would wear myself." as string | null,
 
   /** A single line she would put her name to. */
-  quote: null as string | null,
+  quote: "Tell me what you genuinely like. It decides what I make next." as string | null,
 
   /** Optional portrait in /public. */
   portrait: null as string | null,

@@ -26,6 +26,12 @@ from app.models.analytics import AnalyticsEvent
 from app.models.catalog import Product, ProductVariant
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.user import User, UserRole
+from app.services.shelf import (
+    EVENT_WEIGHTS,
+    WINDOW_DAYS,
+    attention_score_subquery,
+    half_life_days,
+)
 
 router = APIRouter()
 
@@ -50,7 +56,7 @@ LOW_STOCK_THRESHOLD = 5
 # instant one for everybody after the first, at a cost of two Redis commands
 # a minute - which matters, because the Upstash tier is metered and has been
 # exhausted once already.
-CACHE_KEY = "admin:dashboard:v1"
+CACHE_KEY = "admin:dashboard:v2"
 CACHE_SECONDS = 60
 
 
@@ -185,66 +191,77 @@ async def admin_dashboard(
     # Views per product, including the ones nobody has opened — those are the
     # point. A left join keeps a product with zero views in the result, where an
     # inner join would silently drop exactly the rows worth seeing.
-    view_rows = (
+    # Per-product funnel in ONE grouped query: impressions, opens, bag adds and
+    # checkouts, each as a conditional count, joined to the same attention score
+    # the shelf sorts by. A left join keeps products nobody has opened in the
+    # result — those rows are the point.
+    #
+    # The two rates are what the founder actually asked for: "where is the
+    # attention going". ctr = opens / impressions says whether the card earns
+    # a tap; cart_rate = bag adds / opens says whether the page earns the sale.
+    # A product with a high ctr and low cart_rate has a photograph better than
+    # its page; the reverse has a page better than its photograph. Both are
+    # None rather than 0 when the denominator is 0, so a product with no
+    # impressions is not reported as converting at 0%.
+    def _count_of(event_type):
+        return sa.func.count(
+            sa.case((AnalyticsEvent.event_type == event_type, AnalyticsEvent.id))
+        )
+
+    attention_sq = attention_score_subquery()
+    product_rows = (
         await db.execute(
             select(
                 Product.id,
                 Product.name,
-                sa.func.count(AnalyticsEvent.id).label("views"),
+                Product.shelf_rank,
+                _count_of("product_impression").label("impressions"),
+                _count_of("product_viewed").label("views"),
+                _count_of("add_to_cart").label("add_to_cart"),
+                _count_of("checkout_initiated").label("checkout"),
+                sa.func.coalesce(attention_sq.c.score, 0.0).label("attention"),
             )
             .select_from(Product)
             .outerjoin(
                 AnalyticsEvent,
                 sa.and_(
-                    AnalyticsEvent.event_type == "product_viewed",
+                    AnalyticsEvent.event_type.in_(
+                        ["product_impression", "product_viewed", "add_to_cart", "checkout_initiated"]
+                    ),
+                    AnalyticsEvent.created_at >= since,
                     product_id_matches(Product.id),
                 ),
             )
+            .outerjoin(attention_sq, attention_sq.c.product_id == sa.cast(Product.id, sa.Text))
             .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
-            .group_by(Product.id, Product.name)
-            .order_by(sa.desc("views"))
+            .group_by(Product.id, Product.name, Product.shelf_rank, attention_sq.c.score)
+            .order_by(sa.desc("attention"), sa.desc("views"))
         )
     ).all()
-    products_by_views = [
-        {"id": str(pid), "name": name, "views": int(v or 0)} for pid, name, v in view_rows
-    ]
 
-    # ── Inventory ────────────────────────────────────────────────────────────
-    size_rows = (
-        await db.execute(
-            select(
-                ProductVariant.size,
-                sa.func.count(ProductVariant.id),
-                sa.func.coalesce(sa.func.sum(ProductVariant.stock), 0),
-            )
-            .join(Product, Product.id == ProductVariant.product_id)
-            .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
-            .group_by(ProductVariant.size)
-            .order_by(sa.desc(sa.func.sum(ProductVariant.stock)))
-        )
-    ).all()
-    by_size = [
-        {"size": s or "—", "variants": int(c or 0), "units": int(u or 0)}
-        for s, c, u in size_rows
-    ]
+    def _rate(num: int, den: int):
+        return round(num / den, 4) if den else None
 
-    low_rows = (
-        await db.execute(
-            select(Product.name, ProductVariant.size, ProductVariant.sku, ProductVariant.stock)
-            .join(Product, Product.id == ProductVariant.product_id)
-            .where(
-                Product.deleted_at.is_(None),
-                Product.is_active.is_(True),
-                ProductVariant.stock <= LOW_STOCK_THRESHOLD,
-            )
-            .order_by(ProductVariant.stock)
-            .limit(12)
-        )
-    ).all()
-    low_stock = [
-        {"product": n, "size": s or "—", "sku": sku, "stock": int(st or 0)}
-        for n, s, sku, st in low_rows
+    products_attention = [
+        {
+            "id": str(r.id),
+            "name": r.name,
+            "shelf_rank": r.shelf_rank,
+            "impressions": int(r.impressions or 0),
+            "views": int(r.views or 0),
+            "add_to_cart": int(r.add_to_cart or 0),
+            "checkout": int(r.checkout or 0),
+            "ctr": _rate(int(r.views or 0), int(r.impressions or 0)),
+            "cart_rate": _rate(int(r.add_to_cart or 0), int(r.views or 0)),
+            "attention": round(float(r.attention or 0.0), 2),
+        }
+        for r in product_rows
     ]
+    # Kept for the existing panel; same data, narrower shape.
+    products_by_views = sorted(
+        ({"id": p["id"], "name": p["name"], "views": p["views"]} for p in products_attention),
+        key=lambda p: -p["views"],
+    )
 
     payload = {
         # What the board needs to explain itself. A panel that knows *why* it is
@@ -281,6 +298,12 @@ async def admin_dashboard(
             "funnel": funnel,
             "products_by_views": products_by_views,
             "never_viewed": [p for p in products_by_views if p["views"] == 0],
+            "products": products_attention,
+            "ranking": {
+                "window_days": WINDOW_DAYS,
+                "half_life_days": round(half_life_days(), 1),
+                "weights": EVENT_WEIGHTS,
+            },
         },
         "inventory": {
             "units": sum(r["units"] for r in by_size),

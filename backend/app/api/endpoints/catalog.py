@@ -47,7 +47,7 @@ async def list_products(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     category_id: Optional[str] = Query(None, description="Filter by category UUID"),
-    sort_by: SortBy = Query(SortBy.newest),
+    sort_by: SortBy = Query(SortBy.shelf),
     db: AsyncSession = Depends(get_async_db),
 ):
     """Paginated product listing with optional category filter and sort."""

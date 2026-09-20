@@ -10,17 +10,53 @@ export interface MediaItem {
   cdn_url?: string | null;
   type: string;
   display_order: number;
+  /** Colour variant this shot shows; null/undefined = all colours. */
+  variant_id?: string | null;
+}
+
+/** Enough of a variant to offer it as a colour choice. */
+export interface MediaVariantOption {
+  id?: string;
+  color: string;
+  size?: string;
 }
 
 interface Props {
   productId: string;
   media: MediaItem[];
   onChange: (media: MediaItem[]) => void;
+  /**
+   * The product's variants, so each photograph can be tagged with the colour
+   * it shows. Only saved variants (with an id) can be chosen. Omit on the
+   * create page, where variants have no ids yet.
+   */
+  variants?: MediaVariantOption[];
 }
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "video/mp4"];
 
-export default function MediaUploader({ productId, media, onChange }: Props) {
+export default function MediaUploader({ productId, media, onChange, variants = [] }: Props) {
+  // One entry per colour, pointing at the first saved variant of that colour.
+  // A photograph is of a colour, not of a size; linking it to one variant row
+  // is the storage shape, and the storefront matches on colour from there.
+  const colourOptions = Array.from(
+    variants.filter((v) => v.id && v.color).reduce((m, v) => (m.has(v.color) ? m : m.set(v.color, v.id as string)), new Map<string, string>())
+  );
+  const colourOf = (variantId?: string | null) => {
+    if (!variantId) return null;
+    const v = variants.find((x) => x.id === variantId);
+    return v?.color ?? null;
+  };
+  async function assignColour(item: MediaItem, variantId: string | null) {
+    const prev = media;
+    onChange(media.map((m) => (m.id === item.id ? { ...m, variant_id: variantId } : m)));
+    try {
+      await adminApi.patch(`/products/${productId}/media/${item.id}`, { variant_id: variantId });
+    } catch {
+      onChange(prev);
+      setError("Could not save the colour for that photo");
+    }
+  }
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,9 +226,30 @@ export default function MediaUploader({ productId, media, onChange }: Props) {
                   Cover
                 </span>
               )}
+              {colourOptions.length > 0 && (
+                <select
+                  value={item.variant_id ?? ""}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => assignColour(item, e.target.value || null)}
+                  aria-label="Which colour this photo shows"
+                  title="Which colour this photo shows"
+                  className={`absolute bottom-1 right-1 max-w-[85%] text-[10px] rounded px-1 py-0.5 border shadow-sm cursor-pointer
+                    ${item.variant_id ? "bg-white text-gray-900 border-gray-300" : "bg-white/90 text-gray-500 border-gray-200"}`}
+                >
+                  <option value="">All colours</option>
+                  {colourOptions.map(([colour, vid]) => (
+                    <option key={vid} value={vid}>{colour}</option>
+                  ))}
+                </select>
+              )}
             </div>
           ))}
         </div>
+      )}
+      {colourOptions.length > 0 && (
+        <p className="text-xs text-gray-400">
+          Tag each photo with the colour it shows and the storefront switches photos when a customer picks that colour. Untagged photos show for every colour.
+        </p>
       )}
     </div>
   );

@@ -19,6 +19,24 @@ const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(
 export const HAS_WHATSAPP = WHATSAPP_NUMBER.length > 0;
 
 /**
+ * The "ZISUN Tales" community group the founder already runs on WhatsApp.
+ * Used as the destination when no 1:1 number is configured, and offered on
+ * its own as "join the community" — it is where she posts drops, fabric
+ * details and asks what to make next, so it is a real place to send people.
+ */
+const WHATSAPP_GROUP_URL = (process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL ?? "").trim();
+export const HAS_WHATSAPP_GROUP = /^https:\/\/chat\.whatsapp\.com\//.test(WHATSAPP_GROUP_URL);
+export const WHATSAPP_GROUP_HREF = HAS_WHATSAPP_GROUP ? WHATSAPP_GROUP_URL : null;
+
+/** Somewhere on WhatsApp a visitor can actually reach ZISUN. */
+export const HAS_ANY_WHATSAPP = HAS_WHATSAPP || HAS_WHATSAPP_GROUP;
+
+/** Best available WhatsApp destination: 1:1 chat if configured, else the group. */
+export function whatsappContactUrl(productName?: string): string | null {
+  return whatsappOrderUrl(productName) ?? WHATSAPP_GROUP_HREF;
+}
+
+/**
  * wa.me deep link, pre-filled with what the customer is looking at — without
  * it they land in an empty chat and have to describe the product themselves.
  */

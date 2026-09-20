@@ -46,6 +46,12 @@ type Dash = {
     funnel: Funnel[];
     products_by_views: { id: string; name: string; views: number }[];
     never_viewed: { id: string; name: string }[];
+    products?: {
+      id: string; name: string; shelf_rank: number | null;
+      impressions: number; views: number; add_to_cart: number; checkout: number;
+      ctr: number | null; cart_rate: number | null; attention: number;
+    }[];
+    ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> };
   };
   inventory: {
     units: number;
@@ -245,6 +251,62 @@ export default function AdminDashboard() {
           </div>
         </Panel>
       </div>
+
+      {/* Per product: where a tap is earned and where a sale is lost.
+          ctr says whether the card earns the open; cart rate says whether the
+          page earns the bag. Read together they tell her which of the two to
+          fix — a high ctr with a low cart rate is a photograph better than its
+          page, and the reverse is a page better than its photograph. */}
+      {attention.products && attention.products.length > 0 && (
+        <Panel
+          title="Product funnel"
+          state={attention.products.some((p) => p.impressions > 0) ? "thin" : "none"}
+          note={attention.ranking
+            ? `Score = recent activity, halving every ${attention.ranking.half_life_days} days. It is what orders the shelf when nothing is pinned.`
+            : undefined}
+        >
+          <div className="overflow-x-auto -mx-2 px-2 mt-1">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th className="py-1.5 pr-2 font-medium">Product</th>
+                  <th className="py-1.5 pr-2 font-medium text-right">Shown</th>
+                  <th className="py-1.5 pr-2 font-medium text-right">Opened</th>
+                  <th className="py-1.5 pr-2 font-medium text-right" title="Opened ÷ shown">CTR</th>
+                  <th className="py-1.5 pr-2 font-medium text-right">Bagged</th>
+                  <th className="py-1.5 pr-2 font-medium text-right" title="Bagged ÷ opened">Cart rate</th>
+                  <th className="py-1.5 pr-2 font-medium text-right">Score</th>
+                  <th className="py-1.5 font-medium text-right">Shelf</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attention.products.map((p) => {
+                  const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
+                  const weak = p.impressions >= 20 && (p.ctr ?? 0) < 0.05;
+                  const leak = p.views >= 10 && (p.cart_rate ?? 0) < 0.05;
+                  return (
+                    <tr key={p.id} className="border-t border-gray-100">
+                      <td className="py-1.5 pr-2 text-gray-900 truncate max-w-[14rem]">
+                        {p.name}
+                        {weak && <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 rounded px-1" title="Shown often, rarely opened — the photograph or price on the card is not earning the tap.">weak card</span>}
+                        {leak && <span className="ml-1.5 text-[10px] text-red-700 bg-red-50 rounded px-1" title="Opened often, rarely bagged — the page is losing them. Check sizes in stock, price, photographs.">page leak</span>}
+                      </td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{p.impressions}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{p.views}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{pct(p.ctr)}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{p.add_to_cart}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{pct(p.cart_rate)}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums font-medium">{p.attention}</td>
+                      <td className="py-1.5 text-right text-gray-500">{p.shelf_rank != null ? `pinned #${p.shelf_rank + 1}` : "auto"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <a href="/admin/shelf" className="inline-block mt-2 text-xs text-[#5C3317] font-semibold underline underline-offset-2">Arrange the shelf →</a>
+          </div>
+        </Panel>
+      )}
 
       {/* ── Inventory ────────────────────────────────────────────────────── */}
       <h2 className="text-sm font-semibold text-gray-900 mb-2 mt-8">Stock</h2>

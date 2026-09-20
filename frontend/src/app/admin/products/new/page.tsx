@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
@@ -9,12 +9,13 @@ import ProductForm, {
   priceToPaise,
   type ProductFormData,
 } from "@/components/admin/ProductForm";
-import VariantEditor, { type VariantRow } from "@/components/admin/VariantEditor";
+import VariantEditor, { type VariantRow, type VariantEditorHandle } from "@/components/admin/VariantEditor";
 
 export default function NewProductPage() {
   const router = useRouter();
   const [form, setForm] = useState<ProductFormData>(emptyProductForm());
   const [variants, setVariants] = useState<VariantRow[]>([]);
+  const variantEditor = useRef<VariantEditorHandle>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: categories = [] } = useQuery({
@@ -26,7 +27,12 @@ export default function NewProductPage() {
     mutationFn: async () => {
       if (!form.name.trim()) throw new Error("Product name is required");
       if (!form.base_price_rupees) throw new Error("Base price is required");
-      if (variants.length === 0) throw new Error("Add at least one variant");
+      // A row the founder filled in but never ticked is still sitting in the
+      // editor as a draft. Commit it now rather than telling her she has no
+      // variants while one is visibly on screen.
+      const flushed = variantEditor.current?.flushDraft() ?? null;
+      const allVariants = flushed ? [...variants, flushed] : variants;
+      if (allVariants.length === 0) throw new Error("Add at least one variant");
 
       const payload = {
         name: form.name.trim(),
@@ -61,7 +67,11 @@ export default function NewProductPage() {
           form.sleeve_attached === "" ? null : form.sleeve_attached === "yes",
         dupatta_included:
           form.dupatta_included === "" ? null : form.dupatta_included === "yes",
-        variants: variants.map((v) => ({
+        // Offer: rupees -> paise, "" -> null (clears the offer on update).
+        compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
+        offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
+        size_chart: form.size_chart,
+        variants: allVariants.map((v) => ({
           sku: v.sku,
           size: v.size || null,
           color: v.color || null,
@@ -72,7 +82,7 @@ export default function NewProductPage() {
       const res = await adminApi.post("/products/", payload);
       return res.data;
     },
-    onSuccess: (product) => router.push(`/admin/products/${product.id}/edit`),
+    onSuccess: (product) => router.push(`/admin/products/${product.id}/edit#photos`),
     onError: (e: any) =>
       setError(e?.response?.data?.detail ?? e.message ?? "Failed to create product"),
   });
@@ -93,11 +103,12 @@ export default function NewProductPage() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
-        <ProductForm data={form} onChange={setForm} categories={categories} />
+        <ProductForm data={form} onChange={setForm} categories={categories}  compact />
 
         <hr className="border-gray-100" />
 
         <VariantEditor
+          ref={variantEditor}
           variants={variants}
           onChange={setVariants}
           basePricePaise={priceToPaise(form.base_price_rupees)}

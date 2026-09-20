@@ -1,5 +1,7 @@
+import uuid
 from typing import Optional, List
 from sqlalchemy import String, Integer, DateTime, ForeignKey, Text, Boolean, Enum as SAEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from datetime import datetime
@@ -82,6 +84,37 @@ class Product(BaseModel):
     colourfastness: Mapped[Optional[str]] = mapped_column(String(255))
     wash_care: Mapped[Optional[str]] = mapped_column(String(255))
 
+    # ── Offers ────────────────────────────────────────────────────────────────
+    # The price the product is being marked down FROM, in paise. NULL means no
+    # offer: the storefront shows base_price alone. A value below base_price
+    # is rejected in the schema — a "discount" that raises the price is a bug
+    # in the admin form, not a merchandising decision.
+    # base_price stays the selling price throughout, so nothing in checkout,
+    # inventory locks or Razorpay amounts has to know offers exist.
+    compare_at_price: Mapped[Optional[int]] = mapped_column(Integer)
+    # When the offer stops. NULL with a compare_at_price = open-ended. The
+    # storefront counts down to it; the API keeps returning compare_at_price
+    # after it passes but the resolver reports the offer as inactive, so a
+    # forgotten timer cannot leave a stale "-30%" on the page.
+    offer_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    # ── Shelf ─────────────────────────────────────────────────────────────────
+    # Manual pin. Lower sorts first; NULL means "let attention decide". The
+    # storefront's default order is: pinned products by shelf_rank, then the
+    # rest by an attention score computed from analytics with time decay
+    # (see services/shelf.py). The founder drags the ones she wants up front;
+    # the algorithm arranges everything she has not touched.
+    shelf_rank: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+
+    # ── Size chart ────────────────────────────────────────────────────────────
+    # Per-product measurements the founder enters, overriding the category
+    # chart in the storefront. Shape:
+    #   {"unit": "cm" | "in", "rows": [{"size": "M", "chest": 91, "waist": 76,
+    #     "hip": 99, "top_length": 116, "bottom_length": 98}]}
+    # Stored in the unit she typed; the storefront converts for display so the
+    # customer can toggle. bottom_length is optional per row.
+    size_chart: Mapped[Optional[dict]] = mapped_column(JSONB)
+
     # ── Garment attributes ────────────────────────────────────────────────────
     # The questions a customer asks before buying ethnic wear, and the ones the
     # founder is answering by hand in the WhatsApp group today. Every one is a
@@ -148,5 +181,13 @@ class ProductMedia(BaseModel):
         SAEnum(MediaType, name="mediatype"), nullable=False, default=MediaType.IMAGE
     )
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Which colour this photograph shows. NULL = the product in general, shown
+    # for every variant. Set = shown when that variant's colour is selected,
+    # and used as the card image for that colour. ON DELETE SET NULL, not
+    # CASCADE: deleting a variant must not delete its photographs — they are
+    # the founder's most expensive asset and reassigning is one click.
+    variant_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="SET NULL"), index=True, nullable=True
+    )
 
     product: Mapped["Product"] = relationship("Product", back_populates="media")

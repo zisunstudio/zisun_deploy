@@ -7,6 +7,8 @@ import { AlertCircle, X } from "lucide-react";
 import Link from "next/link";
 import { POLICY_TERMS } from "@/lib/legal";
 import { chartForCategory, HOW_TO_MEASURE, SIZE_CHART_NOTES } from "@/lib/sizeGuide";
+import type { SizeChart, SizeChartRow, SizeUnit } from "@/lib/queries/catalog";
+import { chartInUnit, formatMeasure, readPreferredUnit, writePreferredUnit } from "@/lib/sizeUnits";
 
 interface SizeGuideModalProps {
   isOpen: boolean;
@@ -14,6 +16,12 @@ interface SizeGuideModalProps {
   categoryName?: string | null;
   /** Highlighted row, so the chart opens showing the size already chosen. */
   selectedSize?: string | null;
+  /**
+   * This product's own measurements, entered by the founder. When present the
+   * table shows these instead of the category chart; the category's fit and
+   * fabric notes still apply and are kept.
+   */
+  chart?: SizeChart | null;
 }
 
 /**
@@ -23,12 +31,14 @@ interface SizeGuideModalProps {
  * and their place in the page — on a phone that is a bounce, not a
  * consultation. The chart has to appear over the thing being measured.
  */
-export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: SizeGuideModalProps) {
+export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, chart: productChart }: SizeGuideModalProps) {
   // Portals need a DOM, and the server render has none. Gating on a mounted
   // flag rather than a typeof-window check keeps the first client render
   // identical to the server's, which is what React actually diffs against.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [unit, setUnitState] = useState<SizeUnit>("cm");
+  useEffect(() => { setMounted(true); setUnitState(readPreferredUnit()); }, []);
+  const setUnit = (u: SizeUnit) => { setUnitState(u); writePreferredUnit(u); };
 
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -51,8 +61,29 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
   if (!mounted) return null;
 
   const chart = chartForCategory(categoryName);
+
+  // One table, two sources. The founder's per-product chart wins; the category
+  // chart is the fallback. Both are normalised to the same row shape so the
+  // table below has a single render path, and both are converted to whatever
+  // unit the customer last chose — conversion happens here, at display, never
+  // at entry.
+  const source: SizeChart | null = productChart?.rows?.length
+    ? productChart
+    : chart
+      ? {
+          unit: "cm",
+          rows: chart.rows.map((r) => ({
+            size: r.size, chest: r.bust, waist: r.waist, hip: r.hip,
+            top_length: r.length, bottom_length: r.bottomLength ?? null,
+          })),
+        }
+      : null;
+  const fromProduct = Boolean(productChart?.rows?.length);
+  const shown: SizeChart | null = source ? chartInUnit(source, unit) : null;
+  const rows: SizeChartRow[] = shown?.rows ?? [];
   // Only render the bottom-length column when this chart actually measures one.
-  const hasBottom = chart?.rows.some((r) => r.bottomLength != null) ?? false;
+  const hasBottom = rows.some((r) => r.bottom_length != null);
+  const fmt = (v: number | null | undefined) => (v == null ? "—" : formatMeasure(v, unit));
 
   return createPortal(
     <AnimatePresence>
@@ -80,7 +111,16 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                   Size guide
                 </h2>
                 <p className="text-muted text-xs mt-0.5">
-                  {chart.categories.join(" · ")} · all measurements in cm
+                  {fromProduct ? "Measured for this piece" : chart?.categories.join(" · ")}
+                  {" · "}
+                  <span className="inline-flex rounded-md border border-gray-200 overflow-hidden align-middle" role="radiogroup" aria-label="Units">
+                    {(["cm", "in"] as SizeUnit[]).map((u) => (
+                      <button key={u} type="button" role="radio" aria-checked={unit === u} onClick={() => setUnit(u)}
+                        className={`px-2 py-0.5 text-[11px] font-semibold ${unit === u ? "bg-foreground text-background" : "text-muted hover:text-foreground"}`}>
+                        {u}
+                      </button>
+                    ))}
+                  </span>
                 </p>
               </div>
               <button
@@ -94,7 +134,7 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
             </div>
 
             <div className="px-5 py-4 space-y-5">
-              <p className="text-sm text-muted leading-relaxed">{chart.intro}</p>
+              {chart?.intro && <p className="text-sm text-muted leading-relaxed">{chart.intro}</p>}
 
               {/* Above the chart, not below it. With no returns and a size-only
                   exchange this is the reason the chart matters, and one line of
@@ -146,7 +186,7 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                   <thead>
                     <tr className="text-left text-muted text-xs uppercase tracking-wider">
                       <th className="py-2 pr-3 font-medium">Size</th>
-                      <th className="py-2 pr-3 font-medium">Bust</th>
+                      <th className="py-2 pr-3 font-medium">Chest</th>
                       <th className="py-2 pr-3 font-medium">Waist</th>
                       <th className="py-2 pr-3 font-medium">Hip</th>
                       <th className={hasBottom ? "py-2 pr-3 font-medium" : "py-2 font-medium"}>
@@ -156,7 +196,7 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                     </tr>
                   </thead>
                   <tbody>
-                    {chart.rows.map((r) => {
+                    {rows.map((r) => {
                       const isSelected = selectedSize != null && r.size === selectedSize;
                       return (
                         <tr
@@ -171,11 +211,11 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                               <span className="ml-1.5 text-[10px] font-medium text-primary">selected</span>
                             )}
                           </td>
-                          <td className="py-2.5 pr-3">{r.bust}</td>
-                          <td className="py-2.5 pr-3">{r.waist}</td>
-                          <td className="py-2.5 pr-3">{r.hip}</td>
-                          <td className={hasBottom ? "py-2.5 pr-3" : "py-2.5"}>{r.length}</td>
-                          {hasBottom && <td className="py-2.5">{r.bottomLength ?? "—"}</td>}
+                          <td className="py-2.5 pr-3 tabular-nums">{fmt(r.chest)}</td>
+                          <td className="py-2.5 pr-3 tabular-nums">{fmt(r.waist)}</td>
+                          <td className="py-2.5 pr-3 tabular-nums">{fmt(r.hip)}</td>
+                          <td className={`tabular-nums ${hasBottom ? "py-2.5 pr-3" : "py-2.5"}`}>{fmt(r.top_length)}</td>
+                          {hasBottom && <td className="py-2.5 tabular-nums">{fmt(r.bottom_length)}</td>}
                         </tr>
                       );
                     })}
@@ -191,6 +231,7 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                 </ul>
               </div>
 
+              {chart && (
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2">How this one fits</h3>
                 <ul className="space-y-1.5">
@@ -202,11 +243,14 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize }: 
                   ))}
                 </ul>
               </div>
+              )}
 
+              {chart && (
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-1.5">Fabric</h3>
                 <p className="text-sm text-muted leading-relaxed">{chart.fabric}</p>
               </div>
+              )}
 
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2">How to measure</h3>

@@ -1,4 +1,6 @@
 "use client";
+import type { SizeChart } from "@/lib/queries/catalog";
+import SizeChartEditor from "@/components/admin/SizeChartEditor";
 
 export interface ProductFormData {
   name: string;
@@ -42,6 +44,14 @@ export interface ProductFormData {
   sleeve_type: string;
   sleeve_attached: string;
   dupatta_included: string;
+  /**
+   * Offer. Rupees in the form, paise on the wire like base_price; empty means
+   * no offer. offer_ends_at is a datetime-local string, or "" for open-ended.
+   */
+  compare_at_rupees: string;
+  offer_ends_at: string;
+  /** Per-product size chart; null uses the category chart on the storefront. */
+  size_chart: SizeChart | null;
 }
 
 interface Category {
@@ -54,6 +64,12 @@ interface Props {
   data: ProductFormData;
   onChange: (d: ProductFormData) => void;
   categories: Category[];
+  /**
+   * Create-page mode: everything past name, price, category and variants is
+   * folded under a heading she opens when she has the information to hand.
+   * The edit page shows it all open — that is where a listing gets completed.
+   */
+  compact?: boolean;
 }
 
 export function emptyProductForm(): ProductFormData {
@@ -65,6 +81,7 @@ export function emptyProductForm(): ProductFormData {
     has_pockets: "", colourfastness: "", wash_care: "",
     colour: "", print_type: "", pattern: "", neck_type: "",
     sleeve_type: "", sleeve_attached: "", dupatta_included: "",
+    compare_at_rupees: "", offer_ends_at: "", size_chart: null,
   };
 }
 
@@ -73,7 +90,7 @@ export function priceToPaise(rupees: string): number {
   return isNaN(n) ? 0 : Math.round(n * 100);
 }
 
-export default function ProductForm({ data, onChange, categories }: Props) {
+export default function ProductForm({ data, onChange, categories, compact = false }: Props) {
   const f = (key: keyof ProductFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => onChange({ ...data, [key]: e.target.value });
@@ -154,8 +171,13 @@ export default function ProductForm({ data, onChange, categories }: Props) {
           specific complaints. Blank stays blank — there is no brand default for
           a measurement, and inventing one puts an unchecked claim on a live
           page. */}
-      <div className="border-t border-gray-100 pt-4">
-        <h3 className="text-sm font-semibold text-gray-900">Fabric &amp; care</h3>
+      <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
+        <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold text-gray-900">Fabric &amp; care</span>
+          <span className="text-xs text-gray-400 group-open:hidden">composition, weight, pockets, care</span>
+          <span className="text-xs text-gray-400 hidden group-open:inline">optional</span>
+        </summary>
+        <div className="px-5 pb-5">
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
           Shown open on the product page, above the legal declarations. Anything
           left blank is simply not shown — never guessed.
@@ -233,15 +255,21 @@ export default function ProductForm({ data, onChange, categories }: Props) {
             />
           </div>
         </div>
-      </div>
+        </div>
+      </details>
 
       {/* Garment details.
           The seven questions the founder answers by hand in the WhatsApp group
           every day. Left blank, a field simply does not appear on the product
           page — there are no defaults here, because these are facts about one
           garment and a fallback would print a claim nobody checked. */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Product details</h3>
+      <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
+        <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold text-gray-900">Product details</span>
+          <span className="text-xs text-gray-400 group-open:hidden">colour, print, neck, sleeve, dupatta</span>
+          <span className="text-xs text-gray-400 hidden group-open:inline">optional</span>
+        </summary>
+        <div className="px-5 pb-5">
         <p className="text-xs text-gray-400 mt-1 mb-4">
           Shown on the product page. Anything left blank is simply omitted.
         </p>
@@ -319,7 +347,66 @@ export default function ProductForm({ data, onChange, categories }: Props) {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </details>
+
+      {/* Offer.
+          A markdown is base price (what they pay) plus the price it was —
+          compare_at — shown struck through, with the percentage the API works
+          out from the two. The timer is optional; with one, the badge and
+          countdown switch themselves off at the deadline, so a sale nobody
+          remembered to end cannot keep running on the live page. */}
+      <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
+        <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold text-gray-900">Offer</span>
+          <span className="text-xs text-gray-400 group-open:hidden">was-price and an end time</span>
+          <span className="text-xs text-gray-400 hidden group-open:inline">optional</span>
+        </summary>
+        <div className="px-5 pb-5">
+        <p className="text-xs text-gray-400 mt-1 mb-4">
+          Leave blank for no offer. The selling price stays the base price above; this is the price it is marked down <em>from</em>.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Was price (₹)</label>
+            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#5C3317]/30">
+              <span className="px-3 text-gray-500 text-sm">₹</span>
+              <input type="number" inputMode="decimal" min={0} step={1}
+                className="flex-1 px-2 py-2 text-sm focus:outline-none"
+                placeholder="1999" value={data.compare_at_rupees} onChange={f("compare_at_rupees")} />
+            </div>
+            {(() => {
+              const was = parseFloat(data.compare_at_rupees), now = parseFloat(data.base_price_rupees);
+              if (!was || !now) return null;
+              if (was <= now) return <p className="text-xs text-red-600 mt-1">Must be higher than the base price.</p>;
+              return <p className="text-xs text-green-700 mt-1 font-semibold">Shows as −{Math.round(((was - now) / was) * 100)}% · ₹{now} <span className="line-through text-gray-400 font-normal">₹{was}</span></p>;
+            })()}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ends at <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input type="datetime-local"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              value={data.offer_ends_at} onChange={f("offer_ends_at")} />
+            <p className="text-xs text-gray-400 mt-1">The storefront counts down to this and stops the offer at it.</p>
+          </div>
+        </div>
+        </div>
+      </details>
+
+      {/* Size chart, per product. Overrides the category chart on the storefront. */}
+      <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
+        <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold text-gray-900">Size chart</span>
+          <span className="text-xs text-gray-400 group-open:hidden">measurements per size</span>
+          <span className="text-xs text-gray-400 hidden group-open:inline">optional</span>
+        </summary>
+        <div className="px-5 pb-5">
+        <p className="text-xs text-gray-400 mt-1 mb-4">
+          Optional. Without one, the storefront shows the category&apos;s chart. Enter in whichever unit you measured — customers can switch.
+        </p>
+        <SizeChartEditor value={data.size_chart} onChange={(c) => onChange({ ...data, size_chart: c })} />
+        </div>
+      </details>
 
       {/* Legal Metrology declarations.
           These are required on the listing before purchase, not optional
@@ -328,8 +415,13 @@ export default function ProductForm({ data, onChange, categories }: Props) {
           a blank here is a listing published without a statutory declaration.
           The rest show their fallback as placeholder text, so it is obvious
           that leaving them empty is safe rather than careless. */}
-      <div className="border-t border-gray-100 pt-4">
-        <h3 className="text-sm font-semibold text-gray-900">Product information</h3>
+      <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
+        <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold text-gray-900">Product information</span>
+          <span className="text-xs text-gray-400 group-open:hidden">statutory declarations · brand defaults apply if blank</span>
+          <span className="text-xs text-gray-400 hidden group-open:inline">optional</span>
+        </summary>
+        <div className="px-5 pb-5">
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
           Shown on the product page before purchase, as the Legal Metrology rules
           require. Blank fields fall back to the brand default — except dimensions.
@@ -421,7 +513,8 @@ export default function ProductForm({ data, onChange, categories }: Props) {
             </div>
           </details>
         </div>
-      </div>
+        </div>
+      </details>
 
       <div className="flex items-center gap-3">
         <button

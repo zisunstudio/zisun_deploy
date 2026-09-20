@@ -13,6 +13,8 @@ import { CategoryCard } from "@/components/CategoryCard";
 import { CategoryCardSkeleton } from "@/components/skeletons/Skeleton";
 import { useCartStore } from "@/store/useCartStore";
 import { useCategories, useFeed } from "@/lib/queries/catalog";
+import { POLICY_TERMS } from "@/lib/legal";
+import { OfferStrip } from "@/components/OfferStrip";
 import { FeedCard, FeedItem } from "@/components/FeedCard";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
@@ -32,7 +34,7 @@ const TRUST_BADGES = [
   { Icon: Truck, title: "Ships across India", subtitle: "Shiprocket partners" },
   // Not "returns". We do not have a returns programme, and a badge on the home
   // page is exactly where an overstated promise does the most damage.
-  { Icon: RefreshCcw, title: "3-day size exchange", subtitle: "Size issues only" },
+  { Icon: RefreshCcw, title: `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange`, subtitle: "Size issues only" },
   { Icon: Leaf, title: "Handloom cotton", subtitle: "Mangalgiri, Ilkal, Kasavu" },
   { Icon: Sun, title: "Built for the heat", subtitle: "Breathable weaves" },
 ];
@@ -259,6 +261,8 @@ export default function HomePage() {
             nested inside the page's own scrolling box. A wheel over the feed
             scrolled one thing and a wheel beside it scrolled another. Eight
             products do not need virtualising; they need to be visible. */}
+        <OfferStrip />
+
         {allFeedItems.length > 0 && (
           <div className="mt-6 px-5 lg:px-8">
             <div className="flex justify-between items-center mb-3">
@@ -270,7 +274,7 @@ export default function HomePage() {
                 See all <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {allFeedItems.map((feedItem) => (
                 <div key={feedItem.id} className="overflow-hidden rounded-xl">
                   <FeedCard item={feedItem} className="aspect-[3/4]" />

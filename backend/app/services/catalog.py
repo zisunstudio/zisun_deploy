@@ -5,6 +5,7 @@ import uuid
 from typing import Optional
 
 from fastapi import HTTPException, status
+import sqlalchemy as sa
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.core.storage import generate_upload_presigned_url
 from app.models.catalog import Category, Product, ProductMedia, ProductVariant
 from app.schemas.catalog import ProductCreate
+from app.services.shelf import attention_score_subquery
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +91,7 @@ class CatalogService:
         limit: int = 20,
         category_id: Optional[str] = None,
         is_active: bool = True,
-        sort_by: str = "newest",
+        sort_by: str = "shelf",
     ) -> dict:
         """Paginated product listing with eager-loaded variants and media."""
         base_filter = [
@@ -118,8 +120,21 @@ class CatalogService:
             stmt = stmt.order_by(Product.base_price.asc())
         elif sort_by == "price_desc":
             stmt = stmt.order_by(Product.base_price.desc())
-        else:  # newest
+        elif sort_by == "newest":
             stmt = stmt.order_by(Product.created_at.desc())
+        else:  # "shelf" — the default storefront order
+            # Pinned products first, in the order the founder dragged them;
+            # then everything else by live attention, newest breaking ties so
+            # a fresh drop with no history is not buried under the back
+            # catalogue. See services/shelf.py for the score.
+            attention = attention_score_subquery()
+            stmt = stmt.outerjoin(
+                attention, attention.c.product_id == sa.cast(Product.id, sa.Text)
+            ).order_by(
+                Product.shelf_rank.asc().nulls_last(),
+                sa.func.coalesce(attention.c.score, 0.0).desc(),
+                Product.created_at.desc(),
+            )
 
         stmt = stmt.limit(limit).offset((page - 1) * limit)
         result = await self.db.execute(stmt)

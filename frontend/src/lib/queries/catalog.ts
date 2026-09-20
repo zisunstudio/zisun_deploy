@@ -9,6 +9,7 @@ export interface ProductMedia {
   cdn_url: string | null;
   type: "IMAGE" | "VIDEO";
   display_order: number;
+  variant_id?: string | null;
 }
 
 export interface ProductVariant {
@@ -63,6 +64,28 @@ export interface FabricSpecs {
   wash_care: string | null;
 }
 
+/** Resolved by the API; branch on `active` only. */
+export interface Offer {
+  active: boolean;
+  compare_at_price: number | null;
+  discount_pct: number | null;
+  ends_at: string | null;
+}
+
+export type SizeUnit = "cm" | "in";
+export interface SizeChartRow {
+  size: string;
+  chest: number;
+  waist: number;
+  hip: number;
+  top_length: number;
+  bottom_length?: number | null;
+}
+export interface SizeChart {
+  unit: SizeUnit;
+  rows: SizeChartRow[];
+}
+
 export interface GarmentAttributes {
   colour: string | null;
   print_type: string | null;
@@ -88,6 +111,9 @@ export interface Product {
   legal_metrology: LegalMetrology;
   fabric_specs: FabricSpecs;
   garment_attributes: GarmentAttributes;
+  offer: Offer;
+  size_chart: SizeChart | null;
+  shelf_rank: number | null;
 }
 
 export interface ProductListResponse {

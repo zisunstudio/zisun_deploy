@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ReactQueryProvider } from "@/lib/ReactQueryProvider";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { WhatsAppFab } from "@/components/WhatsAppFab";
 import { SessionRestore } from "@/components/SessionRestore";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-foreground`}>
         <SessionRestore />
         <OfflineBanner />
+        <WhatsAppFab />
         <ReactQueryProvider>
         <ToastProvider>
           <ErrorBoundary>

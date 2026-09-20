@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, computed_field, field_validator
-from typing import Optional, List
-from datetime import datetime
+from typing import Literal, Optional, List
+from datetime import datetime, timezone
 import uuid
 import enum
 
@@ -10,6 +10,8 @@ _MAX_PRICE_PAISE = 100_000_000  # 1 crore rupees in paise
 
 
 class SortBy(str, enum.Enum):
+    # Default storefront order: pinned first, then live attention — services/shelf.py
+    shelf = "shelf"
     price_asc = "price_asc"
     price_desc = "price_desc"
     newest = "newest"
@@ -23,6 +25,8 @@ class ProductMediaResponse(BaseModel):
     cdn_url: Optional[str] = None
     type: str
     display_order: int
+    # Which colour variant this photograph shows; None = the product in general.
+    variant_id: Optional[uuid.UUID] = None
 
     class Config:
         from_attributes = True
@@ -159,6 +163,64 @@ class GarmentAttributeFields(BaseModel):
 GARMENT_ATTRIBUTE_COLUMNS = tuple(GarmentAttributeFields.model_fields)
 
 
+class SizeChartRow(BaseModel):
+    """One size, as measured. Units are whatever the chart says; the storefront converts."""
+    size: str = Field(..., min_length=1, max_length=12)
+    chest: float = Field(..., gt=0, lt=400)
+    waist: float = Field(..., gt=0, lt=400)
+    hip: float = Field(..., gt=0, lt=400)
+    top_length: float = Field(..., gt=0, lt=400)
+    # Only for sets sold with trousers. Absent on a single garment.
+    bottom_length: Optional[float] = Field(None, gt=0, lt=400)
+
+
+class SizeChart(BaseModel):
+    """Per-product size chart, stored in the unit the founder typed.
+
+    She measures in whichever she has to hand — the tape says inches, the
+    pattern says centimetres — and forcing a conversion at entry is how a 91 cm
+    chest gets typed as a 91 inch one. The unit is stored alongside and the
+    storefront converts for the customer.
+    """
+    unit: Literal["cm", "in"] = "cm"
+    rows: List[SizeChartRow] = Field(default_factory=list, max_length=12)
+
+    @field_validator("rows")
+    @classmethod
+    def sizes_unique(cls, rows: List[SizeChartRow]) -> List[SizeChartRow]:
+        seen = set()
+        for r in rows:
+            key = r.size.strip().upper()
+            if key in seen:
+                raise ValueError(f"size {r.size!r} appears twice")
+            seen.add(key)
+        return rows
+
+
+class MerchandisingFields(BaseModel):
+    """Offers, shelf position and the size chart, as an admin submits them."""
+
+    # The price being marked down FROM, in paise. Must exceed base_price — a
+    # "discount" that raises the price is a form mistake, and it is rejected
+    # here rather than shown as "-(-20)%" to a customer.
+    compare_at_price: Optional[int] = Field(None, ge=0)
+    offer_ends_at: Optional[datetime] = None
+    # Manual shelf position; None = let attention decide.
+    shelf_rank: Optional[int] = Field(None, ge=0, le=100000)
+    size_chart: Optional[SizeChart] = None
+
+    def merchandising_values(self) -> dict:
+        supplied = self.model_dump(exclude_unset=True)
+        own = set(MerchandisingFields.model_fields)
+        out = {k: v for k, v in supplied.items() if k in own}
+        if "size_chart" in out and out["size_chart"] is not None:
+            out["size_chart"] = SizeChart.model_validate(out["size_chart"]).model_dump()
+        return out
+
+
+MERCHANDISING_COLUMNS = tuple(MerchandisingFields.model_fields)
+
+
 class LegalMetrologyFields(BaseModel):
     """
     The per-product declaration overrides, as an admin submits them.
@@ -198,11 +260,11 @@ class LegalMetrologyFields(BaseModel):
 LEGAL_METROLOGY_COLUMNS = tuple(LegalMetrologyFields.model_fields)
 
 
-class ProductCreate(ProductBase, LegalMetrologyFields, FabricSpecFields, GarmentAttributeFields):
+class ProductCreate(ProductBase, LegalMetrologyFields, FabricSpecFields, GarmentAttributeFields, MerchandisingFields):
     variants: List[ProductVariantCreate] = Field(..., min_length=1)
 
 
-class ProductUpdate(LegalMetrologyFields, FabricSpecFields, GarmentAttributeFields):
+class ProductUpdate(LegalMetrologyFields, FabricSpecFields, GarmentAttributeFields, MerchandisingFields):
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     base_price: Optional[int] = Field(None, ge=0)
@@ -303,6 +365,36 @@ class GarmentAttributes(BaseModel):
         })
 
 
+class Offer(BaseModel):
+    """What the storefront shows about a markdown. Resolved, never stored.
+
+    `active` is the only field the UI should branch on. It is false when there
+    is no compare_at_price, when the markdown is not actually a markdown, or
+    when offer_ends_at has passed — so a timer the founder forgot to clear
+    cannot leave a stale badge on a live page.
+    """
+    active: bool = False
+    compare_at_price: Optional[int] = None
+    discount_pct: Optional[int] = None
+    ends_at: Optional[datetime] = None
+
+    @classmethod
+    def resolve(cls, product) -> "Offer":
+        cmp = getattr(product, "compare_at_price", None)
+        base = getattr(product, "base_price", None)
+        ends = getattr(product, "offer_ends_at", None)
+        if not cmp or not base or cmp <= base:
+            return cls()
+        if ends is not None:
+            now = datetime.now(timezone.utc)
+            if ends.tzinfo is None:
+                ends = ends.replace(tzinfo=timezone.utc)
+            if ends <= now:
+                return cls(compare_at_price=cmp, ends_at=ends, active=False)
+        pct = int(round((cmp - base) * 100 / cmp))
+        return cls(active=True, compare_at_price=cmp, discount_pct=pct, ends_at=ends)
+
+
 class ProductResponse(ProductBase):
     id: uuid.UUID
     is_active: bool = True
@@ -348,6 +440,18 @@ class ProductResponse(ProductBase):
     @property
     def garment_attributes(self) -> GarmentAttributes:
         return GarmentAttributes.resolve(self)
+
+    # Offer. Resolved every time so an expired timer switches the badge off
+    # without a write, and the discount percentage is computed in one place.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def offer(self) -> Offer:
+        return Offer.resolve(self)
+
+    # Per-product size chart, if the founder entered one. The storefront falls
+    # back to the category chart when this is null.
+    size_chart: Optional[SizeChart] = None
+    shelf_rank: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -427,6 +531,9 @@ class MediaConfirmRequest(BaseModel):
     cdn_url: str
     type: str = "IMAGE"
     display_order: int = 0
+    # Attach to a colour at upload time, so a founder photographing five
+    # colourways can assign each shot as it lands rather than in a second pass.
+    variant_id: Optional[uuid.UUID] = None
 
 
 class MediaReorderItem(BaseModel):
