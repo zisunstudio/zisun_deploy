@@ -55,6 +55,26 @@ Both are one-variable round trips; no payment code is deleted or bypassed.
 Unsetting them restores full fail-closed behaviour, which is why neither may
 be relaxed to a UI-only change.
 
+**Offers never touch the selling price.** `base_price` is what is charged;
+`compare_at_price` is only what is struck through. Checkout, inventory locks
+and gateway amounts must never read `compare_at_price` or `offer` — a
+discount that changed the charged amount would be a second source of truth
+for money. The API refuses a compare-at that is not above the price, and
+resolves `offer.active` on every read so an expired `offer_ends_at` switches
+the badge off with no write.
+
+**Shelf order is pins, then attention.** `products.shelf_rank` is the
+founder's manual order; NULL means the attention score in
+`services/shelf.py` decides (recency-decayed engagement, half-life ~5 days).
+Nothing about the score is stored, so it is always live and a pin always
+wins. Do not add a cached "popularity" column — it would drift from the
+events and the founder would see two different orders.
+
+**Photographs outlive variants.** `product_media.variant_id` is
+`ON DELETE SET NULL`, never CASCADE. Deleting a colour must leave its
+photographs in place, untagged; they are the most expensive asset in the
+business and re-tagging is one click.
+
 **An unconfirmed COD order must not reach PACKED.** `may_dispatch()` gates the
 admin status endpoint with a 409. Asking the customer and shipping anyway
 saves nothing.
@@ -101,6 +121,28 @@ Each of these produced a green build or a healthy-looking deploy:
   days**. Hence `task_ignore_result`, no task events, no broker heartbeat,
   `--without-gossip --without-mingle --without-heartbeat`, and a 120s (not
   30s) outbox sweep. Before shortening any schedule, check the command budget.
+- **Pushing to `main` already deploys.** Railway's GitHub integration builds
+  every service on push. Calling `serviceInstanceDeploy` afterwards starts a
+  *second* deploy of the same commit, and both run `alembic upgrade head` at
+  once: the loser fails with `DuplicateColumn` while the winner is already
+  serving. The FAILED row is noise, but only if you know why. After a push,
+  watch the auto-deploy; trigger a manual deploy only for a variable change
+  with no commit.
+- **Firebase Phone Auth denies every SMS region by default** on new projects.
+  Until India is allowed under Authentication → Settings → SMS region policy,
+  `sendVerificationCode` returns `OPERATION_NOT_ALLOWED: SMS unable to be sent
+  until this region enabled`. Separately, `zisun.in` and `www.zisun.in` must
+  be in Authorized domains or reCAPTCHA rejects the live site. Both are
+  console settings; neither is reachable from code or the REST API.
+- **A `position: sticky; bottom: 0` bar covers whatever sits under it at first
+  paint.** The PDP's buy bar was 202px tall because three rows of assurances
+  lived inside it, and on a Pixel 7 that hid the price. Keep the sticky bar
+  to the one action that must stay reachable; measure with
+  `getBoundingClientRect()` on a phone viewport, not by eye.
+- **A filled-in form row is not a submitted one.** VariantEditor holds a draft
+  until the tick is clicked; the founder filled a row, hit Create, and was
+  told she had no variants. Anything that keeps local draft state must expose
+  a flush the parent calls at submit (`VariantEditorHandle.flushDraft`).
 - **Supabase's direct host is IPv6-only.** Use the pooler (IPv4). The app runs
   on the transaction pooler `:6543` with `DB_PGBOUNCER_MODE=1`, which disables
   statement caching — without it asyncpg fails intermittently, under
@@ -123,35 +165,22 @@ Without credentials the app runs in dev mode: OTPs print to stdout, media
 returns placeholder URLs, Razorpay is mocked. All of that raises in production
 by design.
 
-## State as of 2026-08-30
+## State as of 2026-09-20
 
-Both services are up. `GET /health` returns:
+Live on **zisun.in** (Cloudflare DNS, CNAME-flattened apex) in **browse
+mode**: catalogue public, no checkout, admin console reachable only once
+Firebase phone sign-in is enabled in the Firebase console (SMS region + domains).
 
-```json
-{"status":"ok","launch_mode":"browse","checkout_enabled":false,
- "components":{"database":"ok","redis":"ok","celery":"not probed (browse mode)"}}
-```
+Catalogue v2 shipped (migration 0012): offers with countdown, per-colour
+photographs with swatches, per-product size charts with cm/in toggle, and a
+pinned-then-attention shelf order with `/admin/shelf` and a per-product
+funnel on the dashboard. The WhatsApp button on every page currently opens
+the ZISUN Tales group (`NEXT_PUBLIC_WHATSAPP_GROUP_URL`); set
+`NEXT_PUBLIC_WHATSAPP_NUMBER` for a direct chat instead.
 
-Supabase and Upstash are therefore **proven**, not merely configured.
+**Celery is still down** — Upstash's free quota is spent and writes are
+refused. Harmless while no order can be created; must be resolved (Railway
+Redis, a paid tier, or the quota reset) before `LAUNCH_MODE` is unset.
 
-Live in **browse mode**: the catalogue is public and no order can be created.
-To open commerce, in order — set the Twilio account SID and from-number (OTP
-login needs them), unset `LAUNCH_MODE`, keep `PAYMENTS_COD_ONLY=1` until
-Razorpay KYC clears, then unset that too.
-
-**Celery is DOWN and has been since 2026-08-22.** Upstash's free command
-quota is exhausted (`500000/500000`); writes are rejected, so beat cannot
-publish and the worker cannot consume. Proven by probing the broker: `LPUSH`
-to the `celery` queue returns `ERR max requests limit exceeded`, and the
-whole database holds 3 stale `_kombu.binding.*` keys and nothing else.
-
-Consequence while it stays down: no zombie-order cleanup, no inventory-lock
-release, no outbox delivery. Harmless in browse mode — no orders exist — and
-silently destructive the moment commerce opens.
-
-The command-budget fixes above reduce future burn but cannot restore an
-already-spent quota. Redis must be resolved (quota reset, paid tier, or a
-non-metered broker) *before* commerce is enabled.
-
-Check whether Railway's Postgres and Redis plugins still exist; they were
-superseded by Supabase and Upstash and bill until deleted.
+Still needed to take an order: Firebase console settings above; Redis; then
+unset `LAUNCH_MODE` with `PAYMENTS_COD_ONLY=1` until Razorpay KYC clears.

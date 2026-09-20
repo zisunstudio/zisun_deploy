@@ -292,7 +292,23 @@ double stock restoration on lock expiry.
 
 The api and worker services can scale horizontally; beat cannot.
 
-### 1.9 Frontend build variables
+### 1.9 Firebase phone sign-in — two console settings that block everything
+
+Both live only in the Firebase console; neither can be set from code.
+
+1. **Authentication → Settings → SMS region policy** → *Allow* → add **India**.
+   New projects deny every region by default, and the browser then fails with
+   `OPERATION_NOT_ALLOWED: SMS unable to be sent until this region enabled by
+   the app developer`. This is the whole reason "Firebase OTP is down".
+2. **Authentication → Settings → Authorized domains** → add `zisun.in` and
+   `www.zisun.in`. Without them reCAPTCHA rejects sign-in on the live domain
+   even after the region is allowed.
+
+Optional but useful before real numbers are involved: **Phone numbers for
+testing** on the Phone provider — a fictional number with a fixed code signs
+in for real, with no SMS and no billing.
+
+### 1.10 Frontend build variables
 
 `NEXT_PUBLIC_*` are **inlined into the client bundle at build time**. Railway
 exposes service variables to the Dockerfile as build args, and
@@ -307,6 +323,8 @@ Set on the **web** service:
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | `919876543210` — digits and country code, no `+`. Powers the browse-mode CTA. |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | `rzp_live_xxx` (publishable key only — never the secret) |
 | `NEXT_PUBLIC_SENTRY_DSN` | `https://...@sentry.io/...` |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | `919876543210` — digits only; enables a direct chat button on every page |
+| `NEXT_PUBLIC_WHATSAPP_GROUP_URL` | `https://chat.whatsapp.com/…` — the ZISUN Tales group; used when no number is set |
 
 `src/lib/apiBase.ts` normalises `NEXT_PUBLIC_API_URL`, so a value ending in
 `/api/v1` is accepted too. It did not always: the storefront client assumed the
@@ -318,7 +336,7 @@ in the browser console.
 Changing one requires a **rebuild**, not a restart. A redeploy without a rebuild
 keeps the old value baked in.
 
-### 1.10 Pin PORT to match the domain's target port
+### 1.11 Pin PORT to match the domain's target port
 
 Railway injects `PORT=8080` unless you set it. Both images listen on whatever
 `PORT` says — `entrypoint.sh` uses `${PORT:-8000}`, and Next.js standalone reads
@@ -335,7 +353,7 @@ Set `PORT` explicitly so the two cannot drift:
 
 Worker and beat need neither — they take no inbound traffic.
 
-### 1.11 Domains
+### 1.12 Domains
 
 Per service → **Settings** → **Networking** → **Custom Domain**. Railway issues
 the certificate and gives you a `CNAME` target.
