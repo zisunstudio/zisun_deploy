@@ -136,13 +136,16 @@ Each of these produced a green build or a healthy-looking deploy:
   days**. Hence `task_ignore_result`, no task events, no broker heartbeat,
   `--without-gossip --without-mingle --without-heartbeat`, and a 120s (not
   30s) outbox sweep. Before shortening any schedule, check the command budget.
-- **Pushing to `main` already deploys.** Railway's GitHub integration builds
-  every service on push. Calling `serviceInstanceDeploy` afterwards starts a
-  *second* deploy of the same commit, and both run `alembic upgrade head` at
-  once: the loser fails with `DuplicateColumn` while the winner is already
-  serving. The FAILED row is noise, but only if you know why. After a push,
-  watch the auto-deploy; trigger a manual deploy only for a variable change
-  with no commit.
+- **Pushing to `main` deploys the api — and only the api.** The backend
+  services carry Railway's GitHub trigger; `zisun-web` has none
+  (`service.repoTriggers` is empty), so a push never builds the storefront
+  and every web deploy is a manual `serviceInstanceDeploy`. Two rules follow.
+  Never call `serviceInstanceDeploy` on the api after a push: it starts a
+  *second* deploy of the same commit, both run `alembic upgrade head` at
+  once, and the loser fails with `DuplicateColumn` while the winner is
+  already serving. Always call it on the web after a push, or the site keeps
+  serving the previous build with a green "SUCCESS" beside it; it is safe
+  there because the web image runs no migrations.
 - **Firebase Phone Auth denies every SMS region by default** on new projects.
   Until India is allowed under Authentication → Settings → SMS region policy,
   `sendVerificationCode` returns `OPERATION_NOT_ALLOWED: SMS unable to be sent
