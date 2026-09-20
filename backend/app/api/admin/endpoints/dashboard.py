@@ -422,9 +422,13 @@ def _rule_brief(f: dict) -> dict:
     else:
         bullets.append(f"Today: {f['today']['orders']} orders, {rs(f['today']['revenue_paise'])}. This week: {f['week']['orders']} orders, {rs(f['week']['revenue_paise'])}.")
     sw, sp = f["week"]["sessions"], f["week"]["sessions_previous_week"]
-    if sp:
+    # A percentage on a tiny base is noise: 2 visits to 141 is "+6950%", which
+    # reads as a bug. Below twenty last week, say the two numbers instead.
+    if sp >= 20:
         change = round((sw - sp) / sp * 100)
         bullets.append(f"{sw} visits this week, {'+' if change >= 0 else ''}{change}% on last week.")
+    elif sp:
+        bullets.append(f"{sw} visits this week, {sp} the week before.")
     else:
         bullets.append(f"{sw} visits this week.")
     if f["week"]["top_products"]:
@@ -473,7 +477,7 @@ async def compute_brief() -> dict:
             )
             brief = {**written, "source": settings.AI_MODEL}
         except ai.AIUnavailable as exc:
-            brief["note"] = f"Written from rules; Claude unavailable ({exc})."
+            brief["note"] = f"Claude unavailable: {exc}."
     return {"brief": brief, "facts": facts}
 
 

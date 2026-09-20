@@ -280,7 +280,10 @@ export default function HomePage() {
         </Reveal>
 
         {/* Categories, as occasions. The founder's description under each
-            name is the mood line; the page asks the question. */}
+            name is the mood line; the page asks the question. A category with
+            nothing in it yet stays off the home page - a door to an empty
+            room is worse than no door. */}
+        {(loadingCategories || (categories ?? []).some((c) => c.product_count > 0)) && (
         <Reveal className="mt-24 lg:mt-36 px-5 lg:px-8">
           <div className="max-w-6xl mx-auto">
             <div className="mb-6 lg:mb-8">
@@ -290,10 +293,11 @@ export default function HomePage() {
             <div className="flex gap-4 overflow-x-auto no-scrollbar -mx-5 px-5 pb-2 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:gap-8 lg:overflow-visible">
               {loadingCategories
                 ? Array(3).fill(0).map((_, i) => <CategoryCardSkeleton key={i} />)
-                : categories?.map((cat) => <CategoryCard key={cat.id} category={cat} />)}
+                : categories?.filter((c) => c.product_count > 0).map((cat) => <CategoryCard key={cat.id} category={cat} />)}
             </div>
           </div>
         </Reveal>
+        )}
 
         {/* Made of. Three facts about the cloth, as type. */}
         <Reveal className="mt-24 lg:mt-36 px-5 lg:px-8">

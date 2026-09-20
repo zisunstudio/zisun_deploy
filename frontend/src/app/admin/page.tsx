@@ -42,6 +42,8 @@ const pct = (r: number | null | undefined) => (r == null ? "—" : `${Math.round
 
 function Trend({ now, before }: { now: number; before?: number }) {
   if (!before) return null;
+  // A percentage on a tiny base is noise; under twenty, show the number.
+  if (before < 20) return <span className="text-xs text-gray-500">vs {before} before</span>;
   const change = Math.round(((now - before) / before) * 100);
   const Icon = change > 0 ? ArrowUpRight : change < 0 ? ArrowDownRight : Minus;
   const tone = change > 0 ? "text-green-700" : change < 0 ? "text-red-700" : "text-gray-500";
@@ -187,16 +189,17 @@ export default function AdminAnalytics() {
       </div>
 
       {/* The funnel */}
-      <Section title="From seen to sold" hint={`${meta.events_recorded.toLocaleString("en-IN")} events recorded all time. Each step shows how many made it, and what share of the step before.`}>
+      <Section title="From seen to sold" hint={`${meta.events_recorded.toLocaleString("en-IN")} events recorded all time. Opens are a share of products shown; every step after that is a share of the people who opened a product.`}>
         <Card>
           <ol className="space-y-3">
             {attention.funnel.map((f, i) => {
-              const prev = i > 0 ? attention.funnel[i - 1].count : null;
+              const shown = attention.funnel[0]?.count ?? 0;
+              const base = i === 0 ? null : i === 1 ? shown : opens;
               return (
                 <li key={f.key}>
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="text-gray-800">{f.label}</span>
-                    <span className="tabular-nums text-gray-900 font-semibold">{f.count.toLocaleString("en-IN")}{prev != null && prev > 0 && <span className="ml-2 text-xs font-normal text-gray-500">{pct(f.count / prev)}</span>}</span>
+                    <span className="tabular-nums text-gray-900 font-semibold">{f.count.toLocaleString("en-IN")}{base != null && base > 0 && <span className="ml-2 text-xs font-normal text-gray-500">{pct(f.count / base)}</span>}</span>
                   </div>
                   <div className="mt-1.5"><Bar value={f.count} max={maxFunnel} /></div>
                 </li>
