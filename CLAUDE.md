@@ -3,8 +3,9 @@
 Apparel e-commerce platform. FastAPI backend + Next.js storefront, deployed on
 Railway. Customer base is India.
 
-`DEPLOYMENT.md` is the authoritative deploy runbook. This file covers what the
-code does not show on its face.
+`DEPLOYMENT.md` is the authoritative deploy runbook. `DESIGN.md` is the
+storefront's design thesis — read it before changing anything a customer
+sees. This file covers what the code does not show on its face.
 
 ## Shape
 
@@ -87,13 +88,18 @@ A dead worker is silent: orders reach PAID, then nothing ships, stock never
 returns from expired carts, and no error appears anywhere.
 
 **The storefront has one palette and it lives in `frontend/tailwind.config.ts`.**
-Ink, porcelain, burgundy (`rani` is its old name in code), haldi, rose, moss — every button, badge and panel uses a
-token; there are no raw hex colours in `src/` (a grep for `#5C3317` should
-stay empty). `primary` is an alias for ink kept for old call sites. Type is
-Fraunces (`font-display`/`font-serif`), Instrument Sans (`font-sans`) and
-Caveat (`font-hand`, reserved for the founder's words and signature). The
-hero's copy and the ribbon's lines are constants in `src/lib/brand.ts` so
-the founder can change a headline without touching JSX.
+Ink, porcelain, burgundy (`rani` is its old name in code and still resolves
+to it), haldi, rose, moss — every button, badge and panel uses a token; there
+are no raw hex colours in `src/` (a grep for `#5C3317` should stay empty).
+`primary` is an alias for ink kept for old call sites. Burgundy is spent only
+where memory is built — the wordmark on light grounds, primary actions,
+section eyebrows, the footer, the WhatsApp button — and nowhere else; haldi
+survives only on coupon tickets. Type is Instrument Serif (`font-display` /
+`font-serif`), Instrument Sans (`font-sans`) and Caveat (`font-hand`, the
+signature only). The hero, manifesto, occasion and craft copy are constants
+in `src/lib/brand.ts` so the founder can change a line without touching JSX.
+One primary action per screen; product cards carry no buttons. See
+`DESIGN.md` for why.
 
 **Coupons are advertised, not just accepted.** `GET /coupons/active` is public
 and returns active, unexpired, non-referral codes; the storefront renders them
