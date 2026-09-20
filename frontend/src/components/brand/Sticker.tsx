@@ -11,14 +11,14 @@
 export function Sticker({ text = "new drop · handloom · small batch · ", className = "" }: { text?: string; className?: string }) {
   const id = "sticker-path";
   return (
-    <div className={`relative h-[92px] w-[92px] lg:h-[120px] lg:w-[120px] ${className}`} aria-hidden="true">
+    <div className={`h-[92px] w-[92px] lg:h-[120px] lg:w-[120px] ${className}`} aria-hidden="true">
       <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full motion-safe:animate-[spin_24s_linear_infinite]">
         <defs>
           <path id={id} d="M50,50 m-36,0 a36,36 0 1,1 72,0 a36,36 0 1,1 -72,0" />
         </defs>
         <circle cx="50" cy="50" r="48" className="fill-haldi" />
-        <text className="fill-ink font-sans font-bold uppercase" style={{ fontSize: "10.5px", letterSpacing: "0.2em" }}>
-          <textPath href={`#${id}`}>{text}{text}</textPath>
+        <text className="fill-ink font-sans font-bold uppercase" style={{ fontSize: "7.6px", letterSpacing: "0.22em" }}>
+          <textPath href={`#${id}`}>{text}</textPath>
         </text>
       </svg>
       <svg viewBox="0 0 24 24" className="absolute inset-0 m-auto h-7 w-7 lg:h-9 lg:w-9 text-ink" fill="currentColor">
