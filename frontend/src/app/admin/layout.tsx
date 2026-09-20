@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge } from "lucide-react";
 
 const NAV = [
-  { href: "/admin", label: "Overview", Icon: Gauge },
+  { href: "/admin", label: "Analytics", Icon: Gauge },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingBag },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/shelf", label: "Shelf", Icon: LayoutGrid },

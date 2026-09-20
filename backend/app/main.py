@@ -1,5 +1,6 @@
 import logging
 import sentry_sdk
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -56,10 +57,16 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.error("Redis unreachable at startup - running degraded: %s", exc)
     logger.info("ZISUN backend started", extra={"environment": settings.ENVIRONMENT})
+    # The analytics board is computed before anyone asks for it and kept
+    # warm, so the founder never waits on nine queries to a database a
+    # continent away. Cancelled cleanly at shutdown.
+    from app.api.admin.endpoints.dashboard import warm_dashboard
+    warmer = asyncio.create_task(warm_dashboard())
 
     yield
 
     # Shutdown
+    warmer.cancel()
     await close_redis()
     logger.info("ZISUN backend stopped")
 
