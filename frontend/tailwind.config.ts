@@ -59,24 +59,21 @@ const config: Config = {
         hand: ["var(--font-hand)", "cursive"],
       },
       borderRadius: {
-        card: "20px",
+        // Editorial, not app-store: photographs get a hairline of rounding,
+        // not a bubble. Depth comes from the photograph, never from a shadow.
+        card: "8px",
       },
       boxShadow: {
         lift: "0 12px 40px -12px rgba(26,20,23,0.25)",
         soft: "0 1px 2px rgba(26,20,23,0.06), 0 8px 24px -16px rgba(26,20,23,0.18)",
       },
       keyframes: {
-        marquee: {
-          "0%": { transform: "translateX(0)" },
-          "100%": { transform: "translateX(-50%)" },
-        },
         "fade-up": {
           "0%": { opacity: "0", transform: "translateY(12px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
-        marquee: "marquee 28s linear infinite",
         "fade-up": "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) both",
       },
     },

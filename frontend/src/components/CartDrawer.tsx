@@ -130,7 +130,7 @@ export default function CartDrawer() {
                           href={href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-full bg-[#25D366] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#1FB855] transition-colors shadow-md"
+                          className="w-full bg-burgundy text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-burgundy-deep transition-colors"
                         >
                           <MessageCircle className="w-5 h-5" />
                           Order on WhatsApp

@@ -32,13 +32,12 @@ export function WhatsAppFab() {
       aria-label={label}
       title={label}
       className="fixed z-40 right-4 bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))] lg:bottom-6
-                 flex items-center gap-2 pl-3.5 pr-4 py-3 rounded-full
-                 bg-[#25D366] text-white shadow-[0_8px_24px_-8px_rgba(37,211,102,.75)]
-                 hover:bg-[#1FB855] active:scale-95 transition-all
-                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366]"
+                 flex items-center justify-center w-12 h-12 rounded-full
+                 bg-burgundy text-white shadow-[0_8px_24px_-8px_rgba(122,31,58,.6)]
+                 hover:bg-burgundy-deep active:scale-95 transition-all
+                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-burgundy"
     >
-      <MessageCircle className="w-5 h-5" strokeWidth={2.2} aria-hidden="true" />
-      <span className="text-sm font-semibold hidden sm:inline">WhatsApp</span>
+      <MessageCircle className="w-5 h-5" strokeWidth={2} aria-hidden="true" />
     </a>
   );
 }

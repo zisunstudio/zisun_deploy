@@ -75,14 +75,14 @@ export function ProductAssurances() {
   const items = ITEMS.filter((i) => !(i.checkoutOnly && BROWSE_ONLY));
 
   return (
-    <ul className="mt-4 space-y-2 border-t border-gray-100 pt-3">
+    <ul className="mt-6 space-y-2 border-t border-ink/10 pt-4">
       {items.map(({ Icon, text, href }) => (
         <li key={href + text}>
           <Link
             href={href}
             className="flex items-center gap-2.5 text-xs text-muted hover:text-foreground transition-colors"
           >
-            <Icon className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <Icon className="w-3.5 h-3.5 text-ink/50 flex-shrink-0" strokeWidth={1.8} />
             <span className="underline-offset-2 hover:underline">{text}</span>
           </Link>
         </li>

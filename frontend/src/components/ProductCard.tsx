@@ -53,10 +53,10 @@ export function ProductCard({ product, className = "" }: Props) {
   return (
     <div
       ref={impressionRef as React.RefObject<HTMLDivElement>}
-      className={`flex flex-col cursor-pointer group transition-transform duration-200 active:scale-[0.985] ${className}`}
+      className={`flex flex-col cursor-pointer group ${className}`}
       onClick={() => router.push(`/product/${product.id}`)}
     >
-      <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose shadow-soft">
+      <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
         <Image
           src={imageUrl}
           alt={product.name}
@@ -66,12 +66,12 @@ export function ProductCard({ product, className = "" }: Props) {
           placeholder="blur"
           blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         />
-        <RepresentativeImage className="absolute bottom-2 left-2 text-[9px] px-2 py-[3px] z-10" />
+        <RepresentativeImage className="absolute bottom-1.5 left-1.5 text-[8px] px-1.5 py-[2px] z-10" />
         <OfferBadge offer={product.offer} className="absolute top-2.5 left-2.5 z-10 shadow-sm" />
         {/* "New" for two weeks after listing, only when there is no offer badge
             in that corner — two pills stacked in one corner read as clutter. */}
         {!product.offer?.active && Date.now() - new Date(product.created_at).getTime() < 14 * 86400000 && (
-          <span className="absolute top-2.5 left-2.5 z-10 rounded-full bg-ink text-white text-[10px] font-bold px-2 py-0.5 tracking-[0.12em] shadow-sm">NEW</span>
+          <span className="absolute top-2.5 left-2.5 z-10 rounded-sm bg-white/92 text-ink text-[10px] font-semibold px-1.5 py-0.5 tracking-[0.14em]">NEW</span>
         )}
         {isOutOfStock && (
           <div className="absolute inset-0 bg-ink/40 flex items-center justify-center">
@@ -80,23 +80,8 @@ export function ProductCard({ product, className = "" }: Props) {
             </span>
           </div>
         )}
-        {/* Wishlisting needs a signed-in user, and browse mode has no working
-            login — the handler would push to /login, which redirects straight
-            back here. A control whose only outcome is a no-op is worse than
-            no control. */}
-        {!BROWSE_ONLY && (
-          <button
-            onClick={handleWishlistToggle}
-            className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm transition-transform active:scale-90"
-            aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
-          >
-            <Heart
-              className={`w-4 h-4 transition-colors ${inWishlist ? "fill-rani text-rani" : "text-ink/60"}`}
-            />
-          </button>
-        )}
       </div>
-      <p className="text-ink font-medium text-[13px] mt-2.5 leading-snug line-clamp-2">{product.name}</p>
+      <p className="text-ink text-[13px] mt-3 leading-snug line-clamp-2">{product.name}</p>
       {/* The colours it comes in, as dots. Says "there is a choice" without
           a word, which is what makes a thumb stop on a card. */}
       {colours.length > 1 && (
@@ -116,7 +101,7 @@ export function ProductCard({ product, className = "" }: Props) {
           : null;
       })()}
       <p className="mt-0.5 flex items-baseline gap-1.5">
-        <span className="text-ink font-semibold text-sm">{formatPrice(price)}</span>
+        <span className="text-ink text-[13px] font-medium tabular-nums">{formatPrice(price)}</span>
         {product.offer?.active && product.offer.compare_at_price ? (
           <span className="text-muted text-xs line-through">{formatPrice(product.offer.compare_at_price)}</span>
         ) : null}

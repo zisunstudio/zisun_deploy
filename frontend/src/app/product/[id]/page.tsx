@@ -187,7 +187,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               </div>
             ))}
           </div>
-          <RepresentativeImage className="absolute bottom-3 left-4 text-[10px] px-2.5 py-1 z-10" />
+          <RepresentativeImage className="absolute bottom-3 left-4 text-[9px] px-2 py-0.5 z-10" />
 
           {/* Top controls */}
           <div className="absolute top-12 left-0 right-0 flex justify-between px-5">
@@ -252,7 +252,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 type="button"
                 onClick={() => scrollGalleryTo(i)}
                 aria-label={`Show photo ${i + 1}`}
-                className={`relative h-16 w-12 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${i === imageIdx ? "border-ink" : "border-transparent opacity-80"}`}
+                className={`relative h-16 w-12 shrink-0 overflow-hidden rounded-[6px] border-2 bg-rose transition-colors ${i === imageIdx ? "border-burgundy" : "border-transparent opacity-75"}`}
               >
                 <Image src={src} alt="" fill sizes="48px" className="object-cover" />
               </button>
@@ -263,16 +263,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         {/* Product info */}
         <div className="px-5 pt-5 pb-4 lg:max-w-3xl lg:mx-auto lg:w-full">
           {product.category && (
-            <p className="text-rani text-[11px] uppercase tracking-[0.22em] font-semibold mb-1.5">
+            <p className="text-burgundy text-[11px] uppercase tracking-[0.22em] font-semibold mb-2">
               {product.category.name}
             </p>
           )}
-          <h1 className="font-display text-[30px] lg:text-4xl text-ink leading-[1.05] mb-3 text-balance">
+          <h1 className="font-display text-[34px] lg:text-[44px] text-ink leading-[1.02] mb-3 text-balance">
             {product.name}
           </h1>
           <div className="mb-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-ink text-[22px] font-semibold tabular-nums">{formatPrice(price)}</p>
+              <p className="text-ink text-[20px] font-medium tabular-nums">{formatPrice(price)}</p>
               {product.offer?.active && product.offer.compare_at_price ? (
                 <>
                   <span className="text-muted text-base line-through">{formatPrice(product.offer.compare_at_price)}</span>
@@ -286,12 +286,6 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 code copies on tap so it is not something to memorise. */}
             {coupons?.[0] && <CouponTicket coupon={coupons[0]} compact className="mt-3 w-full max-w-[340px]" />}
           </div>
-          {/* In the page, not in the sticky bar. Three rows of assurances
-              inside a bottom-pinned bar made it 200px tall — on a phone that
-              covered the price at first paint. Here they read as part of the
-              decision, and the bar shrinks to the one thing that must stay
-              reachable: the buy action. */}
-          <ProductAssurances />
           {/* Colour, when there is more than one. Each swatch is the colour's
               name in a chip — a coloured dot would need a hex code nobody has
               entered, and "Indigo" is what the customer would say anyway. */}
@@ -333,7 +327,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                     });
                     setSizeGuideOpen(true);
                   }}
-                  className="flex items-center gap-1 text-xs text-ink font-medium underline underline-offset-4 decoration-rani/60"
+                  className="flex items-center gap-1 text-xs text-ink font-medium underline underline-offset-4 decoration-burgundy/50"
                 >
                   <Ruler className="w-3.5 h-3.5" />
                   Size guide
@@ -356,10 +350,15 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             </p>
           )}
 
-          {/* Description */}
+          {/* The description is the reasons to want it, so it comes straight
+              after the choice of size and before any reassurance: desire,
+              then confidence, then facts. */}
           {product.description && (
-            <p className="font-display text-[16px] text-ink/80 leading-relaxed">{product.description}</p>
+            <p className="mt-2 font-display text-[19px] lg:text-[21px] text-ink leading-[1.45]">{product.description}</p>
           )}
+          {/* Reassurance after desire, before the facts. */}
+          <ProductAssurances />
+
 
           {/* Colour variance has to be disclosed before the sale, not argued
               after it: it is the first thing the exchange policy rules out as a
@@ -397,7 +396,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <div>
             <button
               onClick={handleAddToCart}
-              className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-ink/90 transition-all shadow-lift active:scale-[0.99]"
+              className="w-full bg-burgundy text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-burgundy-deep transition-all active:scale-[0.99]"
             >
               <ShoppingBag className="w-5 h-5" />
               Add to bag
@@ -417,7 +416,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <button
             onClick={handleAddToCart}
             disabled={isOutOfStock}
-            className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ink/90 transition-all shadow-lift active:scale-[0.99]"
+            className="w-full bg-burgundy text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-burgundy-deep transition-all active:scale-[0.99]"
           >
             <ShoppingBag className="w-5 h-5" />
             {isOutOfStock ? "Sold out" : "Add to bag"}

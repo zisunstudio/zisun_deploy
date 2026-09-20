@@ -28,13 +28,13 @@ export default function ShopPage() {
     <div className="w-full bg-background">
       {/* Header */}
       <div className="px-5 pt-12 pb-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-line shadow-soft">
+        <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-line">
           <ChevronLeft className="w-4 h-4 text-foreground" />
         </button>
-        <h1 className="font-display text-[28px] text-ink flex-1 leading-none">Shop <em className="italic font-normal text-ink/60">all</em></h1>
+        <h1 className="font-display text-[32px] text-ink flex-1 leading-none">Collection</h1>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`w-10 h-10 flex items-center justify-center rounded-full border shadow-soft transition-colors ${showFilters ? "bg-ink border-ink text-white" : "bg-white border-line"}`}
+          className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${showFilters ? "bg-ink border-ink text-white" : "bg-white border-line"}`}
           aria-label="Filters"
         >
           <SlidersHorizontal className="w-4 h-4" />

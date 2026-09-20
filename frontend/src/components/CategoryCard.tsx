@@ -6,37 +6,38 @@ import { Category } from "@/lib/queries/catalog";
 const FALLBACK_IMAGE = "/placeholder-product.svg";
 
 /**
- * A category as a tall tile with its name set into the photograph.
+ * A category as an occasion.
  *
- * The name lives on the image rather than under it so the rail reads as a
- * row of doors, not a row of thumbnails with captions. The count sits small
- * beside it: "12 pieces" is an honest number for a small label and reads as
- * curation, where "12 items" reads as a stock report.
+ * The name is set into the photograph and the founder's one-line description
+ * under it does the work ("the commute, the errand, the long lunch") - that
+ * line is what turns a garment category into a way of dressing for a day.
+ * No item count: "12 items" is a stock report, and this is not a stock room.
  */
 export function CategoryCard({ category }: { category: Category }) {
   const router = useRouter();
-  const n = category.product_count;
   return (
     <button
       type="button"
-      className="flex-shrink-0 w-[150px] lg:w-[210px] text-left group"
+      className="flex-shrink-0 w-[236px] lg:w-auto text-left group"
       onClick={() => router.push(`/category/${category.slug}`)}
-      aria-label={`${category.name}, ${n} ${n === 1 ? "piece" : "pieces"}`}
+      aria-label={category.name}
     >
-      <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose shadow-soft">
+      <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
         <Image
           src={category.image_url ?? FALLBACK_IMAGE}
           alt=""
           fill
-          sizes="(min-width: 1024px) 210px, 150px"
-          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+          sizes="(min-width: 1024px) 33vw, 236px"
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
           placeholder="blur"
           blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ink/70 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-3">
-          <p className="font-display text-white text-lg leading-tight drop-shadow-sm">{category.name}</p>
-          <p className="mt-1 inline-block rounded-full bg-white/90 text-ink text-[10px] font-semibold px-2 py-0.5">{n} {n === 1 ? "piece" : "pieces"}</p>
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink/75 via-ink/20 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-4 lg:p-5">
+          <p className="font-display text-white text-[26px] lg:text-[30px] leading-none">{category.name}</p>
+          {category.description && (
+            <p className="text-white/80 text-[12px] lg:text-[13px] mt-1.5 leading-snug line-clamp-2">{category.description}</p>
+          )}
         </div>
       </div>
     </button>

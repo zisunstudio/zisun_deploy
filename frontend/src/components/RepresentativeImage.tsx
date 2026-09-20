@@ -19,9 +19,9 @@ export function RepresentativeImage({ className = "" }: { className?: string }) 
   if (!BROWSE_ONLY) return null;
   return (
     <span
-      className={`bg-black/55 text-white/95 backdrop-blur-sm rounded-full font-medium ${className}`}
+      className={`bg-ink/35 text-white/90 backdrop-blur-sm rounded-sm font-normal tracking-wide ${className}`}
     >
-      Representative image
+      representative image
     </span>
   );
 }

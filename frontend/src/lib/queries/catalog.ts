@@ -123,7 +123,8 @@ export interface ProductListResponse {
   limit: number;
 }
 
-export type SortBy = "newest" | "price_asc" | "price_desc";
+// "shelf" is the storefront default: pinned pieces first, then attention.
+export type SortBy = "shelf" | "newest" | "price_asc" | "price_desc";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

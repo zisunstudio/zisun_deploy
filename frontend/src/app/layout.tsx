@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { BRAND_TITLE } from "@/lib/brand";
-import { Caveat, Fraunces, Instrument_Sans } from "next/font/google";
+import { Caveat, Instrument_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -10,13 +10,13 @@ import { WhatsAppFab } from "@/components/WhatsAppFab";
 import CartDrawer from "@/components/CartDrawer";
 import { SessionRestore } from "@/components/SessionRestore";
 
-// Three faces, one job each. Fraunces is the voice - a soft, slightly wonky
-// serif with optical sizing, so the same family reads as a headline at 48px
-// and as a caption at 12. Instrument Sans is the interface: prices, labels,
-// buttons. Caveat is her hand, and it is used for exactly two things - the
-// founder's words and her signature - so that it stays a signature.
+// Three faces, one job each. Instrument Serif is the voice: a contemporary,
+// classical serif with masthead authority at 48-96px and none of the Didone
+// "luxury" cliché; it pairs natively with Instrument Sans, which is the hand -
+// prices, labels, buttons, body. Caveat is used for exactly one line, the
+// founder's signature, so that it stays a signature.
 const sans = Instrument_Sans({ subsets: ["latin"], variable: "--font-sans", weight: ["400", "500", "600", "700"] });
-const display = Fraunces({ subsets: ["latin"], variable: "--font-display", axes: ["SOFT", "WONK", "opsz"], style: ["normal", "italic"] });
+const display = Instrument_Serif({ subsets: ["latin"], variable: "--font-display", weight: "400", style: ["normal", "italic"] });
 const hand = Caveat({ subsets: ["latin"], variable: "--font-hand" });
 
 export const metadata: Metadata = {

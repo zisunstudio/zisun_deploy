@@ -83,27 +83,43 @@ export const FOUNDER = {
  * The home page's opening line.
  *
  * Written to be edited. The headline is two parts so the second can be set in
- * italic - the one flourish the hero allows itself - and the sub-line says the
- * true thing about small-batch handloom: a colour that sells out is a dye lot
- * that will not be repeated. That is scarcity as a fact, not as a countdown.
+ * italic - the one flourish the hero allows itself. The sub-line is about
+ * her, not about cotton: identity first, material later. `credit` is the
+ * word before the featured piece's name, set like a magazine credit line
+ * ("Worn: Purple Rose co-ord") so the product is a credit, not the subject.
  */
 export const HERO = {
-  eyebrow: "Handloom · small batches",
+  eyebrow: "Handloom cotton · South India",
   headline: "Not made for",
   headlineItalic: "everyone.",
-  sub: "Handwoven South Indian cotton, cut for the way you actually live. When a colour goes, that dye lot goes with it.",
-  cta: "Shop the drop",
+  sub: "Handwoven cotton, cut for women who dress for themselves.",
+  cta: "See the drop",
+  credit: "Worn",
 } as const;
 
 /**
- * The ribbon under the hero. Every line is a promise the policy pages already
- * keep - the ribbon is the trust badges said out loud, not a new claim.
+ * What the label is for, in three lines. This is the identity the products
+ * are expressions of, and it sits between the drop and the categories so a
+ * visitor meets the point of view before the taxonomy. Hers to rewrite.
  */
-export const TICKER = [
-  "Handloom cotton",
-  "Mangalgiri · Ilkal · Kasavu",
-  "Ships across India",
-  "Size exchange, no questions",
-  "Small batches, never re-run",
-  "zisun by Sushmita",
+export const MANIFESTO = {
+  lines: ["Clothes for the days that matter.", "Which, it turns out, is all of them."],
+  body:
+    "Handloom cotton from Mangalgiri, Ilkal and Kasavu, cut to move and made in small batches. No re-runs: when a colour goes, it goes.",
+} as const;
+
+/** The category section's question. Categories answer it as occasions. */
+export const OCCASIONS = {
+  eyebrow: "By occasion",
+  heading: "What are you dressing for?",
+} as const;
+
+/**
+ * Three facts about the cloth, set as type. No icons: a label states things;
+ * a store reassures you.
+ */
+export const CRAFT = [
+  { title: "Mangalgiri · Ilkal · Kasavu", body: "Woven by hand in South India, on looms that have made cotton this way for generations." },
+  { title: "Small batches", body: "Never re-run. A colour that sells out is a dye lot that will not come back." },
+  { title: "Made for the heat", body: "Open, breathable weaves for Indian summers and long days." },
 ] as const;

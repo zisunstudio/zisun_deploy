@@ -48,15 +48,12 @@ body {
 }
 
 /*
- * Display type. Fraunces carries optical sizing: at headline sizes the
- * contrast rises and the terminals soften, which is where the "feminine arts"
- * lives — it is in the letterforms, not in a floral border.
+ * Display type. Instrument Serif carries the headlines; a slight negative
+ * track at large sizes is what turns a typeface into a masthead.
  */
 .font-display,
 .font-serif {
-  font-optical-sizing: auto;
-  font-variation-settings: "SOFT" 85, "WONK" 1;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.012em;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -92,8 +89,3 @@ body {
   opacity: 0.35;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
-    animation: none;
-  }
-}

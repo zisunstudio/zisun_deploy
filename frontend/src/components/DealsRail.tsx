@@ -7,7 +7,6 @@ import { api } from "@/lib/api";
 import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
 import { CouponTicket } from "@/components/CouponTicket";
 import { Reveal } from "@/components/Reveal";
-import { Underline } from "@/components/brand/Flourish";
 import { useActiveCoupons } from "@/lib/queries/coupons";
 import { type Product, formatPrice, productImageUrl } from "@/lib/queries/catalog";
 
@@ -37,14 +36,13 @@ export function DealsRail() {
 
   return (
     <Reveal>
-      <section className="mt-10 py-6 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(242,193,78,0.16),transparent_60%)]" aria-labelledby="deals-heading">
+      <section className="mt-16 lg:mt-24" aria-labelledby="deals-heading">
         <div className="px-5 lg:px-8 flex items-end justify-between mb-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-rani">Limited</p>
-            <h3 id="deals-heading" className="font-display text-[28px] leading-none text-ink mt-1">
-              Going, <em className="italic font-normal">going.</em>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-burgundy">Limited</p>
+            <h3 id="deals-heading" className="font-display text-[34px] lg:text-[44px] leading-none text-ink mt-1">
+              Going, <em className="italic">going.</em>
             </h3>
-            <Underline className="text-rani mt-1" />
           </div>
           {offers.length > 0 && (
             <button onClick={() => router.push("/shop?offers=1")} className="text-ink text-sm font-medium inline-flex items-center gap-0.5 hover:underline underline-offset-4">

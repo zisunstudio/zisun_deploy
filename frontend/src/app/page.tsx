@@ -3,23 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  ShoppingBag, Search, User, Truck, RefreshCcw,
-  Leaf, Sun, Home, Grid3X3, Heart, ChevronRight, ArrowUpRight,
-} from "lucide-react";
-import BottomSheet from "@/components/BottomSheet";
+import { ShoppingBag, Search, User, Home, Grid3X3, Heart, ArrowUpRight } from "lucide-react";
 import { CategoryCard } from "@/components/CategoryCard";
-import { CategoryCardSkeleton } from "@/components/skeletons/Skeleton";
+import { CategoryCardSkeleton, ProductCardSkeleton } from "@/components/skeletons/Skeleton";
+import { ProductCard } from "@/components/ProductCard";
 import { useCartStore } from "@/store/useCartStore";
-import { useCategories, useFeed } from "@/lib/queries/catalog";
+import { useCategories, useFeed, useProducts } from "@/lib/queries/catalog";
 import { POLICY_TERMS } from "@/lib/legal";
 import { DealsRail } from "@/components/DealsRail";
-import { FeedCard, FeedItem, feedItemImage } from "@/components/FeedCard";
-import { Ticker } from "@/components/Ticker";
+import { FeedItem, feedItemImage } from "@/components/FeedCard";
 import { Reveal } from "@/components/Reveal";
-import { HERO } from "@/lib/brand";
-import { Sticker } from "@/components/brand/Sticker";
-import { Underline } from "@/components/brand/Flourish";
+import { CRAFT, HERO, MANIFESTO, OCCASIONS } from "@/lib/brand";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { FIREBASE_ENABLED } from "@/lib/firebase";
@@ -27,21 +21,9 @@ import { LegalFooter } from "@/components/LegalFooter";
 import { Wordmark } from "@/components/Wordmark";
 import { FounderNote } from "@/components/FounderNote";
 
-// Every claim here is read as a promise. Three of the previous four were not
-// ones we could keep:
-//   "Trusted by 10K+ customers" — invented. The store has had no customers.
-//   "100% secure checkout"      — there is no checkout; it 503s by design.
-//   "Free Shipping above Rs 999" — the shipping policy promises no such thing.
-//                                  It says charges are shown at checkout.
-// What remains is true today and consistent with the policy pages.
-const TRUST_BADGES = [
-  { Icon: Truck, title: "Ships across India", subtitle: "Shiprocket partners" },
-  // Not "returns". We do not have a returns programme, and a badge on the home
-  // page is exactly where an overstated promise does the most damage.
-  { Icon: RefreshCcw, title: `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange`, subtitle: "Size issues only" },
-  { Icon: Leaf, title: "Handloom cotton", subtitle: "Mangalgiri, Ilkal, Kasavu" },
-  { Icon: Sun, title: "Built for the heat", subtitle: "Breathable weaves" },
-];
+// Every claim on this page is read as a promise. What is here is true today
+// and consistent with the policy pages; nothing about customer counts,
+// checkout security or free shipping, because none of those are ours to say.
 
 // LAUNCH IMAGERY — temporary, see CREDITS.md.
 // A licensed photograph of a person wearing a kurti. It is editorial: it
@@ -61,7 +43,6 @@ const HERO_FALLBACK = "/placeholder-hero.svg";
 
 export default function HomePage() {
   const router = useRouter();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("home");
   const [heroSrc, setHeroSrc] = useState(HERO_IMAGE);
   // Page 1 only for now. Eight products fit on one page; when the
@@ -73,6 +54,9 @@ export default function HomePage() {
   const cartItemsCount = useCartStore((state) => state.items.length);
   const { data: categories, isLoading: loadingCategories } = useCategories();
   const { data: feedData, isLoading: loadingFeed } = useFeed(feedPage);
+  // The drop: six pieces in shelf order. The feed decides the hero; the
+  // shelf decides what is shown beneath it, so a pinned piece leads the grid.
+  const { data: dropData, isLoading: loadingDrop } = useProducts({ limit: 6, sort_by: "shelf" });
   const heroRef = useRef<HTMLDivElement>(null);
 
   // Accumulate feed pages
@@ -103,7 +87,7 @@ export default function HomePage() {
   // a tab that opens an empty drawer with no way out is worse than no tab.
   const NAV_ITEMS = [
     { Icon: Home, label: "Home", id: "home", href: "/" },
-    { Icon: Grid3X3, label: "Shop", id: "shop", href: "/shop" },
+    { Icon: Grid3X3, label: "Collection", id: "shop", href: "/shop" },
     // Wishlist needs an account, which now exists — so it comes back as soon
     // as sign-in is configured, launch mode notwithstanding. Someone browsing
     // before the store opens can still save what they want.
@@ -121,6 +105,13 @@ export default function HomePage() {
       { Icon: User, label: "Profile", id: "profile", href: "/profile" },
     ]),
   ];
+
+  // The hero's photograph and credit line come from the first feed item,
+  // which is a published Content card when one exists and the shelf's first
+  // product otherwise. That is how the founder art-directs the opening screen.
+  const FEATURED = allFeedItems[0];
+  const featuredId = FEATURED?.products?.[0]?.id ?? FEATURED?.id;
+  const featuredName = FEATURED?.products?.[0]?.name ?? FEATURED?.name ?? null;
 
   function handleNavClick(id: string, href: string | null) {
     if (id === "cart") {
@@ -188,57 +179,51 @@ export default function HomePage() {
         </header>
 
         {/* Hero.
-            One photograph, one line, one button. The first feed item supplies
-            the photograph and a way in ("this piece"), but the words are the
-            brand's, not the product's: a hero that reads "Mangalgiri Kurti
-            ₹1,499" is a listing, and a landing page is not a listing.
-            Three image states, not two: a quiet placeholder holds the space
-            while the feed is in flight, so the page never paints one hero and
-            then swaps it for another. */}
-        <div ref={heroRef} className="relative h-[78vh] min-h-[540px] lg:h-[64vh] lg:min-h-[560px] bg-rose">
-          {allFeedItems[0] ? (
-            <Image src={feedItemImage(allFeedItems[0])} alt="" fill priority sizes="100vw" className="object-cover object-[50%_25%]" />
+            One photograph, one line, one action. The photograph is the
+            featured piece's; the words are the label's. The piece appears as
+            a credit line under the action, the way a magazine credits what
+            the model wears - it is a credit, not the subject.
+            Three image states: a quiet placeholder while the feed is in
+            flight, so the page never paints one hero and then swaps it. */}
+        <div ref={heroRef} className="relative min-h-[86svh] lg:min-h-[82vh] bg-rose">
+          {FEATURED ? (
+            <Image src={feedItemImage(FEATURED)} alt="" fill priority sizes="100vw" className="object-cover object-[50%_22%] lg:object-[50%_35%]" />
           ) : loadingFeed ? (
             <div className="absolute inset-0 bg-rose animate-pulse" aria-hidden="true" />
           ) : (
             <Image src={heroSrc} alt="Handwoven South Indian cotton" fill priority sizes="100vw" onError={() => setHeroSrc(HERO_FALLBACK)} className="object-cover object-[50%_20%]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent" />
-          {/* Pressed on like a label on a parcel. Sits under the header, out
-              of the way of the search and account buttons. */}
-          <Sticker className="absolute right-4 top-[7.5rem] lg:right-10 lg:top-28 z-[6] pointer-events-none drop-shadow-md" />
-          {/* The tap target for the photograph itself: the featured piece. */}
-          {allFeedItems[0] && (
+          <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-transparent" />
+          {FEATURED && (
             <button
               type="button"
               aria-label="Open the featured piece"
-              onClick={() => router.push(`/product/${allFeedItems[0].products?.[0]?.id ?? allFeedItems[0].id}`)}
+              onClick={() => router.push(`/product/${featuredId}`)}
               className="absolute inset-0 w-full h-full cursor-pointer"
             />
           )}
-          <div className="absolute inset-x-0 bottom-0 z-10 px-5 lg:px-8 pb-9 lg:pb-14 pointer-events-none">
+          <div className="absolute inset-x-0 bottom-0 z-10 px-5 lg:px-8 pb-12 lg:pb-16 pointer-events-none">
             <div className="max-w-6xl mx-auto w-full">
-              <p className="text-haldi text-[11px] font-semibold uppercase tracking-[0.24em] animate-fade-up">{HERO.eyebrow}</p>
-              <h1 className="mt-2 font-display text-white text-[44px] leading-[0.95] lg:text-[84px] tracking-[-0.02em] text-balance drop-shadow-sm animate-fade-up [animation-delay:90ms]">
+              <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.24em] animate-fade-up">{HERO.eyebrow}</p>
+              <h1 className="mt-3 font-display text-white text-[52px] leading-[0.95] lg:text-[104px] text-balance animate-fade-up [animation-delay:90ms]">
                 {HERO.headline}<br />
-                <em className="italic font-normal">{HERO.headlineItalic}</em>
+                <em className="italic">{HERO.headlineItalic}</em>
               </h1>
-              <p className="mt-4 text-white/85 text-[15px] leading-snug max-w-[22rem] lg:max-w-md lg:text-base animate-fade-up [animation-delay:180ms]">{HERO.sub}</p>
-              <div className="mt-6 flex flex-wrap items-center gap-3 pointer-events-auto animate-fade-up [animation-delay:270ms]">
+              <p className="mt-4 text-white/85 text-[15px] leading-snug max-w-[20rem] lg:max-w-md lg:text-[17px] animate-fade-up [animation-delay:180ms]">{HERO.sub}</p>
+              <div className="mt-7 flex flex-col items-start gap-4 pointer-events-auto animate-fade-up [animation-delay:270ms]">
                 <button
                   onClick={() => router.push("/shop")}
-                  className="bg-white text-ink px-6 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm shadow-lift hover:-translate-y-0.5 transition-transform"
+                  className="bg-white text-burgundy px-7 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm hover:-translate-y-0.5 transition-transform"
                 >
                   {HERO.cta}
                   <ArrowUpRight className="w-4 h-4" />
                 </button>
-                {allFeedItems[0] && (
+                {FEATURED && featuredName && (
                   <button
-                    onClick={() => router.push(`/product/${allFeedItems[0].products?.[0]?.id ?? allFeedItems[0].id}`)}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 backdrop-blur-sm text-white px-4 py-3 text-[13px] font-medium hover:bg-white/20 transition-colors max-w-[60vw]"
+                    onClick={() => router.push(`/product/${featuredId}`)}
+                    className="text-white/75 text-[12px] tracking-wide hover:text-white underline-offset-4 hover:underline text-left"
                   >
-                    <span className="truncate">This piece · {allFeedItems[0].products?.[0]?.name ?? allFeedItems[0].name ?? "shop"}</span>
-                    <ChevronRight className="w-4 h-4 shrink-0" />
+                    {HERO.credit}: {featuredName} →
                   </button>
                 )}
               </div>
@@ -246,101 +231,92 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* The ribbon. The promises, moving, in turmeric. */}
-        <Ticker />
-
-        {/* Trust, compact. Every claim here is one the policy pages keep. */}
-        <div className="mx-auto max-w-3xl px-5 py-5 grid grid-cols-4 gap-2">
-          {TRUST_BADGES.map(({ Icon, title, subtitle }) => (
-            <div key={title} className="flex flex-col items-center text-center gap-1.5">
-              <div className="w-9 h-9 rounded-full bg-rose flex items-center justify-center">
-                <Icon className="w-4 h-4 text-ink" strokeWidth={1.8} />
-              </div>
-              <span className="text-ink text-[10.5px] font-semibold leading-tight">{title}</span>
-              <span className="text-muted text-[9px] leading-tight">{subtitle}</span>
-            </div>
+        {/* Three quiet promises. Each is one the policy pages keep; the third
+            says how an order happens today and changes when checkout opens.
+            A three-column row rather than one dotted line: at phone width a
+            single line broke mid-word, which is the opposite of quiet. */}
+        <ul className="mx-auto max-w-3xl px-5 py-8 grid grid-cols-3 gap-3 text-center text-[10px] lg:text-[11px] uppercase tracking-[0.16em] lg:tracking-[0.2em] text-muted leading-snug">
+          {["Ships across India", `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange`, BROWSE_ONLY ? "Orders on WhatsApp" : "Cash on delivery"].map((line) => (
+            <li key={line}>{line}</li>
           ))}
-        </div>
+        </ul>
 
-        {/* Products first. This used to sit below the category rail, which put
-            it 2.7 screens down a desktop page — the shop's landing page reached
-            its first price after two and a half scrolls.
-
-            It also used to be a virtualised list inside a 100vh scrolling box,
-            nested inside the page's own scrolling box. A wheel over the feed
-            scrolled one thing and a wheel beside it scrolled another. Eight
-            products do not need virtualising; they need to be visible. */}
         <DealsRail />
 
-        {allFeedItems.length > 0 && (
-          <Reveal className="mt-10 px-5 lg:px-8">
-            <div className="flex justify-between items-end mb-4">
+        {/* The drop: six pieces, photograph, name, price. No buttons - the
+            photograph is the argument, and a button under every one of them
+            made each button worthless. */}
+        <Reveal className="mt-14 lg:mt-24 px-5 lg:px-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex justify-between items-end mb-6 lg:mb-8">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">This week</p>
-                <h3 className="font-display text-[28px] leading-none text-ink mt-1">The <em className="italic font-normal">drop.</em></h3>
-                <Underline className="text-rani mt-1" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-burgundy">This week</p>
+                <h2 className="font-display text-[34px] lg:text-[44px] leading-none text-ink mt-1.5">The drop</h2>
               </div>
-              <button
-                onClick={() => router.push("/shop")}
-                className="text-ink text-sm font-medium flex items-center gap-0.5 hover:underline underline-offset-4"
-              >
-                See all <ChevronRight className="w-4 h-4" />
+              <button onClick={() => router.push("/shop")} className="text-ink text-sm hover:underline underline-offset-4 pb-1">
+                Everything →
               </button>
             </div>
-            {/* Every fifth card from the third is a wide one on desktop: the
-                grid breaks its own rhythm once a row, which is what makes it
-                read as an editorial spread rather than a warehouse. */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-              {allFeedItems.map((feedItem, i) => (
-                <div key={feedItem.id} className={`overflow-hidden rounded-card shadow-soft ${i % 5 === 2 ? "lg:col-span-2" : ""}`}>
-                  <FeedCard item={feedItem} className={i % 5 === 2 ? "aspect-[3/4] lg:aspect-[3/2]" : "aspect-[3/4]"} />
-                </div>
-              ))}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-8 lg:gap-x-8 lg:gap-y-12">
+              {loadingDrop
+                ? Array(6).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)
+                : (dropData?.items ?? []).map((product) => <ProductCard key={product.id} product={product} />)}
             </div>
-          </Reveal>
-        )}
-
-        {/* Shop by Category — real data */}
-        <Reveal className="mt-12 px-5 lg:px-8 py-8 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(216,30,107,0.08),transparent_60%)]">
-          <div className="flex justify-between items-end mb-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">Wardrobe</p>
-              <h3 className="font-display text-[28px] leading-none text-ink mt-1">By <em className="italic font-normal">kind.</em></h3>
-              <Underline className="text-rani mt-1" />
-            </div>
-            <button
-              onClick={() => router.push("/shop")}
-              className="text-ink text-sm font-medium flex items-center gap-0.5 hover:underline underline-offset-4"
-            >
-              View all <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-3 -mx-5 px-5 lg:mx-0 lg:px-0">
-            {loadingCategories
-              ? Array(4).fill(0).map((_, i) => <CategoryCardSkeleton key={i} />)
-              : categories?.map((cat) => <CategoryCard key={cat.id} category={cat} />)
-            }
           </div>
         </Reveal>
 
-        {/* Who is behind this. The survey's two biggest objections were "will
-            the quality be there" and "can I send it back" - both are questions
-            about whether anyone stands behind the cloth, and neither is
-            answered by another product grid. One product travels with the note
-            so the section ends somewhere to buy. */}
-        <FounderNote feature={allFeedItems[0]} />
+        {/* What the label is for. Three lines of serif with air around them,
+            between the drop and the categories, so the visitor meets the
+            point of view before the taxonomy. */}
+        <Reveal className="mt-24 lg:mt-36 px-5 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <p className="font-display text-[30px] lg:text-[48px] leading-[1.1] text-ink text-balance">
+              {MANIFESTO.lines.map((line, i) => (
+                <span key={i} className={i === 1 ? "italic" : ""}>{line}{i < MANIFESTO.lines.length - 1 ? " " : ""}</span>
+              ))}
+            </p>
+            <p className="mt-6 text-[15px] lg:text-base leading-relaxed text-muted max-w-xl mx-auto">{MANIFESTO.body}</p>
+          </div>
+        </Reveal>
 
-        {/* The policy links have to be reachable from the home page itself,
-            not only from /shop. Google's app verification rejected the domain
-            for exactly this: "your home page URL does not include a link to
-            your privacy policy". Razorpay checks the same thing at onboarding,
-            and the e-commerce rules require the policies to be findable. */}
+        {/* Categories, as occasions. The founder's description under each
+            name is the mood line; the page asks the question. */}
+        <Reveal className="mt-24 lg:mt-36 px-5 lg:px-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-6 lg:mb-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-burgundy">{OCCASIONS.eyebrow}</p>
+              <h2 className="font-display text-[34px] lg:text-[44px] leading-none text-ink mt-1.5">{OCCASIONS.heading}</h2>
+            </div>
+            <div className="flex gap-4 overflow-x-auto no-scrollbar -mx-5 px-5 pb-2 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:gap-8 lg:overflow-visible">
+              {loadingCategories
+                ? Array(3).fill(0).map((_, i) => <CategoryCardSkeleton key={i} />)
+                : categories?.map((cat) => <CategoryCard key={cat.id} category={cat} />)}
+            </div>
+          </div>
+        </Reveal>
+
+        {/* Made of. Three facts about the cloth, as type. */}
+        <Reveal className="mt-24 lg:mt-36 px-5 lg:px-8">
+          <div className="max-w-6xl mx-auto border-t border-ink/10 pt-10 lg:pt-14 grid gap-10 lg:grid-cols-3 lg:gap-12">
+            {CRAFT.map((c) => (
+              <div key={c.title}>
+                <p className="font-display text-[24px] lg:text-[28px] leading-tight text-ink">{c.title}</p>
+                <p className="mt-2.5 text-[14px] leading-relaxed text-muted max-w-xs">{c.body}</p>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+
+        <FounderNote />
+
+        {/* The policy links have to be reachable from the home page itself:
+            Google's app verification and Razorpay's onboarding both look
+            for them here. */}
         <LegalFooter />
 
         {/* Clears the fixed tab bar, which only exists below lg. */}
         <div className="h-20 lg:h-0 bg-burgundy" />
       </div>
-
       {/* Bottom tab bar - phones and tablets only. It is a touch pattern:
           at 1440px it reads as a stray mobile chrome pinned across the
           foot of a wide window. Desktop gets the same destinations in the
@@ -376,7 +352,6 @@ export default function HomePage() {
         })}
       </nav>
 
-      <BottomSheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} />
     </div>
   );
 }

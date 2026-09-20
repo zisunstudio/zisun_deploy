@@ -22,10 +22,12 @@ interface Props {
   className?: string;
 }
 
+// Instrument Serif runs narrower than the old face; the name steps up a size
+// so the lockup keeps its footprint next to the mark.
 const NAME_SIZE: Record<Size, string> = {
-  sm: "text-lg",
-  md: "text-2xl",
-  lg: "text-4xl",
+  sm: "text-[22px]",
+  md: "text-[28px]",
+  lg: "text-[44px]",
 };
 
 const TAGLINE_SIZE: Record<Size, string> = {
@@ -76,14 +78,17 @@ export function Wordmark({
   const reduce = useReducedMotion();
   const play = animate && !reduce;
 
+  // On a light ground the name is burgundy: the wordmark is where the brand
+  // colour is met most often, and the association is the point. The tagline
+  // stays quiet so there is one burgundy thing in the lockup, not two.
   const nameColour =
     tone === "light"
       ? "text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.55)]"
-      : "text-foreground";
+      : "text-burgundy";
   const taglineColour =
     tone === "light"
-      ? "text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
-      : "text-rani";
+      ? "text-white/85 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
+      : "text-ink/55";
   const signatureColour = tone === "light" ? "text-white/80" : "text-muted";
 
   const signature = showSignature ? (
@@ -109,7 +114,7 @@ export function Wordmark({
   ) : (
     <span className={`inline-flex items-baseline gap-2 ${nameColour}`}>
       <ZisunMark animate={play} className={MARK_SIZE[size]} />
-      <span className={`font-display font-semibold leading-none tracking-[0.06em] ${NAME_SIZE[size]}`}>
+      <span className={`font-display font-normal uppercase leading-none tracking-[0.14em] ${NAME_SIZE[size]}`}>
         {BRAND.name}
       </span>
     </span>
