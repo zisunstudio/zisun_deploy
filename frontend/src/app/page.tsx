@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ShoppingBag, Search, User, Truck, RefreshCcw,
-  Leaf, Sun, Home, Grid3X3, Heart, ChevronRight,
+  Leaf, Sun, Home, Grid3X3, Heart, ChevronRight, ArrowUpRight,
 } from "lucide-react";
 import BottomSheet from "@/components/BottomSheet";
 import CartDrawer from "@/components/CartDrawer";
@@ -14,8 +14,11 @@ import { CategoryCardSkeleton } from "@/components/skeletons/Skeleton";
 import { useCartStore } from "@/store/useCartStore";
 import { useCategories, useFeed } from "@/lib/queries/catalog";
 import { POLICY_TERMS } from "@/lib/legal";
-import { OfferStrip } from "@/components/OfferStrip";
-import { FeedCard, FeedItem } from "@/components/FeedCard";
+import { DealsRail } from "@/components/DealsRail";
+import { FeedCard, FeedItem, feedItemImage } from "@/components/FeedCard";
+import { Ticker } from "@/components/Ticker";
+import { Reveal } from "@/components/Reveal";
+import { HERO } from "@/lib/brand";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { FIREBASE_ENABLED } from "@/lib/firebase";
@@ -59,7 +62,6 @@ export default function HomePage() {
   const router = useRouter();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("home");
-  const [activeDot, setActiveDot] = useState(0);
   const [heroSrc, setHeroSrc] = useState(HERO_IMAGE);
   // Page 1 only for now. Eight products fit on one page; when the
   // catalogue outgrows that this becomes a "load more" rather than the
@@ -181,74 +183,74 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* Hero */}
-        <div ref={heroRef} className="relative h-[72vh] lg:h-[52vh]">
-          {/* Three states, not two. The hero is the first feed item, so
-              rendering the static fallback while the feed is still in flight
-              paints one hero and then visibly swaps it for another — it reads
-              as the site loading the wrong page first and correcting itself.
-              A quiet placeholder holds the space until we actually know; the
-              fallback is for a feed that came back genuinely empty. */}
+        {/* Hero.
+            One photograph, one line, one button. The first feed item supplies
+            the photograph and a way in ("this piece"), but the words are the
+            brand's, not the product's: a hero that reads "Mangalgiri Kurti
+            ₹1,499" is a listing, and a landing page is not a listing.
+            Three image states, not two: a quiet placeholder holds the space
+            while the feed is in flight, so the page never paints one hero and
+            then swaps it for another. */}
+        <div ref={heroRef} className="relative h-[78vh] min-h-[540px] lg:h-[64vh] lg:min-h-[560px] bg-rose">
           {allFeedItems[0] ? (
-            <div className="absolute inset-0">
-              <FeedCard item={allFeedItems[0]} className="h-full" />
-            </div>
+            <Image src={feedItemImage(allFeedItems[0])} alt="" fill priority sizes="100vw" className="object-cover object-[50%_25%]" />
           ) : loadingFeed ? (
-            <div className="absolute inset-0 bg-[#EFE7DC] animate-pulse" aria-hidden="true" />
+            <div className="absolute inset-0 bg-rose animate-pulse" aria-hidden="true" />
           ) : (
-            <>
-              <Image
-                src={heroSrc}
-                alt="Handwoven South Indian cotton"
-                fill
-                priority
-                sizes="100vw"
-                onError={() => setHeroSrc(HERO_FALLBACK)}
-                className="object-cover object-[50%_20%]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
-
-              <div className="absolute bottom-10 left-5 z-10">
-                <h2 className="font-serif text-[2.4rem] font-bold text-white leading-tight mb-2 drop-shadow-sm">
-                  Cotton made for<br />your climate
-                </h2>
-                <p className="text-white/85 text-sm mb-5 max-w-[19rem] leading-snug">
-                  Handwoven South Indian cotton, cut for the way you actually live.
-                </p>
-                <button
-                  onClick={() => setIsSheetOpen(true)}
-                  className="bg-[#5C3317] text-white px-7 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm hover:bg-[#4A2810] transition-colors shadow-lg"
-                >
-                  Shop the Look
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                {[0, 1, 2, 3].map((i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveDot(i)}
-                    aria-label={`Go to slide ${i + 1}`}
-                    className={`rounded-full transition-all duration-300 ${
-                      activeDot === i ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40"
-                    }`}
-                  />
-                ))}
-              </div>
-            </>
+            <Image src={heroSrc} alt="Handwoven South Indian cotton" fill priority sizes="100vw" onError={() => setHeroSrc(HERO_FALLBACK)} className="object-cover object-[50%_20%]" />
           )}
+          <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent" />
+          {/* The tap target for the photograph itself: the featured piece. */}
+          {allFeedItems[0] && (
+            <button
+              type="button"
+              aria-label="Open the featured piece"
+              onClick={() => router.push(`/product/${allFeedItems[0].products?.[0]?.id ?? allFeedItems[0].id}`)}
+              className="absolute inset-0 w-full h-full cursor-pointer"
+            />
+          )}
+          <div className="absolute inset-x-0 bottom-0 z-10 px-5 lg:px-8 pb-9 lg:pb-14 pointer-events-none">
+            <div className="max-w-6xl mx-auto w-full">
+              <p className="text-haldi text-[11px] font-semibold uppercase tracking-[0.24em] animate-fade-up">{HERO.eyebrow}</p>
+              <h1 className="mt-2 font-display text-white text-[44px] leading-[0.95] lg:text-[84px] tracking-[-0.02em] text-balance drop-shadow-sm animate-fade-up [animation-delay:90ms]">
+                {HERO.headline}<br />
+                <em className="italic font-normal">{HERO.headlineItalic}</em>
+              </h1>
+              <p className="mt-4 text-white/85 text-[15px] leading-snug max-w-[22rem] lg:max-w-md lg:text-base animate-fade-up [animation-delay:180ms]">{HERO.sub}</p>
+              <div className="mt-6 flex flex-wrap items-center gap-3 pointer-events-auto animate-fade-up [animation-delay:270ms]">
+                <button
+                  onClick={() => router.push("/shop")}
+                  className="bg-white text-ink px-6 py-3.5 rounded-full inline-flex items-center gap-2 font-semibold text-sm shadow-lift hover:-translate-y-0.5 transition-transform"
+                >
+                  {HERO.cta}
+                  <ArrowUpRight className="w-4 h-4" />
+                </button>
+                {allFeedItems[0] && (
+                  <button
+                    onClick={() => router.push(`/product/${allFeedItems[0].products?.[0]?.id ?? allFeedItems[0].id}`)}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 backdrop-blur-sm text-white px-4 py-3 text-[13px] font-medium hover:bg-white/20 transition-colors max-w-[60vw]"
+                  >
+                    <span className="truncate">This piece · {allFeedItems[0].products?.[0]?.name ?? allFeedItems[0].name ?? "shop"}</span>
+                    <ChevronRight className="w-4 h-4 shrink-0" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Trust badges */}
-        <div className="mx-4 lg:mx-auto lg:max-w-3xl -mt-5 relative z-10 bg-white rounded-2xl shadow-md px-3 py-4 lg:py-6 grid grid-cols-4 gap-1 lg:gap-6">
+        {/* The ribbon. The promises, moving, in turmeric. */}
+        <Ticker />
+
+        {/* Trust, compact. Every claim here is one the policy pages keep. */}
+        <div className="mx-auto max-w-3xl px-5 py-5 grid grid-cols-4 gap-2">
           {TRUST_BADGES.map(({ Icon, title, subtitle }) => (
-            <div key={title} className="flex flex-col items-center text-center gap-1">
-              <div className="w-8 h-8 rounded-full bg-[#F7F0E8] flex items-center justify-center">
-                <Icon className="w-3.5 h-3.5 text-primary" strokeWidth={1.8} />
+            <div key={title} className="flex flex-col items-center text-center gap-1.5">
+              <div className="w-9 h-9 rounded-full bg-rose flex items-center justify-center">
+                <Icon className="w-4 h-4 text-ink" strokeWidth={1.8} />
               </div>
-              <span className="text-foreground text-[10px] font-semibold leading-tight">{title}</span>
-              <span className="text-muted text-[8.5px] leading-tight">{subtitle}</span>
+              <span className="text-ink text-[10.5px] font-semibold leading-tight">{title}</span>
+              <span className="text-muted text-[9px] leading-tight">{subtitle}</span>
             </div>
           ))}
         </div>
@@ -261,47 +263,56 @@ export default function HomePage() {
             nested inside the page's own scrolling box. A wheel over the feed
             scrolled one thing and a wheel beside it scrolled another. Eight
             products do not need virtualising; they need to be visible. */}
-        <OfferStrip />
+        <DealsRail />
 
         {allFeedItems.length > 0 && (
-          <div className="mt-6 px-5 lg:px-8">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-serif text-xl font-bold text-foreground">Latest Drops</h3>
+          <Reveal className="mt-10 px-5 lg:px-8">
+            <div className="flex justify-between items-end mb-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">This week</p>
+                <h3 className="font-display text-[28px] leading-none text-ink mt-1">The <em className="italic font-normal">drop.</em></h3>
+              </div>
               <button
                 onClick={() => router.push("/shop")}
-                className="text-primary text-sm font-medium flex items-center gap-0.5 hover:underline"
+                className="text-ink text-sm font-medium flex items-center gap-0.5 hover:underline underline-offset-4"
               >
                 See all <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+            {/* Every fifth card from the third is a wide one on desktop: the
+                grid breaks its own rhythm once a row, which is what makes it
+                read as an editorial spread rather than a warehouse. */}
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-              {allFeedItems.map((feedItem) => (
-                <div key={feedItem.id} className="overflow-hidden rounded-xl">
-                  <FeedCard item={feedItem} className="aspect-[3/4]" />
+              {allFeedItems.map((feedItem, i) => (
+                <div key={feedItem.id} className={`overflow-hidden rounded-card shadow-soft ${i % 5 === 2 ? "lg:col-span-2" : ""}`}>
+                  <FeedCard item={feedItem} className={i % 5 === 2 ? "aspect-[3/4] lg:aspect-[3/2]" : "aspect-[3/4]"} />
                 </div>
               ))}
             </div>
-          </div>
+          </Reveal>
         )}
 
         {/* Shop by Category — real data */}
-        <div className="mt-6 px-5">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-serif text-xl font-bold text-foreground">Shop by Category</h3>
+        <Reveal className="mt-12 px-5 lg:px-8">
+          <div className="flex justify-between items-end mb-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">Wardrobe</p>
+              <h3 className="font-display text-[28px] leading-none text-ink mt-1">By <em className="italic font-normal">kind.</em></h3>
+            </div>
             <button
               onClick={() => router.push("/shop")}
-              className="text-primary text-sm font-medium flex items-center gap-0.5 hover:underline"
+              className="text-ink text-sm font-medium flex items-center gap-0.5 hover:underline underline-offset-4"
             >
               View all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-3 -mx-5 px-5 lg:mx-0 lg:px-0">
             {loadingCategories
               ? Array(4).fill(0).map((_, i) => <CategoryCardSkeleton key={i} />)
               : categories?.map((cat) => <CategoryCard key={cat.id} category={cat} />)
             }
           </div>
-        </div>
+        </Reveal>
 
         {/* Who is behind this. The survey's two biggest objections were "will
             the quality be there" and "can I send it back" - both are questions
@@ -318,15 +329,14 @@ export default function HomePage() {
         <LegalFooter />
 
         {/* Clears the fixed tab bar, which only exists below lg. */}
-        {/* Clears the fixed tab bar, which only exists below lg. */}
-        <div className="h-24 lg:h-8" />
+        <div className="h-20 lg:h-0 bg-ink" />
       </div>
 
       {/* Bottom tab bar - phones and tablets only. It is a touch pattern:
           at 1440px it reads as a stray mobile chrome pinned across the
           foot of a wide window. Desktop gets the same destinations in the
           header instead. */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 h-16 max-w-md mx-auto bg-white border-t border-gray-100 flex items-center justify-around px-1 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 h-16 max-w-md mx-auto bg-white/90 backdrop-blur-md border-t border-line flex items-center justify-around px-1 shadow-[0_-4px_16px_rgba(26,20,23,0.06)]">
         {NAV_ITEMS.map(({ Icon, label, id, href }) => {
           const isCart = id === "cart";
           const isActive = activeNav === id && !isCart;
@@ -337,20 +347,20 @@ export default function HomePage() {
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 relative transition-colors ${
-                isActive ? "text-primary" : "text-gray-400"
+                isActive ? "text-ink" : "text-ink/40"
               }`}
             >
               <div className="relative">
                 <Icon className="w-[22px] h-[22px]" strokeWidth={isActive ? 2.2 : 1.8} />
                 {isCart && cartItemsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-primary text-white text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-1.5 bg-rani text-white text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
                     {cartItemsCount}
                   </span>
                 )}
               </div>
               <span className={`text-[10px] ${isActive ? "font-semibold" : "font-medium"}`}>{label}</span>
               {isActive && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-[2.5px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-rani rounded-full" />
               )}
             </button>
           );

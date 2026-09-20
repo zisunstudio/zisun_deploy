@@ -3,32 +3,60 @@
 @tailwind utilities;
 
 /*
- * Ground colour.
+ * Ground and ink.
  *
- * This was #F7F0E8 — a saturated warm cream. On a shop that is a mistake: the
- * ground tints every photograph on the page and competes with the garment,
- * and it competes hardest with reds and pinks, which is what 14 of 26
- * respondents said they actually wear. Earthy came last at 4 of 26, and cream
- * is the interface saying "earthy" on every screen.
+ * The ground is near-neutral with a trace of warmth. It used to be a
+ * saturated cream, and a cream ground tints every photograph on the page and
+ * competes hardest with the reds and pinks that 14 of 26 respondents said
+ * they actually wear. The garment should be the only saturated thing on the
+ * screen; the interface's job is to get out of its way and then, in one or
+ * two places, to interrupt.
  *
- * The replacement is near-neutral with only a trace of warmth, so it reads as
- * chosen rather than clinical and lets the clothes be the only saturated thing
- * on the screen. Muted greys lose their brown cast for the same reason — body
- * text should not be tinted by the brand.
- *
- * The brand brown stays as the accent and the buy button. It is the identity;
- * it just no longer coats the whole page.
+ * The ink is a black with a plum cast rather than #000, so it belongs to the
+ * same family as the accent instead of sitting outside it.
  */
 :root {
-  --background: #F6F5F2;
-  --foreground: #17150F;
+  --background: #FAF8F6;
+  --foreground: #1A1417;
+  --rani: #D81E6B;
+  --haldi: #F2C14E;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Selection in the accent: even highlighting a word is on-brand. */
+::selection {
+  background: var(--rani);
+  color: #fff;
+}
+
+/* Keyboard focus is visible and in the accent; mouse focus is not. */
+:focus-visible {
+  outline: 2px solid var(--rani);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/*
+ * Display type. Fraunces carries optical sizing: at headline sizes the
+ * contrast rises and the terminals soften, which is where the "feminine arts"
+ * lives — it is in the letterforms, not in a floral border.
+ */
+.font-display,
+.font-serif {
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 60, "WONK" 1;
+  letter-spacing: -0.015em;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -37,4 +65,35 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/*
+ * A ticket with a torn edge: two notches punched from the sides with a mask,
+ * so the shape works over any fill. `mask-composite` keeps the notches
+ * transparent rather than painting them.
+ */
+.ticket {
+  --notch: 10px;
+  -webkit-mask:
+    radial-gradient(circle at 0 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px)),
+    radial-gradient(circle at 100% 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px));
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(circle at 0 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px)),
+    radial-gradient(circle at 100% 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px));
+  mask-composite: intersect;
+}
+
+/* Perforation between the stub and the body of a ticket. */
+.ticket-tear {
+  background-image: linear-gradient(to bottom, currentColor 55%, transparent 55%);
+  background-size: 1px 7px;
+  background-repeat: repeat-y;
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
 }

@@ -17,7 +17,7 @@ export function BrowseOnlyCTA({ productName }: { productName?: string }) {
     // No number configured — still say so plainly rather than showing a
     // button that goes nowhere.
     return (
-      <div className="w-full bg-[#F7F0E8] border border-[#EDE4D8] text-center py-4 rounded-full">
+      <div className="w-full bg-rose border border-line text-center py-4 rounded-full">
         <p className="text-foreground text-sm font-semibold">Launching soon</p>
         <p className="text-muted text-xs mt-0.5">Online ordering opens shortly.</p>
       </div>

@@ -16,7 +16,7 @@ export function LegalPage({
         <Link href="/" aria-label="Back to home" className="p-1 -ml-1">
           <ChevronLeft className="w-5 h-5 text-gray-700" />
         </Link>
-        <h1 className="font-serif text-lg font-bold text-[#5C3317]">{title}</h1>
+        <h1 className="font-serif text-lg font-bold text-ink">{title}</h1>
       </header>
 
       {/* ~75 characters is the readable maximum; the full column is far past it. */}

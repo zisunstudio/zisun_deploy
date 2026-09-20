@@ -58,7 +58,7 @@ export default function CartDrawer() {
                 items.map((item) => (
                   <div
                     key={item.id}
-                    className="flex gap-3 bg-[#F7F0E8] p-3 rounded-2xl border border-[#EDE4D8]"
+                    className="flex gap-3 bg-rose p-3 rounded-2xl border border-line"
                   >
                     <img
                       src={item.image}
@@ -125,7 +125,7 @@ export default function CartDrawer() {
                       toggleCart();
                       router.push("/checkout");
                     }}
-                    className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#4A2810] transition-colors shadow-md"
+                    className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-ink/90 transition-colors shadow-md"
                   >
                     Checkout
                     <ArrowRight className="w-4 h-4" />

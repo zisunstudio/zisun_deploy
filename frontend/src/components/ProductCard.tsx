@@ -48,16 +48,16 @@ export function ProductCard({ product, className = "" }: Props) {
   return (
     <div
       ref={impressionRef as React.RefObject<HTMLDivElement>}
-      className={`flex flex-col cursor-pointer group ${className}`}
+      className={`flex flex-col cursor-pointer group transition-transform duration-200 active:scale-[0.985] ${className}`}
       onClick={() => router.push(`/product/${product.id}`)}
     >
-      <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100">
+      <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose shadow-soft">
         <Image
           src={imageUrl}
           alt={product.name}
           fill
           sizes="(max-width: 768px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
           placeholder="blur"
           blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         />
@@ -66,12 +66,12 @@ export function ProductCard({ product, className = "" }: Props) {
         {/* "New" for two weeks after listing, only when there is no offer badge
             in that corner — two pills stacked in one corner read as clutter. */}
         {!product.offer?.active && Date.now() - new Date(product.created_at).getTime() < 14 * 86400000 && (
-          <span className="absolute top-2.5 left-2.5 z-10 rounded-md bg-white/95 text-foreground text-[10px] font-bold px-1.5 py-0.5 tracking-wide shadow-sm">NEW</span>
+          <span className="absolute top-2.5 left-2.5 z-10 rounded-full bg-ink text-white text-[10px] font-bold px-2 py-0.5 tracking-[0.12em] shadow-sm">NEW</span>
         )}
         {isOutOfStock && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <span className="text-white text-xs font-semibold bg-black/60 px-2.5 py-1 rounded-full">
-              Out of Stock
+          <div className="absolute inset-0 bg-ink/40 flex items-center justify-center">
+            <span className="text-white text-xs font-semibold bg-ink/70 px-3 py-1 rounded-full">
+              Sold out
             </span>
           </div>
         )}
@@ -86,22 +86,22 @@ export function ProductCard({ product, className = "" }: Props) {
             aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
           >
             <Heart
-              className={`w-4 h-4 transition-colors ${inWishlist ? "fill-red-500 text-red-500" : "text-gray-500"}`}
+              className={`w-4 h-4 transition-colors ${inWishlist ? "fill-rani text-rani" : "text-ink/60"}`}
             />
           </button>
         )}
       </div>
-      <p className="text-foreground font-semibold text-sm mt-2 leading-tight line-clamp-2">{product.name}</p>
+      <p className="text-ink font-medium text-[13px] mt-2.5 leading-snug line-clamp-2">{product.name}</p>
       {(() => {
         // Scarcity only when it is true and small. "Only 2 left" on a piece
         // with 2 left is information; on every card it is a dark pattern.
         const left = product.variants.filter((v) => v.is_active).reduce((s, v) => s + v.stock, 0);
         return left > 0 && left <= 3
-          ? <p className="text-[11px] text-[#B4232C] font-semibold mt-1">Only {left} left</p>
+          ? <p className="text-[11px] text-rani font-semibold mt-1">Only {left} left</p>
           : null;
       })()}
       <p className="mt-0.5 flex items-baseline gap-1.5">
-        <span className="text-primary font-bold text-sm">{formatPrice(price)}</span>
+        <span className="text-ink font-semibold text-sm">{formatPrice(price)}</span>
         {product.offer?.active && product.offer.compare_at_price ? (
           <span className="text-muted text-xs line-through">{formatPrice(product.offer.compare_at_price)}</span>
         ) : null}

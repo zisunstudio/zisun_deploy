@@ -119,7 +119,7 @@ export default function NewProductPage() {
             type="button"
             onClick={() => createProduct.mutate()}
             disabled={createProduct.isPending}
-            className="flex-1 bg-[#5C3317] text-white py-2.5 rounded-lg font-semibold text-sm disabled:opacity-50"
+            className="flex-1 bg-ink text-white py-2.5 rounded-lg font-semibold text-sm disabled:opacity-50"
           >
             {createProduct.isPending ? "Creating…" : "Create Product"}
           </button>

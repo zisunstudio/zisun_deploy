@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
@@ -7,6 +9,7 @@ type Variant = { id: string; sku: string; stock: number; size?: string; color?: 
 type Product = { id: string; name: string; variants: Variant[] };
 
 export default function AdminInventoryPage() {
+  const onlyProduct = useSearchParams().get("product");
   const qc = useQueryClient();
   const [editingVariant, setEditingVariant] = useState<{ productId: string; variantId: string } | null>(null);
   const [newStock, setNewStock] = useState("");
@@ -56,7 +59,9 @@ export default function AdminInventoryPage() {
     URL.revokeObjectURL(url);
   }
 
-  const allVariants = (products ?? []).flatMap((p) =>
+  const allVariants = (products ?? [])
+    .filter((p) => !onlyProduct || p.id === onlyProduct)
+    .flatMap((p) =>
     p.variants.map((v) => ({ ...v, productId: p.id, productName: p.name }))
   );
 
@@ -78,7 +83,15 @@ export default function AdminInventoryPage() {
             <tbody className="divide-y divide-gray-100">
               {allVariants.map((v) => (
                 <tr key={v.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-900">{(v as any).productName}</td>
+                  <td className="px-4 py-3 text-gray-900">
+                    {/* Stock and the product are one thing to the founder: a
+                        row here has to open the listing it belongs to, or she
+                        is retyping a name into another page's search box. */}
+                    <Link href={`/admin/products/${(v as any).productId}/edit`}
+                      className="font-medium hover:text-ink hover:underline underline-offset-2">
+                      {(v as any).productName}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">{v.sku}</td>
                   <td className="px-4 py-3 text-gray-600">{v.size ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{v.color ?? "—"}</td>
@@ -137,7 +150,7 @@ export default function AdminInventoryPage() {
           <button
             onClick={() => { if (csvFile) uploadCsv.mutate(csvFile); }}
             disabled={!csvFile || uploadCsv.isPending}
-            className="text-sm bg-[#5C3317] text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50 hover:bg-[#4A2810]"
+            className="text-sm bg-ink text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50 hover:bg-ink/90"
           >
             {uploadCsv.isPending ? "Uploading..." : "Upload"}
           </button>

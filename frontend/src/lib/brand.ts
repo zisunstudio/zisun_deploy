@@ -78,3 +78,32 @@ export const FOUNDER = {
   /** Optional portrait in /public. */
   portrait: null as string | null,
 } as const;
+
+/**
+ * The home page's opening line.
+ *
+ * Written to be edited. The headline is two parts so the second can be set in
+ * italic - the one flourish the hero allows itself - and the sub-line says the
+ * true thing about small-batch handloom: a colour that sells out is a dye lot
+ * that will not be repeated. That is scarcity as a fact, not as a countdown.
+ */
+export const HERO = {
+  eyebrow: "Handloom · small batches",
+  headline: "Not made for",
+  headlineItalic: "everyone.",
+  sub: "Handwoven South Indian cotton, cut for the way you actually live. When a colour goes, that dye lot goes with it.",
+  cta: "Shop the drop",
+} as const;
+
+/**
+ * The ribbon under the hero. Every line is a promise the policy pages already
+ * keep - the ribbon is the trust badges said out loud, not a new claim.
+ */
+export const TICKER = [
+  "Handloom cotton",
+  "Mangalgiri · Ilkal · Kasavu",
+  "Ships across India",
+  "Size exchange, no questions",
+  "Small batches, never re-run",
+  "zisun by Sushmita",
+] as const;

@@ -86,6 +86,21 @@ confirming a task actually executed (`celery-task-meta-*` keys in Redis).
 A dead worker is silent: orders reach PAID, then nothing ships, stock never
 returns from expired carts, and no error appears anywhere.
 
+**The storefront has one palette and it lives in `frontend/tailwind.config.ts`.**
+Ink, porcelain, rani, haldi, rose, moss — every button, badge and panel uses a
+token; there are no raw hex colours in `src/` (a grep for `#5C3317` should
+stay empty). `primary` is an alias for ink kept for old call sites. Type is
+Fraunces (`font-display`/`font-serif`), Instrument Sans (`font-sans`) and
+Caveat (`font-hand`, reserved for the founder's words and signature). The
+hero's copy and the ribbon's lines are constants in `src/lib/brand.ts` so
+the founder can change a headline without touching JSX.
+
+**Coupons are advertised, not just accepted.** `GET /coupons/active` is public
+and returns active, unexpired, non-referral codes; the storefront renders them
+as tickets on the home page and under the price on every product. A coupon
+the admin wants kept quiet must be created inactive and switched on at the
+moment it is announced — there is no "active but hidden" state.
+
 ## Traps found the hard way
 
 Each of these produced a green build or a healthy-looking deploy:

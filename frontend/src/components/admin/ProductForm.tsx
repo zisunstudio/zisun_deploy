@@ -102,7 +102,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           Product name <span className="text-red-500">*</span>
         </label>
         <input
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
           placeholder="e.g. Floral Kurta Set"
           value={data.name}
           onChange={f("name")}
@@ -113,7 +113,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
         <textarea
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30 resize-none"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30 resize-none"
           rows={3}
           placeholder="Describe the product..."
           value={data.description}
@@ -132,7 +132,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               type="number"
               min="0"
               step="0.01"
-              className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
               placeholder="999"
               value={data.base_price_rupees}
               onChange={f("base_price_rupees")}
@@ -149,7 +149,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
           <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30"
             value={data.category_id}
             onChange={f("category_id")}
           >
@@ -188,7 +188,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Fabric</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="100% handloom cotton"
                 value={data.fabric_composition}
                 onChange={f("fabric_composition")}
@@ -198,7 +198,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               <label className="block text-sm font-medium text-gray-700 mb-1">Weight (GSM)</label>
               <input
                 type="number" min="1" max="2000"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="120"
                 value={data.fabric_gsm}
                 onChange={f("fabric_gsm")}
@@ -211,7 +211,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Weave</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="Plain handloom"
                 value={data.weave}
                 onChange={f("weave")}
@@ -220,7 +220,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Pockets</label>
               <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30"
                 value={data.has_pockets}
                 onChange={f("has_pockets")}
               >
@@ -235,7 +235,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Colourfastness</label>
             <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
               placeholder="Colourfast to 30 washes"
               value={data.colourfastness}
               onChange={f("colourfastness")}
@@ -248,7 +248,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Wash care</label>
             <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
               placeholder="Cold machine wash, dry in shade"
               value={data.wash_care}
               onChange={f("wash_care")}
@@ -279,7 +279,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Colour</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="Indigo with off-white border"
                 value={data.colour}
                 onChange={f("colour")}
@@ -288,7 +288,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Print</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="Ajrakh block print"
                 value={data.print_type}
                 onChange={f("print_type")}
@@ -297,7 +297,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Pattern</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="Straight cut, side slits"
                 value={data.pattern}
                 onChange={f("pattern")}
@@ -306,7 +306,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Neck</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="V-neck with piping"
                 value={data.neck_type}
                 onChange={f("neck_type")}
@@ -315,7 +315,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sleeve type</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="Three-quarter"
                 value={data.sleeve_type}
                 onChange={f("sleeve_type")}
@@ -324,7 +324,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sleeve attached</label>
               <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30"
                 value={data.sleeve_attached}
                 onChange={f("sleeve_attached")}
               >
@@ -336,7 +336,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Dupatta included</label>
               <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30"
                 value={data.dupatta_included}
                 onChange={f("dupatta_included")}
               >
@@ -369,7 +369,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Was price (₹)</label>
-            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#5C3317]/30">
+            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ink/30">
               <span className="px-3 text-gray-500 text-sm">₹</span>
               <input type="number" inputMode="decimal" min={0} step={1}
                 className="flex-1 px-2 py-2 text-sm focus:outline-none"
@@ -385,7 +385,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ends at <span className="text-gray-400 font-normal">(optional)</span></label>
             <input type="datetime-local"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
               value={data.offer_ends_at} onChange={f("offer_ends_at")} />
             <p className="text-xs text-gray-400 mt-1">The storefront counts down to this and stops the offer at it.</p>
           </div>
@@ -433,7 +433,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               Dimensions <span className="text-red-500">*</span>
             </label>
             <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
               placeholder="Bust 86-102 cm, Length 114-120 cm (varies by size)"
               value={data.dimensions}
               onChange={f("dimensions")}
@@ -450,7 +450,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Net quantity</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="1 unit"
                 value={data.net_quantity}
                 onChange={f("net_quantity")}
@@ -461,7 +461,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Commodity name</label>
               <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                 placeholder="Women&rsquo;s cotton garment"
                 value={data.commodity_name}
                 onChange={f("commodity_name")}
@@ -480,7 +480,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
                     Country of origin
                   </label>
                   <input
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                     placeholder="India"
                     value={data.country_of_origin}
                     onChange={f("country_of_origin")}
@@ -491,7 +491,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
                     Marketed and packed by
                   </label>
                   <input
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
                     placeholder="ZISUN"
                     value={data.manufacturer_name}
                     onChange={f("manufacturer_name")}
@@ -503,7 +503,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
                   Packer address
                 </label>
                 <textarea
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30 resize-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30 resize-none"
                   rows={2}
                   placeholder="Falls back to the registered ZISUN address"
                   value={data.manufacturer_address}

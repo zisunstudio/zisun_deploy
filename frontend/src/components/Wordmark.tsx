@@ -47,9 +47,9 @@ const MARK_SIZE: Record<Size, string> = {
 };
 
 const SIGNATURE_SIZE: Record<Size, string> = {
-  sm: "text-[10px]",
-  md: "text-[11px]",
-  lg: "text-[13px]",
+  sm: "text-[14px]",
+  md: "text-[16px]",
+  lg: "text-[19px]",
 };
 
 /**
@@ -83,12 +83,12 @@ export function Wordmark({
   const taglineColour =
     tone === "light"
       ? "text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
-      : "text-primary";
+      : "text-rani";
   const signatureColour = tone === "light" ? "text-white/80" : "text-muted";
 
   const signature = showSignature ? (
     <span
-      className={`font-serif italic mt-1 ${SIGNATURE_SIZE[size]} ${signatureColour}`}
+      className={`font-hand mt-1 ${SIGNATURE_SIZE[size]} ${signatureColour}`}
     >
       {BRAND.signature}
     </span>
@@ -109,7 +109,7 @@ export function Wordmark({
   ) : (
     <span className={`inline-flex items-baseline gap-2 ${nameColour}`}>
       <ZisunMark animate={play} className={MARK_SIZE[size]} />
-      <span className={`font-serif font-bold leading-none tracking-wide ${NAME_SIZE[size]}`}>
+      <span className={`font-display font-semibold leading-none tracking-[0.06em] ${NAME_SIZE[size]}`}>
         {BRAND.name}
       </span>
     </span>

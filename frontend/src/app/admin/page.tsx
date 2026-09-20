@@ -220,7 +220,7 @@ export default function AdminDashboard() {
                   <span className="tabular-nums font-medium text-gray-900">{f.count}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded mt-0.5 overflow-hidden">
-                  <div className="h-full bg-[#5C3317] rounded"
+                  <div className="h-full bg-ink rounded"
                        style={{ width: `${(f.count / maxFunnel) * 100}%` }} />
                 </div>
               </div>
@@ -243,7 +243,7 @@ export default function AdminDashboard() {
                   <span className="tabular-nums font-medium text-gray-900">{p.views}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded mt-0.5 overflow-hidden">
-                  <div className={`h-full rounded ${p.views ? "bg-[#5C3317]" : "bg-gray-200"}`}
+                  <div className={`h-full rounded ${p.views ? "bg-ink" : "bg-gray-200"}`}
                        style={{ width: p.views ? `${(p.views / maxViews) * 100}%` : "3px" }} />
                 </div>
               </div>
@@ -303,7 +303,7 @@ export default function AdminDashboard() {
                 })}
               </tbody>
             </table>
-            <a href="/admin/shelf" className="inline-block mt-2 text-xs text-[#5C3317] font-semibold underline underline-offset-2">Arrange the shelf →</a>
+            <a href="/admin/shelf" className="inline-block mt-2 text-xs text-ink font-semibold underline underline-offset-2">Arrange the shelf →</a>
           </div>
         </Panel>
       )}
@@ -326,7 +326,7 @@ export default function AdminDashboard() {
                   <span className="tabular-nums font-medium text-gray-900">{s.units}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded mt-0.5 overflow-hidden">
-                  <div className="h-full bg-[#5C3317] rounded"
+                  <div className="h-full bg-ink rounded"
                        style={{ width: `${(s.units / maxUnits) * 100}%` }} />
                 </div>
               </div>
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
               ))}
             </ul>
           )}
-          <Link href="/admin/inventory" className="text-[11px] text-[#5C3317] underline mt-2 inline-block">
+          <Link href="/admin/inventory" className="text-[11px] text-ink underline mt-2 inline-block">
             Manage inventory
           </Link>
         </Panel>

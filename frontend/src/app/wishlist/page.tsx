@@ -103,7 +103,7 @@ export default function WishlistPage() {
                         // Saving items still works and is the point of a
                         // pre-launch wishlist; only moving them to a cart that
                         // cannot check out is withheld.
-                        <div className="flex-1 flex items-center justify-center rounded-full py-2 bg-[#F7F0E8] border border-[#EDE4D8] text-muted text-xs font-medium">
+                        <div className="flex-1 flex items-center justify-center rounded-full py-2 bg-rose border border-line text-muted text-xs font-medium">
                           Saved for launch
                         </div>
                       ) : (

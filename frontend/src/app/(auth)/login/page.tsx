@@ -153,7 +153,7 @@ export default function LoginPage() {
 
       {/* Form */}
       <div className="px-6 pb-10">
-        <h2 className="font-serif text-2xl font-bold text-foreground mb-1">Sign in</h2>
+        <h2 className="font-display text-[32px] text-ink leading-none mb-2">Sign <em className="italic font-normal">in.</em></h2>
         <p className="text-muted text-sm mb-8">
           {mode === "email" ? "Staff sign-in" : "Enter your mobile number to continue"}
         </p>
@@ -197,7 +197,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={!email.trim() || !password || loading}
-              className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#4A2810] transition-colors shadow-md"
+              className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-ink/90 transition-colors shadow-md"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Sign in<ChevronRight className="w-4 h-4" /></>}
             </button>
@@ -226,7 +226,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={code.length < 6 || loading}
-              className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#4A2810] transition-colors shadow-md"
+              className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-ink/90 transition-colors shadow-md"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Verify<ChevronRight className="w-4 h-4" /></>}
             </button>
@@ -242,7 +242,7 @@ export default function LoginPage() {
         <form onSubmit={handleSendOTP} noValidate>
           {/* Phone input */}
           <div className="flex items-center bg-white border-2 border-gray-200 rounded-2xl overflow-hidden focus-within:border-primary transition-colors mb-4">
-            <span className="px-4 py-4 text-foreground font-semibold text-sm border-r border-gray-200 bg-[#F7F0E8] select-none">
+            <span className="px-4 py-4 text-foreground font-semibold text-sm border-r border-gray-200 bg-rose select-none">
               +91
             </span>
             <input
@@ -265,7 +265,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={!isValid || loading}
-            className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#4A2810] transition-colors shadow-md"
+            className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-ink/90 transition-colors shadow-md"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

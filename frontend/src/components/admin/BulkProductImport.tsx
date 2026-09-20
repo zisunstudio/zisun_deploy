@@ -95,7 +95,7 @@ export function BulkProductImport() {
         <button
           onClick={() => { if (file) importCsv.mutate(file); }}
           disabled={!file || importCsv.isPending}
-          className="text-sm bg-[#5C3317] text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50 hover:bg-[#4A2810]"
+          className="text-sm bg-ink text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50 hover:bg-ink/90"
         >
           {importCsv.isPending ? "Importing..." : "Import"}
         </button>

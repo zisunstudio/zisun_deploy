@@ -163,7 +163,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
           <button
             type="button"
             onClick={startAdd}
-            className="flex items-center gap-1 text-xs text-[#5C3317] font-semibold hover:underline"
+            className="flex items-center gap-1 text-xs text-ink font-semibold hover:underline"
           >
             <Plus className="w-3.5 h-3.5" /> Add variant
           </button>

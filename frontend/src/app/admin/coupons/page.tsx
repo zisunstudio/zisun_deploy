@@ -116,7 +116,7 @@ export default function AdminCouponsPage() {
   }
 
   const inputCls =
-    "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30";
+    "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30";
 
   return (
     <div className="p-6">
@@ -124,7 +124,7 @@ export default function AdminCouponsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Coupons</h1>
         <button
           onClick={() => { setShowForm((s) => !s); setFormError(null); }}
-          className="text-sm bg-[#5C3317] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#4A2810]"
+          className="text-sm bg-ink text-white px-4 py-2 rounded-lg font-semibold hover:bg-ink/90"
         >
           {showForm ? "Cancel" : "+ New Coupon"}
         </button>
@@ -238,7 +238,7 @@ export default function AdminCouponsPage() {
             <button
               type="submit"
               disabled={createCoupon.isPending}
-              className="text-sm bg-[#5C3317] text-white px-5 py-2 rounded-lg font-semibold disabled:opacity-50 hover:bg-[#4A2810]"
+              className="text-sm bg-ink text-white px-5 py-2 rounded-lg font-semibold disabled:opacity-50 hover:bg-ink/90"
             >
               {createCoupon.isPending ? "Creating..." : "Create Coupon"}
             </button>

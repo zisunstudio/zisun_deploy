@@ -52,7 +52,7 @@ export default function ReconciliationPage() {
         {data && (
           <button
             onClick={() => downloadCSV(data)}
-            className="bg-[#5C3317] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4A2810]"
+            className="bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-ink/90"
           >
             Export CSV
           </button>

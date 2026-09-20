@@ -52,3 +52,19 @@ class CouponApplyResponse(BaseModel):
     discount_amount: int
     final_total: int
     message: str
+
+
+class PublicCoupon(BaseModel):
+    """A coupon as the storefront may show it before anyone signs in.
+
+    Only what a shopper needs to decide whether to use it. Usage counts and
+    per-user limits stay private: they are levers, not marketing.
+    """
+    code: str
+    type: CouponType
+    value: int
+    min_order_value: int
+    max_discount: Optional[int] = None
+    expires_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}

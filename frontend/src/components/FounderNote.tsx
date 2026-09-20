@@ -35,14 +35,14 @@ export function FounderNote({ feature }: Props) {
 
   return (
     <section
-      className="mt-14 border-y border-foreground/10 bg-foreground/[0.02]"
+      className="mt-16 bg-rose"
       aria-labelledby="founder-note-heading"
     >
       <div className="mx-auto max-w-6xl px-5 lg:px-8 py-12 lg:py-16">
         <div className="grid gap-10 lg:gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           {/* The words */}
           <div>
-            <ZisunMark className="h-12 w-auto text-primary" />
+            <ZisunMark className="h-12 w-auto text-moss" />
 
             <h2
               id="founder-note-heading"
@@ -52,7 +52,7 @@ export function FounderNote({ feature }: Props) {
             </h2>
 
             {FOUNDER.quote ? (
-              <blockquote className="mt-6 font-serif text-2xl lg:text-[28px] leading-snug text-foreground text-balance">
+              <blockquote className="mt-6 font-hand text-[30px] lg:text-[38px] leading-[1.15] text-ink text-balance">
                 &ldquo;{FOUNDER.quote}&rdquo;
               </blockquote>
             ) : showDevSlots ? (
@@ -60,7 +60,7 @@ export function FounderNote({ feature }: Props) {
             ) : null}
 
             {FOUNDER.story ? (
-              <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-muted">
+              <p className="mt-5 max-w-prose font-display text-[17px] leading-relaxed text-ink/80">
                 {FOUNDER.story}
               </p>
             ) : showDevSlots ? (
@@ -84,7 +84,7 @@ export function FounderNote({ feature }: Props) {
                 />
               )}
               <span aria-hidden className="h-px w-8 bg-foreground/25" />
-              <span className="font-serif italic text-base text-foreground">
+              <span className="font-hand text-2xl text-moss">
                 {BRAND.signature}
               </span>
             </div>
@@ -93,10 +93,10 @@ export function FounderNote({ feature }: Props) {
           {/* One product, shown on its own */}
           {feature && (
             <div>
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-rani">
                 From the loom this week
               </p>
-              <div className="overflow-hidden rounded-2xl">
+              <div className="overflow-hidden rounded-card shadow-lift rotate-[-1.2deg] lg:rotate-[-1.5deg]">
                 <FeedCard item={feature} className="aspect-[4/5]" />
               </div>
             </div>

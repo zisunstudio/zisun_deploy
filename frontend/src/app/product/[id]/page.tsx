@@ -22,6 +22,8 @@ import { ProductDeclarations } from "@/components/ProductDeclarations";
 import { FabricSpecs } from "@/components/FabricSpecs";
 import { GarmentDetails } from "@/components/GarmentDetails";
 import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
+import { CouponTicket } from "@/components/CouponTicket";
+import { useActiveCoupons } from "@/lib/queries/coupons";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -37,6 +39,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [imageIdx, setImageIdx] = useState(0);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const { data: coupons } = useActiveCoupons();
 
   // Track product view on mount
   useEffect(() => {
@@ -143,7 +146,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         <div className="relative">
           {/* 3:4 is right on a phone. In a 1152px column it is over 1500px
               tall, so the image gets a landscape ratio on large screens. */}
-          <div className="relative w-full aspect-[3/4] lg:aspect-[16/9] bg-gray-100">
+          <div className="relative w-full aspect-[3/4] lg:aspect-[16/9] bg-rose">
             <Image
               src={images[imageIdx]}
               alt={product.name}
@@ -176,7 +179,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                   aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
                   className="w-11 h-11 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow"
                 >
-                  <Heart className={`w-4 h-4 ${inWishlist ? "fill-red-500 text-red-500" : "text-foreground"}`} />
+                  <Heart className={`w-4 h-4 ${inWishlist ? "fill-rani text-rani" : "text-ink"}`} />
                 </button>
               )}
               <button
@@ -206,16 +209,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         {/* Product info */}
         <div className="px-5 pt-5 pb-4 lg:max-w-3xl lg:mx-auto lg:w-full">
           {product.category && (
-            <p className="text-muted text-xs uppercase tracking-widest font-medium mb-1">
+            <p className="text-rani text-[11px] uppercase tracking-[0.22em] font-semibold mb-1.5">
               {product.category.name}
             </p>
           )}
-          <h1 className="font-serif text-2xl font-bold text-foreground leading-tight mb-2">
+          <h1 className="font-display text-[30px] lg:text-4xl text-ink leading-[1.05] mb-3 text-balance">
             {product.name}
           </h1>
           <div className="mb-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-primary text-xl font-bold">{formatPrice(price)}</p>
+              <p className="text-ink text-[22px] font-semibold tabular-nums">{formatPrice(price)}</p>
               {product.offer?.active && product.offer.compare_at_price ? (
                 <>
                   <span className="text-muted text-base line-through">{formatPrice(product.offer.compare_at_price)}</span>
@@ -224,6 +227,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               ) : null}
             </div>
             <OfferCountdown offer={product.offer} className="mt-1" />
+            {/* The first live coupon, as a ticket under the price. It is the one
+                thing on the page that is allowed to look like a sticker, and the
+                code copies on tap so it is not something to memorise. */}
+            {coupons?.[0] && <CouponTicket coupon={coupons[0]} compact className="mt-3 w-full max-w-[340px]" />}
           </div>
           {/* In the page, not in the sticky bar. Three rows of assurances
               inside a bottom-pinned bar made it 200px tall — on a phone that
@@ -246,7 +253,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                   return (
                     <button key={c} type="button" role="radio" aria-checked={on} onClick={() => selectColour(c)}
                       className={`h-10 px-3.5 rounded-full border text-xs font-semibold transition-all
-                        ${on ? "border-primary bg-primary text-white" : any ? "border-gray-200 text-gray-700 hover:border-primary hover:text-primary" : "border-gray-200 text-gray-300 line-through"}`}>
+                        ${on ? "border-ink bg-ink text-white" : any ? "border-line text-ink/80 hover:border-ink hover:text-ink" : "border-line text-ink/30 line-through"}`}>
                       {c}
                     </button>
                   );
@@ -258,7 +265,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           {variantsInColour.length > 1 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-foreground text-sm font-semibold">Select Size</p>
+                <p className="text-ink text-sm font-semibold">Select size</p>
                 <button
                   onClick={() => {
                     // Which pieces send people to the chart, and which size they
@@ -271,7 +278,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                     });
                     setSizeGuideOpen(true);
                   }}
-                  className="flex items-center gap-1 text-xs text-primary font-medium underline underline-offset-2"
+                  className="flex items-center gap-1 text-xs text-ink font-medium underline underline-offset-4 decoration-rani/60"
                 >
                   <Ruler className="w-3.5 h-3.5" />
                   Size guide
@@ -288,14 +295,14 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
           {/* Stock status */}
           {selectedVariant && (
-            <p className={`text-xs font-medium mb-4 ${selectedVariant.stock > 5 ? "text-green-600" : selectedVariant.stock > 0 ? "text-amber-600" : "text-red-500"}`}>
-              {selectedVariant.stock === 0 ? "Out of stock" : selectedVariant.stock <= 5 ? `Only ${selectedVariant.stock} left` : "In stock"}
+            <p className={`text-xs font-medium mb-4 ${selectedVariant.stock > 5 ? "text-moss" : selectedVariant.stock > 0 ? "text-rani" : "text-muted"}`}>
+              {selectedVariant.stock === 0 ? "Sold out in this size" : selectedVariant.stock <= 5 ? `Only ${selectedVariant.stock} left in this size` : "In stock"}
             </p>
           )}
 
           {/* Description */}
           {product.description && (
-            <p className="text-muted text-sm leading-relaxed">{product.description}</p>
+            <p className="font-display text-[16px] text-ink/80 leading-relaxed">{product.description}</p>
           )}
 
           {/* Colour variance has to be disclosed before the sale, not argued
@@ -326,17 +333,17 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       {/* Sticky rather than a flex sibling: the page scrolls with the document
           now, and the buy action should not scroll away from a shopper reading
           the declarations. */}
-      <div className="sticky bottom-0 z-30 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 bg-background lg:max-w-3xl lg:mx-auto lg:w-full">
+      <div className="sticky bottom-0 z-30 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-line bg-background/90 backdrop-blur-md lg:max-w-3xl lg:mx-auto lg:w-full">
         {BROWSE_ONLY ? (
           <BrowseOnlyCTA productName={product.name} />
         ) : (
           <button
             onClick={handleAddToCart}
             disabled={isOutOfStock}
-            className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#4A2810] transition-colors shadow-md"
+            className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ink/90 transition-all shadow-lift active:scale-[0.99]"
           >
             <ShoppingBag className="w-5 h-5" />
-            {isOutOfStock ? "Out of Stock" : "Add to Cart"}
+            {isOutOfStock ? "Sold out" : "Add to bag"}
           </button>
         )}
       </div>

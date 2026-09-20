@@ -1,33 +1,44 @@
 "use client";
-
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Category } from "@/lib/queries/catalog";
 
 const FALLBACK_IMAGE = "/placeholder-product.svg";
 
+/**
+ * A category as a tall tile with its name set into the photograph.
+ *
+ * The name lives on the image rather than under it so the rail reads as a
+ * row of doors, not a row of thumbnails with captions. The count sits small
+ * beside it: "12 pieces" is an honest number for a small label and reads as
+ * curation, where "12 items" reads as a stock report.
+ */
 export function CategoryCard({ category }: { category: Category }) {
   const router = useRouter();
+  const n = category.product_count;
   return (
-    <div
-      className="flex-shrink-0 w-[138px] lg:w-[200px] cursor-pointer group"
+    <button
+      type="button"
+      className="flex-shrink-0 w-[150px] lg:w-[210px] text-left group"
       onClick={() => router.push(`/category/${category.slug}`)}
+      aria-label={`${category.name}, ${n} ${n === 1 ? "piece" : "pieces"}`}
     >
-      <div className="w-[138px] h-[172px] lg:w-[200px] lg:h-[250px] rounded-2xl overflow-hidden bg-gray-100 relative">
+      <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose shadow-soft">
         <Image
           src={category.image_url ?? FALLBACK_IMAGE}
-          alt={category.name}
+          alt=""
           fill
-          sizes="(min-width: 1024px) 200px, 138px"
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          sizes="(min-width: 1024px) 210px, 150px"
+          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
           placeholder="blur"
           blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ink/70 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-3">
+          <p className="font-display text-white text-lg leading-tight drop-shadow-sm">{category.name}</p>
+          <p className="text-white/75 text-[11px] mt-0.5">{n} {n === 1 ? "piece" : "pieces"}</p>
+        </div>
       </div>
-      <p className="text-foreground font-semibold text-sm mt-2 leading-tight">{category.name}</p>
-      <p className="text-muted text-xs">
-        {category.product_count} {category.product_count === 1 ? "item" : "items"}
-      </p>
-    </div>
+    </button>
   );
 }

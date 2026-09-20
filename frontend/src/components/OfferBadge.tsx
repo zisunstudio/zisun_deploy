@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import type { Offer } from "@/lib/queries/catalog";
 
@@ -8,12 +7,15 @@ import type { Offer } from "@/lib/queries/catalog";
  * price it used to be. `-30%` is the number that stops a thumb; the struck
  * price is the proof. Both come from the API's resolved `offer`, so an
  * expired timer switches everything off without a redeploy.
+ *
+ * Rani pink, not red. Red is the colour of an error on every other site the
+ * customer uses today; pink is ours.
  */
 export function OfferBadge({ offer, className = "" }: { offer: Offer | undefined; className?: string }) {
   if (!offer?.active || !offer.discount_pct) return null;
   return (
     <span
-      className={`inline-flex items-center rounded-md bg-[#B4232C] text-white text-[11px] font-bold px-1.5 py-0.5 tracking-wide ${className}`}
+      className={`inline-flex items-center rounded-full bg-rani text-white text-[11px] font-bold px-2 py-0.5 tracking-wide ${className}`}
       aria-label={`${offer.discount_pct} percent off`}
     >
       −{offer.discount_pct}%
@@ -50,10 +52,10 @@ export function OfferCountdown({ offer, className = "" }: { offer: Offer | undef
   const pad = (n: number) => n.toString().padStart(2, "0");
   const clock = `${pad(left.h)}:${pad(left.m)}:${pad(left.s)}`;
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold text-[#B4232C] tabular-nums ${className}`} role="timer" aria-live="off">
+    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold text-rani tabular-nums ${className}`} role="timer" aria-live="off">
       <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-[#B4232C] opacity-75 motion-safe:animate-ping" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#B4232C]" />
+        <span className="absolute inline-flex h-full w-full rounded-full bg-current opacity-60 motion-safe:animate-ping" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
       </span>
       Ends in {left.d > 0 ? `${left.d}d ` : ""}{clock}
     </span>

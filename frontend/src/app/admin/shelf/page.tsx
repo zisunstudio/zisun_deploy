@@ -81,7 +81,7 @@ export default function ShelfPage() {
           </p>
         </div>
         <button onClick={() => save.mutate()} disabled={!dirty || save.isPending}
-          className="inline-flex items-center gap-2 bg-[#5C3317] text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
+          className="inline-flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
           {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save order
         </button>
       </div>
@@ -97,7 +97,7 @@ export default function ShelfPage() {
                 onDragEnd={() => (dragIdx.current = null)} onDragOver={(e) => e.preventDefault()}
                 className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-2 pr-3 cursor-grab active:cursor-grabbing">
                 <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
-                <span className="w-6 text-center text-xs font-bold text-[#5C3317] tabular-nums">{i + 1}</span>
+                <span className="w-6 text-center text-xs font-bold text-ink tabular-nums">{i + 1}</span>
                 <div className="relative w-12 h-14 rounded-md overflow-hidden bg-gray-100 shrink-0">
                   {thumb(p) && <Image src={thumb(p)!} alt="" fill sizes="48px" className="object-cover" />}
                 </div>
@@ -132,7 +132,7 @@ export default function ShelfPage() {
                       {a ? `${a.impressions} shown · ${a.views} opened · ${a.add_to_cart} bagged · ctr ${pct(a.ctr)} · score ${a.attention}` : "no activity yet"}
                     </p>
                   </div>
-                  <button onClick={() => pin(p)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:border-[#5C3317] hover:text-[#5C3317]">
+                  <button onClick={() => pin(p)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:border-ink hover:text-ink">
                     <Pin className="w-3.5 h-3.5" /> Pin
                   </button>
                 </li>

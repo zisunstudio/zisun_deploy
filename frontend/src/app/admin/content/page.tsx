@@ -42,7 +42,7 @@ export default function AdminContentPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Content</h1>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-[#5C3317] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4A2810]">
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-ink/90">
           <PlusCircle className="w-4 h-4" /> Create Card
         </button>
       </div>
@@ -113,7 +113,7 @@ export default function AdminContentPage() {
               </div>
             </div>
             <div className="flex gap-2 mt-4">
-              <button onClick={() => createCard.mutate(newCard)} disabled={!newCard.media_url} className="flex-1 bg-[#5C3317] text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
+              <button onClick={() => createCard.mutate(newCard)} disabled={!newCard.media_url} className="flex-1 bg-ink text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
                 Create
               </button>
               <button onClick={() => setShowCreate(false)} className="flex-1 border py-2 rounded-lg text-sm">Cancel</button>

@@ -238,7 +238,7 @@ export default function EditProductPage() {
               type="button"
               onClick={() => updateProduct.mutate()}
               disabled={updateProduct.isPending}
-              className="bg-[#5C3317] text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+              className="bg-ink text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
             >
               {updateProduct.isPending ? "Saving…" : "Save Details"}
             </button>

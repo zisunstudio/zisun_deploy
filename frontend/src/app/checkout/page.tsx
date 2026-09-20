@@ -232,7 +232,7 @@ export default function CheckoutPage() {
         currency: "INR",
         order_id: razorpay_order_id,
         prefill: { contact: user?.phone },
-        theme: { color: "#5C3317" },
+        theme: { color: "#1A1417" },
         handler: async (response: {
           razorpay_payment_id: string;
           razorpay_order_id: string;

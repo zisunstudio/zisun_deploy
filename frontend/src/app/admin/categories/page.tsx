@@ -98,7 +98,7 @@ export default function AdminCategoriesPage() {
         <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 bg-[#5C3317] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4a2a12]"
+          className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4a2a12]"
         >
           <Plus className="w-4 h-4" /> New Category
         </button>
@@ -227,7 +227,7 @@ export default function AdminCategoriesPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isPending}
-                className="flex-1 bg-[#5C3317] text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                className="flex-1 bg-ink text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               >
                 {isPending ? "Saving…" : modal === "create" ? "Create" : "Save"}
               </button>

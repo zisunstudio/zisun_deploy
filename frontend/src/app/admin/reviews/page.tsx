@@ -70,7 +70,7 @@ export default function AdminReviewsPage() {
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
               tab === t.key
-                ? "border-[#5C3317] text-[#5C3317]"
+                ? "border-ink text-ink"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >

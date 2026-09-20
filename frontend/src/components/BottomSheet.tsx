@@ -180,7 +180,7 @@ export default function BottomSheet({ isOpen, onClose, productId }: BottomSheetP
                     <button
                       onClick={handleAddToCart}
                       disabled={product ? (!selectedVariant || selectedVariant.stock === 0) : false}
-                      className="w-full bg-[#5C3317] text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-[#4A2810] transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full bg-ink text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-ink/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ShoppingBag className="w-5 h-5" />
                       {product && selectedVariant?.stock === 0 ? "Out of Stock" : "Add to Cart"}

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { BRAND_TITLE } from "@/lib/brand";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Caveat, Fraunces, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -9,8 +9,14 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
 import { SessionRestore } from "@/components/SessionRestore";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
+// Three faces, one job each. Fraunces is the voice - a soft, slightly wonky
+// serif with optical sizing, so the same family reads as a headline at 48px
+// and as a caption at 12. Instrument Sans is the interface: prices, labels,
+// buttons. Caveat is her hand, and it is used for exactly two things - the
+// founder's words and her signature - so that it stays a signature.
+const sans = Instrument_Sans({ subsets: ["latin"], variable: "--font-sans", weight: ["400", "500", "600", "700"] });
+const display = Fraunces({ subsets: ["latin"], variable: "--font-display", axes: ["SOFT", "WONK", "opsz"], style: ["normal", "italic"] });
+const hand = Caveat({ subsets: ["latin"], variable: "--font-hand" });
 
 export const metadata: Metadata = {
   title: BRAND_TITLE,
@@ -34,7 +40,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#6B3F2A",
+  themeColor: "#1A1417",
 };
 
 export default function RootLayout({
@@ -44,7 +50,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-foreground`}>
+      <body className={`${sans.variable} ${display.variable} ${hand.variable} font-sans bg-background text-foreground`}>
         <SessionRestore />
         <OfflineBanner />
         <WhatsAppFab />

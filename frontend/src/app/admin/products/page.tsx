@@ -71,7 +71,7 @@ export default function AdminProductsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Products</h1>
         <Link
           href="/admin/products/new"
-          className="flex items-center gap-2 bg-[#5C3317] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4a2a12]"
+          className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4a2a12]"
         >
           <Plus className="w-4 h-4" /> New Product
         </Link>
@@ -112,7 +112,13 @@ export default function AdminProductsPage() {
                     <td className="px-4 py-3 text-gray-600">{p.category?.name ?? "—"}</td>
                     <td className="px-4 py-3 font-semibold">{formatPrice(p.base_price)}</td>
                     <td className="px-4 py-3 text-gray-600">{(p.variants ?? []).length}</td>
-                    <td className="px-4 py-3 text-gray-600">{totalStock(p.variants ?? [])}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/inventory?product=${p.id}`} title="Adjust stock"
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold hover:underline underline-offset-2 ${
+                          totalStock(p.variants ?? []) === 0 ? "bg-red-50 text-red-700" : totalStock(p.variants ?? []) <= 5 ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+                        {totalStock(p.variants ?? [])} <span className="font-normal text-[10px] opacity-70">stock ›</span>
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full font-semibold ${p.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {p.is_active ? "Active" : "Inactive"}
@@ -173,7 +179,7 @@ export default function AdminProductsPage() {
               <button
                 onClick={() => updateProduct.mutate({ id: editId, data: { name: editName, base_price: parseInt(editPrice), is_active: editActive } })}
                 disabled={updateProduct.isPending}
-                className="flex-1 bg-[#5C3317] text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                className="flex-1 bg-ink text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               >{updateProduct.isPending ? "Saving..." : "Save"}</button>
               <button onClick={() => setEditId(null)} className="flex-1 border py-2 rounded-lg text-sm">Cancel</button>
             </div>

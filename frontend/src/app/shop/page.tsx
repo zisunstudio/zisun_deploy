@@ -28,13 +28,13 @@ export default function ShopPage() {
     <div className="w-full bg-background">
       {/* Header */}
       <div className="px-5 pt-12 pb-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-100 shadow-sm">
+        <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-line shadow-soft">
           <ChevronLeft className="w-4 h-4 text-foreground" />
         </button>
-        <h1 className="font-serif text-2xl font-bold text-foreground flex-1">Shop</h1>
+        <h1 className="font-display text-[28px] text-ink flex-1 leading-none">Shop <em className="italic font-normal text-ink/60">all</em></h1>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`w-9 h-9 flex items-center justify-center rounded-full border shadow-sm transition-colors ${showFilters ? "bg-primary border-primary text-white" : "bg-white border-gray-100"}`}
+          className={`w-10 h-10 flex items-center justify-center rounded-full border shadow-soft transition-colors ${showFilters ? "bg-ink border-ink text-white" : "bg-white border-line"}`}
           aria-label="Filters"
         >
           <SlidersHorizontal className="w-4 h-4" />
@@ -55,7 +55,7 @@ export default function ShopPage() {
                 key={opt.value}
                 onClick={() => setSortBy(opt.value)}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  sortBy === opt.value ? "bg-primary border-primary text-white" : "bg-white border-gray-200 text-foreground"
+                  sortBy === opt.value ? "bg-ink border-ink text-white" : "bg-white border-line text-ink"
                 }`}
               >
                 {opt.label}
@@ -67,7 +67,7 @@ export default function ShopPage() {
             <button
               onClick={() => setCategoryId(undefined)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                !categoryId ? "bg-primary border-primary text-white" : "bg-white border-gray-200 text-foreground"
+                !categoryId ? "bg-ink border-ink text-white" : "bg-white border-line text-ink"
               }`}
             >
               All
@@ -77,7 +77,7 @@ export default function ShopPage() {
                 key={cat.id}
                 onClick={() => setCategoryId(cat.id === categoryId ? undefined : cat.id)}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  categoryId === cat.id ? "bg-primary border-primary text-white" : "bg-white border-gray-200 text-foreground"
+                  categoryId === cat.id ? "bg-ink border-ink text-white" : "bg-white border-line text-ink"
                 }`}
               >
                 {cat.name}
@@ -98,13 +98,13 @@ export default function ShopPage() {
         ) : data?.items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <p className="text-muted text-sm">No products found</p>
-            <button onClick={() => setCategoryId(undefined)} className="text-primary text-sm font-semibold underline">
+            <button onClick={() => setCategoryId(undefined)} className="text-ink text-sm font-semibold underline underline-offset-4">
               Clear filters
             </button>
           </div>
         ) : (
           <>
-            <p className="text-muted text-xs mb-4">{data?.total ?? 0} items</p>
+            <p className="text-muted text-xs mb-4">{data?.total ?? 0} pieces</p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
               {data?.items.map((product) => (
                 <ProductCard key={product.id} product={product} />

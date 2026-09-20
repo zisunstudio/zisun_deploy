@@ -38,7 +38,7 @@ export default function SizeChartEditor({ value, onChange }: Props) {
     update([...chart.rows, EMPTY_ROW(size)]);
   }
   const num = (v: string) => (v === "" ? 0 : Math.max(0, parseFloat(v) || 0));
-  const inputCls = "w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-[#5C3317]/30";
+  const inputCls = "w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-ink/30";
   const unused = SIZE_PRESETS.filter((s) => !chart.rows.some((r) => r.size.toUpperCase() === s));
 
   return (
@@ -49,7 +49,7 @@ export default function SizeChartEditor({ value, onChange }: Props) {
             <button
               key={u} type="button" role="radio" aria-checked={chart.unit === u}
               onClick={() => update(chart.rows, u)}
-              className={`px-3 py-1.5 font-medium ${chart.unit === u ? "bg-[#5C3317] text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+              className={`px-3 py-1.5 font-medium ${chart.unit === u ? "bg-ink text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
             >
               {u === "cm" ? "Centimetres" : "Inches"}
             </button>
@@ -116,7 +116,7 @@ export default function SizeChartEditor({ value, onChange }: Props) {
         <span className="text-xs text-gray-500">Add size:</span>
         {unused.map((s) => (
           <button key={s} type="button" onClick={() => addRow(s)}
-            className="px-2.5 py-1 rounded-full border border-gray-300 text-xs font-semibold text-gray-700 hover:border-[#5C3317] hover:text-[#5C3317]">
+            className="px-2.5 py-1 rounded-full border border-gray-300 text-xs font-semibold text-gray-700 hover:border-ink hover:text-ink">
             + {s}
           </button>
         ))}

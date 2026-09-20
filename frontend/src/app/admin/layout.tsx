@@ -1,11 +1,12 @@
 "use client";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid } from "lucide-react";
+import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge } from "lucide-react";
 
 const NAV = [
+  { href: "/admin", label: "Overview", Icon: Gauge },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingBag },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/shelf", label: "Shelf", Icon: LayoutGrid },
@@ -19,6 +20,7 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   // The session lives in memory and is restored from the refresh cookie after
@@ -69,7 +71,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="px-4 py-5 border-b border-gray-100">
           <div className="flex items-start justify-between">
             <div>
-              <span className="font-serif font-bold text-xl text-[#5C3317]">ZISUN</span>
+              <span className="font-serif font-bold text-xl text-ink">ZISUN</span>
               <span className="block text-xs text-muted mt-0.5">Admin Panel</span>
             </div>
             <button
@@ -83,8 +85,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {NAV.map(({ href, label, Icon }) => (
-            <Link key={href} href={href} onClick={() => setNavOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors">
-              <Icon className="w-4 h-4 text-gray-500" />
+            <Link key={href} href={href} onClick={() => setNavOpen(false)}
+              aria-current={(href === "/admin" ? pathname === "/admin" : pathname.startsWith(href)) ? "page" : undefined}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href))
+                  ? "bg-gray-900 text-white font-medium"
+                  : "text-gray-700 hover:bg-gray-100"}`}>
+              <Icon className="w-4 h-4 opacity-80" />
               {label}
             </Link>
           ))}
@@ -109,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-serif font-bold text-[#5C3317]">ZISUN</span>
+          <span className="font-serif font-bold text-ink">ZISUN</span>
           <span className="text-xs text-muted">Admin</span>
         </header>
         <main className="flex-1 overflow-y-auto min-w-0">{children}</main>

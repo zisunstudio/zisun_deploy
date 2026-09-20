@@ -16,7 +16,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
   return (
     <div className="w-full bg-background">
       {/* Hero */}
-      <div className="relative h-48 flex-shrink-0">
+      <div className="relative h-56 lg:h-72 flex-shrink-0 bg-rose">
         <Image
           src={category?.image_url ?? FALLBACK_IMAGE}
           alt={category?.name ?? "Category"}
@@ -25,7 +25,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
           sizes="100vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/35 via-ink/10 to-ink/70" />
         <div className="absolute inset-0 flex flex-col justify-between p-5">
           <button
             onClick={() => router.back()}
@@ -34,11 +34,11 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="font-serif text-3xl font-bold text-white leading-tight">
+            <h1 className="font-display text-[40px] lg:text-6xl text-white leading-[0.95] drop-shadow-sm">
               {isLoading ? "..." : category?.name}
             </h1>
             {category?.description && (
-              <p className="text-white/80 text-xs mt-1">{category.description}</p>
+              <p className="text-white/85 text-sm mt-2 max-w-md">{category.description}</p>
             )}
           </div>
         </div>
@@ -56,7 +56,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
           </div>
         ) : (
           <>
-            <p className="text-muted text-xs mb-4">{category.product_count} items</p>
+            <p className="text-muted text-xs mb-4">{category.product_count} {category.product_count === 1 ? "piece" : "pieces"}</p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
               {category.products.map((product) => (
                 <ProductCard key={product.id} product={product} />

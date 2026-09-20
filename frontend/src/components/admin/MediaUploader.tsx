@@ -161,7 +161,7 @@ export default function MediaUploader({ productId, media, onChange, variants = [
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-          dragOver ? "border-[#5C3317] bg-[#5C3317]/5" : "border-gray-200 hover:border-gray-400"
+          dragOver ? "border-ink bg-ink/5" : "border-gray-200 hover:border-gray-400"
         }`}
       >
         {uploading ? (
@@ -170,7 +170,7 @@ export default function MediaUploader({ productId, media, onChange, variants = [
           <>
             <Upload className="mx-auto w-6 h-6 text-gray-400 mb-2" />
             <p className="text-sm text-gray-500">
-              Drop images/video here or <span className="text-[#5C3317] font-semibold">browse</span>
+              Drop images/video here or <span className="text-ink font-semibold">browse</span>
             </p>
             <p className="text-xs text-gray-400 mt-1">JPEG · PNG · WebP · MP4 · Max 20 MB</p>
           </>
@@ -222,7 +222,7 @@ export default function MediaUploader({ productId, media, onChange, variants = [
               </button>
               <GripVertical className="absolute bottom-1 left-1 w-3 h-3 text-white opacity-0 group-hover:opacity-70" />
               {idx === 0 && (
-                <span className="absolute top-1 left-1 bg-[#5C3317] text-white text-xs px-1 rounded">
+                <span className="absolute top-1 left-1 bg-ink text-white text-xs px-1 rounded">
                   Cover
                 </span>
               )}
