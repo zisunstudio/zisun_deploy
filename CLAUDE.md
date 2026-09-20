@@ -132,6 +132,15 @@ right edge). `scratchpad/admin-review.js` renders every console page at
 phone width with a faked session — run it before calling a console change
 done.
 
+**The analytics board is one endpoint, computed concurrently and kept warm.**
+`compute_dashboard()` runs every panel's query at once on its own session
+(the database is a continent away; nine in a row cost ~20s, nine at once
+cost one), and a failing panel names itself in `meta.errors` rather than
+taking the page down. The result is cached in-process, served stale while
+it refreshes, and computed at startup by `warm_dashboard()` from the api's
+lifespan. Do not add a panel as a second request from the page, and do not
+route it through Redis.
+
 **Claude runs only behind the admin role.** `app/services/ai.py` is called
 from `/admin/ai/*` and `/admin/dashboard/brief` and nowhere else, so the
 Anthropic bill is bounded by the founder's own use. Every feature degrades
@@ -212,6 +221,13 @@ Each of these produced a green build or a healthy-looking deploy:
   that is the argument that makes Railway fetch the branch first. The
   scratchpad's `deploy-web.sh` does. Always check the deployment's
   `meta.commitHash` matches `git rev-parse HEAD` before believing a deploy.
+- **A fixture harness proves the page, not the endpoint.** The analytics
+  board 500'd for a day (`NameError: by_size`) while every screenshot of it
+  looked perfect, because the console review harness answered the admin API
+  from fixtures. `scratchpad/verify-api/check.js` mints an admin token from
+  the api's own JWT key (read from Railway) and calls the real endpoints;
+  `admin-live.js` renders the console against production with that token.
+  A console change is not done until both have run.
 - **Firebase Phone Auth denies every SMS region by default** on new projects.
   Until India is allowed under Authentication → Settings → SMS region policy,
   `sendVerificationCode` returns `OPERATION_NOT_ALLOWED: SMS unable to be sent
