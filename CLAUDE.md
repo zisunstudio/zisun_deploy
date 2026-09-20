@@ -187,6 +187,14 @@ Each of these produced a green build or a healthy-looking deploy:
   serving the previous build with a green "SUCCESS" beside it; it is safe
   there because the web image runs no migrations. Redeploy worker and beat
   after a backend push too — safe for the same reason.
+- **`serviceInstanceDeploy` rebuilds the commit Railway already knows.**
+  Without a GitHub trigger the service never learns that `main` moved, so a
+  bare deploy call re-runs the *old* source and reports SUCCESS: on
+  2026-09-20 the storefront "deployed" three times and kept serving
+  `d58691d`. Pass **`latestCommit: true`** (or an explicit `commitSha`) —
+  that is the argument that makes Railway fetch the branch first. The
+  scratchpad's `deploy-web.sh` does. Always check the deployment's
+  `meta.commitHash` matches `git rev-parse HEAD` before believing a deploy.
 - **Firebase Phone Auth denies every SMS region by default** on new projects.
   Until India is allowed under Authentication → Settings → SMS region policy,
   `sendVerificationCode` returns `OPERATION_NOT_ALLOWED: SMS unable to be sent
