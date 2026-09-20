@@ -1,9 +1,11 @@
+"use client";
 import Link from "next/link";
 import { COMPANY } from "@/lib/legal";
 import { BRAND } from "@/lib/brand";
 import { ZisunMark } from "@/components/brand/ZisunMark";
 import { HAS_ANY_WHATSAPP, WHATSAPP_GROUP_HREF, whatsappContactUrl } from "@/lib/launchMode";
 import { POLICY_TERMS } from "@/lib/legal";
+import { recordEnquiry } from "@/lib/enquiry";
 
 const LINKS = [
   { href: "/shop", label: "Shop" },
@@ -41,7 +43,7 @@ export function LegalFooter() {
               Ships across India · {POLICY_TERMS.exchangeRaiseWindowHours}h size exchange
             </p>
             {WHATSAPP_GROUP_HREF && (
-              <a href={WHATSAPP_GROUP_HREF} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40 hover:decoration-porcelain">
+              <a href={WHATSAPP_GROUP_HREF} target="_blank" rel="noopener noreferrer" onClick={() => recordEnquiry({ source: "community" })} className="mt-3 inline-block text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40 hover:decoration-porcelain">
                 ZISUN Tales — where drops land first →
               </a>
             )}
@@ -53,7 +55,7 @@ export function LegalFooter() {
               </Link>
             ))}
             {HAS_ANY_WHATSAPP && wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" className="text-porcelain/80 hover:text-porcelain underline-offset-4 hover:underline">
+              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => recordEnquiry({ source: "footer" })} className="text-porcelain/80 hover:text-porcelain underline-offset-4 hover:underline">
                 WhatsApp us
               </a>
             )}

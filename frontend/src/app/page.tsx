@@ -14,6 +14,7 @@ import { DealsRail } from "@/components/DealsRail";
 import { FeedItem, feedItemImage } from "@/components/FeedCard";
 import { Reveal } from "@/components/Reveal";
 import { CRAFT, HERO, MANIFESTO, OCCASIONS } from "@/lib/brand";
+import { markOpenSource } from "@/lib/enquiry";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { FIREBASE_ENABLED } from "@/lib/firebase";
@@ -198,7 +199,7 @@ export default function HomePage() {
             <button
               type="button"
               aria-label="Open the featured piece"
-              onClick={() => router.push(`/product/${featuredId}`)}
+              onClick={() => { markOpenSource("hero"); router.push(`/product/${featuredId}`); }}
               className="absolute inset-0 w-full h-full cursor-pointer"
             />
           )}
@@ -220,7 +221,7 @@ export default function HomePage() {
                 </button>
                 {FEATURED && featuredName && (
                   <button
-                    onClick={() => router.push(`/product/${featuredId}`)}
+                    onClick={() => { markOpenSource("hero"); router.push(`/product/${featuredId}`); }}
                     className="text-white/75 text-[12px] tracking-wide hover:text-white underline-offset-4 hover:underline text-left"
                   >
                     {HERO.credit}: {featuredName} →

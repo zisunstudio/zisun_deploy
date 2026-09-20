@@ -2,6 +2,7 @@
 
 import { MessageCircle } from "lucide-react";
 import { whatsappOrderUrl, HAS_WHATSAPP } from "@/lib/launchMode";
+import { recordEnquiry } from "@/lib/enquiry";
 
 /**
  * Stands in for "Add to Cart" while the store is in preview.
@@ -29,6 +30,7 @@ export function BrowseOnlyCTA({ productName }: { productName?: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={() => recordEnquiry({ source: "sheet", product_name: productName ?? null })}
       className="w-full bg-burgundy text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-burgundy-deep transition-colors"
     >
       <MessageCircle className="w-5 h-5" />

@@ -42,3 +42,4 @@ __all__ = [
     "ContentCard", "ContentTag", "ContentProduct", "ContentStatus", "ContentType", "TagType",
     "AnalyticsEvent",
 ]
+from .enquiry import WhatsAppEnquiry, EnquiryStatus, EnquirySource

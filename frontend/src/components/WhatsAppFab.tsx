@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import { HAS_ANY_WHATSAPP, HAS_WHATSAPP, whatsappContactUrl } from "@/lib/launchMode";
+import { recordEnquiry } from "@/lib/enquiry";
 
 /**
  * One tap to WhatsApp, from every storefront page.
@@ -31,6 +32,7 @@ export function WhatsAppFab() {
       rel="noopener noreferrer"
       aria-label={label}
       title={label}
+      onClick={() => recordEnquiry({ source: "fab" })}
       className="fixed z-40 right-4 bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))] lg:bottom-6
                  flex items-center justify-center w-12 h-12 rounded-full
                  bg-burgundy text-white shadow-[0_8px_24px_-8px_rgba(122,31,58,.6)]

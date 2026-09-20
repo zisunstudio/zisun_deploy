@@ -36,6 +36,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.analytics import AnalyticsEvent
 from app.models.catalog import Product, ProductMedia, ProductVariant
 from app.models.coupon import Coupon
+from app.models.enquiry import EnquiryStatus, WhatsAppEnquiry
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.user import User, UserRole
 from app.services import ai
@@ -49,12 +50,13 @@ from app.services.shelf import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# ZISUN's funnel, not a generic shop's. While checkout is closed a sale is a
+# WhatsApp enquiry that the founder marks as ordered; when checkout opens the
+# orders table joins in. The size guide is a side signal, reported elsewhere.
 FUNNEL_STEPS = [
     ("impressions", "product_impression", "Products shown"),
     ("views", "product_viewed", "Product opened"),
-    ("size_guide", "size_guide_opened", "Size guide read"),
     ("add_to_cart", "add_to_cart", "Added to bag"),
-    ("checkout", "checkout_initiated", "Checkout started"),
 ]
 LOW_STOCK_THRESHOLD = 5
 
@@ -159,23 +161,45 @@ def _rate(num: int, den: int):
 
 # ── The board ────────────────────────────────────────────────────────────────
 
+def _views_from_cards():
+    """Opens that came from tapping a card, as opposed to a link, a share, the
+    hero or a search. Only these can be compared with impressions: an open
+    from a shared link was never "shown" as a card, and counting it against
+    impressions is how a product reports a 273% open rate."""
+    return sa.func.count(sa.case((sa.and_(
+        AnalyticsEvent.event_type == "product_viewed",
+        AnalyticsEvent.properties.op("->>")("source") == "card",
+    ), AnalyticsEvent.id)))
+
+
 async def compute_dashboard(days: int = 30) -> dict:
     now = datetime.now(timezone.utc)
     since = now - timedelta(days=days)
     previous = since - timedelta(days=days)
+    week = now - timedelta(days=7)
+    prev_week = now - timedelta(days=14)
     attention_sq = attention_score_subquery()
     live_products = sa.and_(Product.deleted_at.is_(None), Product.is_active.is_(True))
 
     def sessions_between(a, b):
-        return _scalar(
-            select(sa.func.count(sa.distinct(AnalyticsEvent.session_id))).where(
-                AnalyticsEvent.session_id.isnot(None),
-                AnalyticsEvent.created_at >= a, AnalyticsEvent.created_at < b,
-            )
-        )
+        return _scalar(select(sa.func.count(sa.distinct(AnalyticsEvent.session_id))).where(
+            AnalyticsEvent.session_id.isnot(None), AnalyticsEvent.created_at >= a, AnalyticsEvent.created_at < b))
+
+    def events_between(kind, a, b):
+        return _scalar(select(sa.func.count(AnalyticsEvent.id)).where(
+            AnalyticsEvent.event_type == kind, AnalyticsEvent.created_at >= a, AnalyticsEvent.created_at < b))
+
+    def enquiries_between(a, b, status=None):
+        stmt = select(sa.func.count(WhatsAppEnquiry.id)).where(WhatsAppEnquiry.created_at >= a, WhatsAppEnquiry.created_at < b)
+        if status:
+            stmt = stmt.where(WhatsAppEnquiry.status == status)
+        return _scalar(stmt)
+
+    def revenue_between(a, b):
+        return _scalar(select(sa.func.coalesce(sa.func.sum(WhatsAppEnquiry.order_amount_paise), 0)).where(
+            WhatsAppEnquiry.status == EnquiryStatus.ORDERED.value, WhatsAppEnquiry.updated_at >= a, WhatsAppEnquiry.updated_at < b))
 
     r, errors = await _panels(
-        # Four independent counts in one round trip.
         totals=_one(select(
             select(sa.func.count(Order.id)).scalar_subquery().label("orders_total"),
             select(sa.func.count(User.id)).where(User.role == UserRole.user).scalar_subquery().label("customers"),
@@ -183,147 +207,197 @@ async def compute_dashboard(days: int = 30) -> dict:
         )),
         sessions=sessions_between(since, now),
         sessions_previous=sessions_between(previous, since),
-        revenue=_one(
-            select(sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
-            .where(Order.created_at >= since)
-        ),
-        by_method=_all(
-            select(Order.payment_method, sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
-            .where(Order.created_at >= since).group_by(Order.payment_method)
-        ),
+        # This week, and the week before it. The board leads with these: a
+        # founder opening the console at 4am should read the week, not the
+        # hour.
+        sessions_week=sessions_between(week, now),
+        sessions_prev_week=sessions_between(prev_week, week),
+        opens_week=events_between("product_viewed", week, now),
+        opens_prev_week=events_between("product_viewed", prev_week, week),
+        bags_week=events_between("add_to_cart", week, now),
+        bags_prev_week=events_between("add_to_cart", prev_week, week),
+        enquiries_week=enquiries_between(week, now),
+        enquiries_prev_week=enquiries_between(prev_week, week),
+        ordered_week=enquiries_between(week, now, EnquiryStatus.ORDERED.value),
+        revenue_week=revenue_between(week, now),
+        # The window (30 days by default)
+        enquiries_window=enquiries_between(since, now),
+        ordered_window=enquiries_between(since, now, EnquiryStatus.ORDERED.value),
+        revenue_window=revenue_between(since, now),
+        unanswered=_scalar(select(sa.func.count(WhatsAppEnquiry.id)).where(
+            WhatsAppEnquiry.status == EnquiryStatus.NEW.value, WhatsAppEnquiry.created_at < now - timedelta(hours=24))),
+        enquiries_by_product=_all(
+            select(WhatsAppEnquiry.product_id, sa.func.count(WhatsAppEnquiry.id),
+                   sa.func.count(sa.case((WhatsAppEnquiry.status == EnquiryStatus.ORDERED.value, WhatsAppEnquiry.id))))
+            .where(WhatsAppEnquiry.created_at >= since, WhatsAppEnquiry.product_id.isnot(None))
+            .group_by(WhatsAppEnquiry.product_id)),
+        revenue=_one(select(sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0)).where(Order.created_at >= since)),
+        by_method=_all(select(Order.payment_method, sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
+                       .where(Order.created_at >= since).group_by(Order.payment_method)),
         by_status=_all(select(Order.status, sa.func.count(Order.id)).group_by(Order.status)),
-        steps=_all(
-            select(AnalyticsEvent.event_type, sa.func.count(AnalyticsEvent.id))
-            .where(AnalyticsEvent.event_type.in_([e for _, e, _ in FUNNEL_STEPS]), AnalyticsEvent.created_at >= since)
-            .group_by(AnalyticsEvent.event_type)
-        ),
-        # Per-product funnel in ONE grouped query: impressions, opens, bag adds
-        # and checkouts as conditional counts, joined to the attention score the
-        # shelf sorts by. A left join keeps products nobody has opened — those
-        # rows are the point.
+        steps=_all(select(AnalyticsEvent.event_type, sa.func.count(AnalyticsEvent.id))
+                   .where(AnalyticsEvent.event_type.in_([e for _, e, _ in FUNNEL_STEPS] + ["size_guide_opened"]), AnalyticsEvent.created_at >= since)
+                   .group_by(AnalyticsEvent.event_type)),
+        # Per-product funnel in ONE grouped query. A left join keeps products
+        # nobody has opened - those rows are the point.
         products=_all(
             select(
                 Product.id, Product.name, Product.shelf_rank,
                 _count_of("product_impression").label("impressions"),
                 _count_of("product_viewed").label("views"),
+                _views_from_cards().label("views_from_cards"),
                 _count_of("add_to_cart").label("add_to_cart"),
-                _count_of("checkout_initiated").label("checkout"),
                 sa.func.coalesce(attention_sq.c.score, 0.0).label("attention"),
             )
             .select_from(Product)
             .outerjoin(AnalyticsEvent, sa.and_(
-                AnalyticsEvent.event_type.in_(["product_impression", "product_viewed", "add_to_cart", "checkout_initiated"]),
-                AnalyticsEvent.created_at >= since,
-                product_id_matches(Product.id),
-            ))
+                AnalyticsEvent.event_type.in_(["product_impression", "product_viewed", "add_to_cart"]),
+                AnalyticsEvent.created_at >= since, product_id_matches(Product.id)))
             .outerjoin(attention_sq, attention_sq.c.product_id == sa.cast(Product.id, sa.Text))
             .where(live_products)
             .group_by(Product.id, Product.name, Product.shelf_rank, attention_sq.c.score)
-            .order_by(sa.desc("attention"), sa.desc("views"))
-        ),
-        # Stock, by size and running low. Sizes are the unit the founder counts
-        # in ("how many M are left"), and "running low" is the list she reorders
-        # from.
+            .order_by(sa.desc("attention"), sa.desc("views"))),
+        # Stock per product: total left and the emptiest size/colour, so a
+        # wanted piece that is about to run out can be named.
+        stock=_all(
+            select(ProductVariant.product_id, ProductVariant.size, ProductVariant.color, ProductVariant.stock)
+            .join(Product, Product.id == ProductVariant.product_id)
+            .where(live_products, ProductVariant.is_active.is_(True))),
         by_size=_all(
             select(ProductVariant.size, sa.func.count(ProductVariant.id), sa.func.coalesce(sa.func.sum(ProductVariant.stock), 0))
             .join(Product, Product.id == ProductVariant.product_id)
-            .where(live_products, ProductVariant.is_active.is_(True))
-            .group_by(ProductVariant.size)
-        ),
+            .where(live_products, ProductVariant.is_active.is_(True)).group_by(ProductVariant.size)),
         low_stock=_all(
             select(Product.name, ProductVariant.size, ProductVariant.color, ProductVariant.sku, ProductVariant.stock)
             .join(Product, Product.id == ProductVariant.product_id)
             .where(live_products, ProductVariant.is_active.is_(True), ProductVariant.stock <= LOW_STOCK_THRESHOLD)
-            .order_by(ProductVariant.stock.asc(), Product.name.asc()).limit(30)
-        ),
+            .order_by(ProductVariant.stock.asc(), Product.name.asc()).limit(30)),
+        no_photos=_all(
+            select(Product.id, Product.name).outerjoin(ProductMedia, ProductMedia.product_id == Product.id)
+            .where(live_products).group_by(Product.id, Product.name).having(sa.func.count(ProductMedia.id) == 0).limit(8)),
+        coupons_live=_scalar(select(sa.func.count(Coupon.id)).where(
+            Coupon.is_active.is_(True), Coupon.is_referral.is_(False), sa.or_(Coupon.expires_at.is_(None), Coupon.expires_at > now))),
     )
 
+    n = lambda k: int(r[k] or 0)  # noqa: E731
     totals = r["totals"]
     orders_total = int(totals.orders_total or 0) if totals else 0
     customers = int(totals.customers or 0) if totals else 0
     events_total = int(totals.events_total or 0) if totals else 0
-    sessions = int(r["sessions"] or 0)
-    sessions_previous = int(r["sessions_previous"] or 0)
     orders_window = int(r["revenue"][0] or 0) if r["revenue"] else 0
-    revenue_window = int(r["revenue"][1] or 0) if r["revenue"] else 0
-    by_method = {
-        str(getattr(m, "value", m)): {"orders": int(c or 0), "revenue": int(v or 0)}
-        for m, c, v in (r["by_method"] or [])
-    }
-    by_status = {str(getattr(s, "value", s)): int(c or 0) for s, c in (r["by_status"] or [])}
-    step_counts = {et: int(n or 0) for et, n in (r["steps"] or [])}
-    # A step nobody has reached is absent from the grouping and must still
-    # appear as a zero — a gap in the funnel is the thing worth seeing.
-    funnel = [{"key": k, "event": e, "label": l, "count": step_counts.get(e, 0)} for k, e, l in FUNNEL_STEPS]
-    # Orders are the last step and come from the orders table, not an event: a
-    # purchase that only exists as an analytics event is one we cannot ship.
-    funnel.append({"key": "orders", "event": None, "label": "Ordered", "count": orders_window})
+    revenue_window_checkout = int(r["revenue"][1] or 0) if r["revenue"] else 0
+    by_method = {str(getattr(m, "value", m)): {"orders": int(c or 0), "revenue": int(v or 0)} for m, c, v in (r["by_method"] or [])}
+    by_status = {str(getattr(s_, "value", s_)): int(c or 0) for s_, c in (r["by_status"] or [])}
+    step_counts = {et: int(c or 0) for et, c in (r["steps"] or [])}
 
-    # ctr = opens / shown says whether the card earns a tap; cart_rate = bag
-    # adds / opens says whether the page earns the sale. High ctr and low
-    # cart_rate is a photograph better than its page; the reverse, a page
-    # better than its photograph. None, not 0, when the denominator is 0.
-    products_attention = [
-        {
-            "id": str(p.id), "name": p.name, "shelf_rank": p.shelf_rank,
-            "impressions": int(p.impressions or 0), "views": int(p.views or 0),
-            "add_to_cart": int(p.add_to_cart or 0), "checkout": int(p.checkout or 0),
-            "ctr": _rate(int(p.views or 0), int(p.impressions or 0)),
-            "cart_rate": _rate(int(p.add_to_cart or 0), int(p.views or 0)),
+    enquiries_window, ordered_window = n("enquiries_window"), n("ordered_window")
+    revenue_whatsapp = n("revenue_window")
+    funnel = [{"key": k, "event": ev, "label": l, "count": step_counts.get(ev, 0)} for k, ev, l in FUNNEL_STEPS]
+    funnel.append({"key": "enquiry", "event": None, "label": "WhatsApp enquiry", "count": enquiries_window})
+    # Ordered = WhatsApp orders the founder marked, plus checkout orders.
+    funnel.append({"key": "orders", "event": None, "label": "Ordered", "count": ordered_window + orders_window})
+
+    enq_by_product = {str(pid): (int(c or 0), int(o or 0)) for pid, c, o in (r["enquiries_by_product"] or [])}
+    stock_by_product: dict[str, dict] = {}
+    for pid, size, colour, st in (r["stock"] or []):
+        d = stock_by_product.setdefault(str(pid), {"left": 0, "lowest": None})
+        d["left"] += int(st or 0)
+        if d["lowest"] is None or int(st or 0) < d["lowest"]["stock"]:
+            d["lowest"] = {"size": size or "", "colour": colour or "", "stock": int(st or 0)}
+
+    products_attention = []
+    for p in (r["products"] or []):
+        pid = str(p.id)
+        enq, enq_ordered = enq_by_product.get(pid, (0, 0))
+        st = stock_by_product.get(pid, {"left": 0, "lowest": None})
+        impressions, views, from_cards, bags = int(p.impressions or 0), int(p.views or 0), int(p.views_from_cards or 0), int(p.add_to_cart or 0)
+        products_attention.append({
+            "id": pid, "name": p.name, "shelf_rank": p.shelf_rank,
+            "impressions": impressions, "views": views, "views_from_cards": from_cards,
+            "add_to_cart": bags, "enquiries": enq, "ordered": enq_ordered,
+            # ctr only from card-sourced opens; None when there is nothing to
+            # compare (older events carry no source), never a number over 100%.
+            "ctr": _rate(min(from_cards, impressions), impressions) if from_cards else None,
+            "cart_rate": _rate(bags, views),
             "attention": round(float(p.attention or 0.0), 2),
-        }
-        for p in (r["products"] or [])
-    ]
-    products_by_views = sorted(
-        ({"id": p["id"], "name": p["name"], "views": p["views"]} for p in products_attention),
-        key=lambda p: -p["views"],
-    )
-    by_size = sorted(
-        ({"size": s or "One size", "variants": int(v or 0), "units": int(u or 0)} for s, v, u in (r["by_size"] or [])),
-        key=lambda x: -x["units"],
-    )
-    low_stock = [
-        {"product": n, "size": s or "", "colour": c or "", "sku": sku, "stock": int(st or 0)}
-        for n, s, c, sku, st in (r["low_stock"] or [])
-    ]
+            "stock_left": st["left"], "lowest_variant": st["lowest"],
+        })
+    products_by_views = sorted(({"id": p["id"], "name": p["name"], "views": p["views"]} for p in products_attention), key=lambda p: -p["views"])
+    by_size = sorted(({"size": s_ or "One size", "variants": int(v or 0), "units": int(u or 0)} for s_, v, u in (r["by_size"] or [])), key=lambda x: -x["units"])
+    low_stock = [{"product": nm, "size": s_ or "", "colour": c or "", "sku": sku, "stock": int(st or 0)} for nm, s_, c, sku, st in (r["low_stock"] or [])]
+    no_photos = [{"id": str(pid), "name": nm} for pid, nm in (r["no_photos"] or [])]
+
+    # ── Needs attention: things she can act on, most urgent first ──
+    items: list[dict] = []
+    if n("unanswered"):
+        items.append({"severity": "critical", "title": f"{n('unanswered')} WhatsApp {'enquiry has' if n('unanswered') == 1 else 'enquiries have'} waited over a day for a reply", "body": "A reply within the hour is what turns an enquiry into an order.", "href": "/admin/enquiries"})
+    wanted_and_low = [p for p in products_attention if p["views"] >= 10 and p["lowest_variant"] and p["lowest_variant"]["stock"] <= 2]
+    for p in wanted_and_low[:3]:
+        lv = p["lowest_variant"]; where = " / ".join(x for x in (lv["size"], lv["colour"]) if x) or "one size"
+        left = "sold out" if lv["stock"] == 0 else f"only {lv['stock']} left"
+        items.append({"severity": "critical" if lv["stock"] == 0 else "warn",
+                      "title": f"{p['name']}: {left} in {where}",
+                      "body": f"{p['views']} opens and {p['add_to_cart']} bag adds this month - restock before promoting it further.",
+                      "href": "/admin/inventory?product=" + p["id"]})
+    for p in no_photos[:3]:
+        items.append({"severity": "warn", "title": f"{p['name']} is live without a photograph", "body": "A listing without a photograph does not get opened.", "href": f"/admin/products/{p['id']}/edit#photos"})
+    opened_never_bagged = [p for p in products_attention if p["views"] >= 10 and p["add_to_cart"] == 0]
+    for p in opened_never_bagged[:2]:
+        items.append({"severity": "warn", "title": f"{p['name']}: opened {p['views']} times, never added to the bag", "body": "Check the price, the sizes on offer and the second photograph.", "href": f"/admin/products/{p['id']}/edit"})
+    if n("bags_week") and not n("enquiries_week"):
+        items.append({"severity": "info", "title": f"{n('bags_week')} added to the bag this week, no WhatsApp enquiry yet", "body": "The bag ends in a WhatsApp message. If that step is losing people, the message or the button may need a nudge.", "href": "/admin/enquiries"})
+    if n("sessions_prev_week") >= 20 and n("sessions_week") >= n("sessions_prev_week") * 1.5:
+        items.append({"severity": "info", "title": f"Traffic is growing: {n('sessions_week')} visits this week, {n('sessions_prev_week')} the week before", "body": "Worth knowing where they came from before spending on more.", "href": None})
+    if not n("coupons_live"):
+        items.append({"severity": "info", "title": "No coupon is live", "body": "The Deals band on the home page is empty; a first-order code is the cheapest nudge there is.", "href": "/admin/coupons"})
+
+    # ── One sentence she can act on ──
+    insight = None
+    if products_attention:
+        top = max(products_attention, key=lambda p: (p["views"], p["add_to_cart"]))
+        if top["views"] >= 10:
+            lv = top["lowest_variant"]
+            tail = ""
+            if lv and lv["stock"] <= 2:
+                where = " / ".join(x for x in (lv["size"], lv["colour"]) if x) or "one size"
+                tail = f" Only {lv['stock']} left in {where} - consider restocking before promoting it further."
+            elif top["add_to_cart"] == 0:
+                tail = " It is opened but not bagged - the page, price or sizes are where to look."
+            insight = f"{top['name']} is getting the most attention: {top['views']} opens and {top['add_to_cart']} bag adds this month.{tail}"
 
     return {
-        "meta": {
-            "window_days": days,
-            "generated_at": now.isoformat(),
-            "checkout_enabled": settings.checkout_enabled,
-            "launch_mode": settings.LAUNCH_MODE or "live",
-            "events_recorded": events_total,
-            "errors": errors,
+        "meta": {"window_days": days, "generated_at": now.isoformat(), "checkout_enabled": settings.checkout_enabled,
+                 "launch_mode": settings.LAUNCH_MODE or "live", "events_recorded": events_total, "errors": errors},
+        "week": {
+            "sessions": n("sessions_week"), "sessions_previous": n("sessions_prev_week"),
+            "opens": n("opens_week"), "opens_previous": n("opens_prev_week"),
+            "bag_adds": n("bags_week"), "bag_adds_previous": n("bags_prev_week"),
+            "enquiries": n("enquiries_week"), "enquiries_previous": n("enquiries_prev_week"),
+            "ordered": n("ordered_week"), "revenue_paise": n("revenue_week"),
         },
+        "whatsapp": {
+            "enquiries_window": enquiries_window, "ordered_window": ordered_window,
+            "revenue_window_paise": revenue_whatsapp,
+            "conversion": _rate(ordered_window, enquiries_window), "unanswered": n("unanswered"),
+        },
+        "attention_items": items,
+        "insight": insight,
         "commerce": {
-            "orders_all_time": orders_total,
-            "orders_window": orders_window,
-            "revenue_window_paise": revenue_window,
-            "by_payment_method": by_method,
-            "by_status": by_status,
-            "customers": customers,
-            # Contribution margin needs four inputs nobody has entered. Null with
-            # its reasons, rather than a number built on guesses.
+            "orders_all_time": orders_total, "orders_window": orders_window, "revenue_window_paise": revenue_window_checkout,
+            "by_payment_method": by_method, "by_status": by_status, "customers": customers,
             "contribution_margin": None,
             "contribution_margin_blocked_on": ["cost per garment", "shipping cost per parcel", "payment gateway fee", "RTO reserve"],
         },
         "attention": {
-            "sessions": sessions,
-            "sessions_previous": sessions_previous,
-            "funnel": funnel,
+            "sessions": n("sessions"), "sessions_previous": n("sessions_previous"), "funnel": funnel,
+            "size_guide_opens": step_counts.get("size_guide_opened", 0),
             "products_by_views": products_by_views,
             "never_viewed": [p for p in products_by_views if p["views"] == 0],
             "products": products_attention,
             "ranking": {"window_days": WINDOW_DAYS, "half_life_days": round(half_life_days(), 1), "weights": EVENT_WEIGHTS},
         },
-        "inventory": {
-            "units": sum(x["units"] for x in by_size),
-            "variants": sum(x["variants"] for x in by_size),
-            "by_size": by_size,
-            "low_stock": low_stock,
-            "low_stock_threshold": LOW_STOCK_THRESHOLD,
-        },
+        "inventory": {"units": sum(x["units"] for x in by_size), "variants": sum(x["variants"] for x in by_size),
+                      "by_size": by_size, "low_stock": low_stock, "low_stock_threshold": LOW_STOCK_THRESHOLD},
     }
 
 
@@ -393,6 +467,10 @@ async def _brief_facts() -> dict:
         coupons=_scalar(select(sa.func.count(Coupon.id)).where(
             Coupon.is_active.is_(True), Coupon.is_referral.is_(False),
             sa.or_(Coupon.expires_at.is_(None), Coupon.expires_at > now))),
+        enq_week=_scalar(select(sa.func.count(WhatsAppEnquiry.id)).where(WhatsAppEnquiry.created_at >= week_start)),
+        enq_prev=_scalar(select(sa.func.count(WhatsAppEnquiry.id)).where(WhatsAppEnquiry.created_at >= prev_week_start, WhatsAppEnquiry.created_at < week_start)),
+        enq_ordered=_scalar(select(sa.func.count(WhatsAppEnquiry.id)).where(WhatsAppEnquiry.created_at >= week_start, WhatsAppEnquiry.status == EnquiryStatus.ORDERED.value)),
+        enq_unanswered=_scalar(select(sa.func.count(WhatsAppEnquiry.id)).where(WhatsAppEnquiry.status == EnquiryStatus.NEW.value, WhatsAppEnquiry.created_at < now - timedelta(hours=24))),
     )
     today = r["today"] or (0, 0)
     week = r["week"] or (0, 0)
@@ -404,6 +482,8 @@ async def _brief_facts() -> dict:
                  "sessions": int(r["sessions_week"] or 0), "sessions_previous_week": int(r["sessions_prev"] or 0),
                  "top_products": [{"name": n, "views": int(v)} for n, v in (r["top"] or [])]},
         "orders": {"waiting_to_ship_over_2_days": int(r["waiting"] or 0), "cod_unconfirmed": int(r["cod_unconfirmed"] or 0)},
+        "whatsapp": {"enquiries_week": int(r["enq_week"] or 0), "enquiries_previous_week": int(r["enq_prev"] or 0),
+                     "ordered_week": int(r["enq_ordered"] or 0), "unanswered": int(r["enq_unanswered"] or 0)},
         "catalogue": {"live_products": int(r["live_products"] or 0), "sold_out_variants": int(r["sold_out"] or 0),
                       "low_stock": [{"product": n, "size": s, "colour": c, "stock": int(st)} for n, s, c, st in (r["low"] or [])],
                       "without_photos": [row[0] for row in (r["no_photos"] or [])],
@@ -413,17 +493,18 @@ async def _brief_facts() -> dict:
 
 
 def _rule_brief(f: dict) -> dict:
-    """The brief without a model: the same shape, in plain sentences."""
+    """The brief without a model: the same shape, in plain sentences.
+
+    Leads with the week. A founder who opens the console at four in the
+    morning must not be told the day is quiet - the day has not started.
+    """
     rs = lambda p: f"₹{p // 100:,}"  # noqa: E731
     bullets, critical = [], []
     browse = not f["system"]["checkout_enabled"]
-    if browse:
-        bullets.append("The shop is in browse mode: orders come in over WhatsApp, not through checkout.")
-    else:
-        bullets.append(f"Today: {f['today']['orders']} orders, {rs(f['today']['revenue_paise'])}. This week: {f['week']['orders']} orders, {rs(f['week']['revenue_paise'])}.")
+    hour = datetime.now(IST).hour
     sw, sp = f["week"]["sessions"], f["week"]["sessions_previous_week"]
-    # A percentage on a tiny base is noise: 2 visits to 141 is "+6950%", which
-    # reads as a bug. Below twenty last week, say the two numbers instead.
+    enq, enq_prev = f["whatsapp"]["enquiries_week"], f["whatsapp"]["enquiries_previous_week"]
+    # A percentage on a tiny base is noise: 2 visits to 141 is "+6950%".
     if sp >= 20:
         change = round((sw - sp) / sp * 100)
         bullets.append(f"{sw} visits this week, {'+' if change >= 0 else ''}{change}% on last week.")
@@ -431,21 +512,37 @@ def _rule_brief(f: dict) -> dict:
         bullets.append(f"{sw} visits this week, {sp} the week before.")
     else:
         bullets.append(f"{sw} visits this week.")
+    if browse:
+        if enq:
+            bullets.append(f"{enq} WhatsApp {'enquiry' if enq == 1 else 'enquiries'} this week" + (f", {f['whatsapp']['ordered_week']} ordered." if f["whatsapp"]["ordered_week"] else ", none marked ordered yet."))
+        else:
+            bullets.append("No WhatsApp enquiries this week yet - the bag and every product page end in one.")
+    else:
+        bullets.append(f"This week: {f['week']['orders']} orders, {rs(f['week']['revenue_paise'])}." + (f" Today: {f['today']['orders']}, {rs(f['today']['revenue_paise'])}." if f["today"]["orders"] else ""))
     if f["week"]["top_products"]:
         bullets.append("Most opened: " + ", ".join(f"{p['name']} ({p['views']})" for p in f["week"]["top_products"]) + ".")
+    if f["whatsapp"]["unanswered"]:
+        critical.append(f"{f['whatsapp']['unanswered']} WhatsApp {'enquiry has' if f['whatsapp']['unanswered'] == 1 else 'enquiries have'} waited over a day for a reply.")
     if f["orders"]["waiting_to_ship_over_2_days"]:
         critical.append(f"{f['orders']['waiting_to_ship_over_2_days']} paid orders have waited over two days to ship.")
     if f["orders"]["cod_unconfirmed"]:
         critical.append(f"{f['orders']['cod_unconfirmed']} COD orders are still unconfirmed.")
     if f["catalogue"]["without_photos"]:
         critical.append("Live without photographs: " + ", ".join(f["catalogue"]["without_photos"][:4]) + ".")
-    if f["catalogue"]["sold_out_variants"]:
-        bullets.append(f"{f['catalogue']['sold_out_variants']} sizes/colours show zero stock across {f['catalogue']['live_products']} live products.")
     if f["catalogue"]["low_stock"]:
         bullets.append("Running low: " + ", ".join(f"{l['product']} {l['size'] or ''} {l['colour'] or ''}".strip() + f" ({l['stock']})" for l in f["catalogue"]["low_stock"][:4]) + ".")
     if not f["catalogue"]["coupons_live"]:
-        bullets.append("No coupon is live — the Deals band on the home page is empty.")
-    headline = "Quiet day in browse mode." if browse and not critical else ("Something needs you today." if critical else "All clear today.")
+        bullets.append("No coupon is live - the Deals band on the home page is empty.")
+    if critical:
+        headline = "Something needs you today."
+    elif sp >= 20 and sw >= sp * 1.5:
+        headline = "Traffic is growing this week."
+    elif enq and enq > enq_prev:
+        headline = "More people are asking this week."
+    elif hour < 9:
+        headline = "Early morning - here is the week so far."
+    else:
+        headline = "A steady week so far."
     return {"headline": headline, "bullets": bullets, "critical": critical, "source": "rules"}
 
 
@@ -465,6 +562,7 @@ BRIEF_SCHEMA = {
 async def compute_brief() -> dict:
     facts = await _brief_facts()
     brief = _rule_brief(facts)
+    facts["system"]["ai_note"] = None
     if settings.has_ai:
         try:
             import json
@@ -477,7 +575,7 @@ async def compute_brief() -> dict:
             )
             brief = {**written, "source": settings.AI_MODEL}
         except ai.AIUnavailable as exc:
-            brief["note"] = f"Claude unavailable: {exc}."
+            facts["system"]["ai_note"] = f"Claude unavailable: {exc}."
     return {"brief": brief, "facts": facts}
 
 

@@ -8,6 +8,7 @@ import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
 import { CouponTicket } from "@/components/CouponTicket";
 import { Reveal } from "@/components/Reveal";
 import { useActiveCoupons } from "@/lib/queries/coupons";
+import { markOpenSource } from "@/lib/enquiry";
 import { type Product, formatPrice, productImageUrl } from "@/lib/queries/catalog";
 
 /**
@@ -66,7 +67,7 @@ export function DealsRail() {
               return (
                 <button
                   key={p.id}
-                  onClick={() => router.push(`/product/${p.id}`)}
+                  onClick={() => { markOpenSource("deal"); router.push(`/product/${p.id}`); }}
                   className="snap-start shrink-0 w-[156px] sm:w-[190px] text-left group"
                   aria-label={`${p.name}, ${p.offer.discount_pct} percent off`}
                 >

@@ -11,6 +11,7 @@ import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { OfferBadge } from "@/components/OfferBadge";
 import { useImpression } from "@/lib/useImpression";
 import { swatchStyle } from "@/lib/colours";
+import { markOpenSource } from "@/lib/enquiry";
 
 interface Props {
   product: Product;
@@ -54,7 +55,7 @@ export function ProductCard({ product, className = "" }: Props) {
     <div
       ref={impressionRef as React.RefObject<HTMLDivElement>}
       className={`flex flex-col cursor-pointer group ${className}`}
-      onClick={() => router.push(`/product/${product.id}`)}
+      onClick={() => { markOpenSource("card"); router.push(`/product/${product.id}`); }}
     >
       <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
         <Image

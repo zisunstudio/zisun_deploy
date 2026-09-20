@@ -3,10 +3,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge } from "lucide-react";
+import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Analytics", Icon: Gauge },
+  { href: "/admin/enquiries", label: "Enquiries", Icon: MessageCircle },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingBag },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/shelf", label: "Shelf", Icon: LayoutGrid },
@@ -16,6 +17,7 @@ const NAV = [
   { href: "/admin/reviews", label: "Reviews", Icon: Star },
   { href: "/admin/content", label: "Content", Icon: Image },
   { href: "/admin/reconciliation", label: "Reconciliation", Icon: Scale },
+  { href: "/admin/system", label: "System", Icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

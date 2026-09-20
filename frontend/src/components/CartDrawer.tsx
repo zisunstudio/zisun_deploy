@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { X, Minus, Plus, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
+import { recordEnquiry } from "@/lib/enquiry";
 import { MessageCircle } from "lucide-react";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 
@@ -130,6 +131,16 @@ export default function CartDrawer() {
                           href={href}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => recordEnquiry({
+                            source: "bag",
+                            product_id: items[0]?.productId ?? null,
+                            product_name: items.length === 1 ? items[0].name : `${items.length} pieces`,
+                            size: items.length === 1 ? items[0].size ?? null : null,
+                            colour: items.length === 1 ? items[0].color ?? null : null,
+                            quantity: items.reduce((s, i) => s + i.quantity, 0),
+                            total_paise: Math.round(getCartTotal() * 100),
+                            items: items.map((i) => ({ product_id: i.productId ?? null, name: i.name, size: i.size ?? null, colour: i.color ?? null, quantity: i.quantity, price_paise: Math.round(i.price * 100) })),
+                          })}
                           className="w-full bg-burgundy text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-burgundy-deep transition-colors"
                         >
                           <MessageCircle className="w-5 h-5" />

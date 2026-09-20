@@ -24,6 +24,7 @@ import { GarmentDetails } from "@/components/GarmentDetails";
 import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
 import { CouponTicket } from "@/components/CouponTicket";
 import { swatchStyle } from "@/lib/colours";
+import { recordEnquiry, takeOpenSource } from "@/lib/enquiry";
 import { useActiveCoupons } from "@/lib/queries/coupons";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -57,7 +58,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
   // Track product view on mount
   useEffect(() => {
-    trackEvent("product_viewed", { product_id: params.id });
+    trackEvent("product_viewed", { product_id: params.id, source: takeOpenSource() });
   }, [params.id]);
 
   if (isLoading) return <ProductDetailSkeleton />;
@@ -406,6 +407,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 href={whatsappOrderUrl(`${product.name}${selectedVariant?.size ? `, size ${selectedVariant.size}` : ""}${selectedColour ? `, ${selectedColour}` : ""}`) ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => recordEnquiry({ source: "product", product_id: product.id, variant_id: selectedVariant?.id ?? null, product_name: product.name, size: selectedVariant?.size ?? null, colour: selectedVariant?.color ?? selectedColour ?? null, quantity: 1, total_paise: price })}
                 className="block text-center text-xs text-muted mt-2 underline underline-offset-4 decoration-line hover:text-ink"
               >
                 or ask about this piece on WhatsApp
