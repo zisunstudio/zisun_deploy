@@ -69,7 +69,10 @@ export function whatsappCartUrl(
 ): string | null {
   if (!HAS_WHATSAPP || items.length === 0) return null;
   const lines = items.map((i) => {
-    const bits = [i.size && `Size ${i.size}`, i.color].filter(Boolean).join(", ");
+    // Trimmed: colours entered before the palette picker can carry stray
+    // whitespace, and "(Size S, Purple )" in a message to a customer is the
+    // kind of detail that reads as carelessness.
+    const bits = [i.size && `Size ${i.size.trim()}`, i.color?.trim()].filter(Boolean).join(", ");
     return `• ${i.name}${bits ? ` (${bits})` : ""} × ${i.quantity} — ₹${(i.price * i.quantity).toLocaleString("en-IN")}${i.productId ? `\n  ${origin}/product/${i.productId}` : ""}`;
   });
   const text = [
