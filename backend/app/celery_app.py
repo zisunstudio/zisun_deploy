@@ -1,3 +1,23 @@
+import os
+import sys
+import time
+
+# Pause switch. With the broker dead, starting Celery is a crash loop, and on
+# a metered Redis every retry of the loop is a billed AUTH - the loop kept
+# Upstash's spent quota pinned at its limit. CELERY_PAUSED=1 on the worker
+# and beat services makes the process sleep instead: zero broker traffic, no
+# restart storm, one variable to unset once a working Redis is in place.
+#
+# It lives at import time, in this module, because Railway runs a service's
+# startCommand directly and never enters the Dockerfile ENTRYPOINT - a
+# switch in entrypoint.sh is invisible to the worker. Guarded on the process
+# being the celery CLI so the api, which imports this module for its health
+# probe, is never put to sleep by a stray variable.
+if os.environ.get("CELERY_PAUSED") == "1" and os.path.basename(sys.argv[0]) == "celery":
+    print("==> CELERY_PAUSED=1 - not starting Celery. Unset it once Redis is healthy.", flush=True)
+    while True:
+        time.sleep(3600)
+
 from celery import Celery
 from celery.schedules import crontab
 

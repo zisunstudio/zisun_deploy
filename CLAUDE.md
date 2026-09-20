@@ -163,9 +163,15 @@ Each of these produced a green build or a healthy-looking deploy:
   degraded; `/health` reports `redis: degraded` with HTTP 200.
   The worker's own reconnect loop is billed too: 100 retries per boot × ten
   restarts kept the quota pinned at its limit. Retries are capped at 3 now,
-  and `CELERY_PAUSED=1` on `zisun-worker`/`zisun-beat` makes the container
-  `sleep infinity` instead of starting Celery at all - the switch to flip
-  while the broker is dead, and to unset the moment a working Redis exists.
+  and `CELERY_PAUSED=1` on `zisun-worker`/`zisun-beat` makes the process
+  sleep instead of starting Celery at all - the switch to flip while the
+  broker is dead, and to unset the moment a working Redis exists.
+- **Railway's `startCommand` bypasses the Dockerfile `ENTRYPOINT`.** Worker
+  and beat never run `entrypoint.sh`: no dependency wait, no migration
+  guard, no `==>` lines in their logs. Anything that must happen for those
+  processes has to happen inside the Python process (`app/celery_app.py`
+  at import time), not in the shell wrapper. `SKIP_MIGRATIONS=1` on them is
+  harmless but also meaningless.
 - **Pushing to `main` deploys the api — and only the api.** The backend
   services carry Railway's GitHub trigger; `zisun-web` has none
   (`service.repoTriggers` is empty), so a push never builds the storefront
