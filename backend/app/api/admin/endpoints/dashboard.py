@@ -13,6 +13,7 @@ at all", which is a different fact and the one worth showing.
 from datetime import datetime, timedelta, timezone
 
 import json
+import logging
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query
@@ -23,7 +24,9 @@ from app.core.config import settings
 from app.core.database import get_async_db
 from app.core.redis import get_redis
 from app.models.analytics import AnalyticsEvent
-from app.models.catalog import Product, ProductVariant
+from app.models.catalog import Product, ProductMedia, ProductVariant
+from app.models.coupon import Coupon
+from app.services import ai
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.user import User, UserRole
 from app.services.shelf import (
@@ -34,6 +37,7 @@ from app.services.shelf import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # The funnel, in the order a shopper walks it. Kept as data rather than a chain
 # of queries so a missing step reports as zero rather than vanishing from the
@@ -59,6 +63,22 @@ LOW_STOCK_THRESHOLD = 5
 CACHE_KEY = "admin:dashboard:v2"
 CACHE_SECONDS = 60
 
+# Process-local cache, checked before Redis. Redis is metered (and has spent
+# its quota once already); this costs nothing and survives it being down. One
+# api replica means one cache, which is the only case that matters today.
+_LOCAL: dict[str, tuple[datetime, dict]] = {}
+
+
+def _local_get(key: str, ttl: int):
+    hit = _LOCAL.get(key)
+    if hit and (datetime.now(timezone.utc) - hit[0]).total_seconds() < ttl:
+        return hit[1]
+    return None
+
+
+def _local_set(key: str, payload: dict) -> None:
+    _LOCAL[key] = (datetime.now(timezone.utc), payload)
+
 
 def product_id_matches(column):
     """Join `analytics_events.properties->>'product_id'` to a product id.
@@ -82,6 +102,9 @@ async def admin_dashboard(
     redis=Depends(get_redis),
 ):
     cache_key = f"{CACHE_KEY}:{days}"
+    local = _local_get(cache_key, CACHE_SECONDS)
+    if local is not None:
+        return local
     if redis is not None:
         try:
             cached = await redis.get(cache_key)
@@ -208,36 +231,43 @@ async def admin_dashboard(
             sa.case((AnalyticsEvent.event_type == event_type, AnalyticsEvent.id))
         )
 
-    attention_sq = attention_score_subquery()
-    product_rows = (
-        await db.execute(
-            select(
-                Product.id,
-                Product.name,
-                Product.shelf_rank,
-                _count_of("product_impression").label("impressions"),
-                _count_of("product_viewed").label("views"),
-                _count_of("add_to_cart").label("add_to_cart"),
-                _count_of("checkout_initiated").label("checkout"),
-                sa.func.coalesce(attention_sq.c.score, 0.0).label("attention"),
-            )
-            .select_from(Product)
-            .outerjoin(
-                AnalyticsEvent,
-                sa.and_(
-                    AnalyticsEvent.event_type.in_(
-                        ["product_impression", "product_viewed", "add_to_cart", "checkout_initiated"]
+    errors: list[str] = []
+    product_rows = []
+    try:
+        attention_sq = attention_score_subquery()
+        product_rows = (
+            await db.execute(
+                select(
+                    Product.id,
+                    Product.name,
+                    Product.shelf_rank,
+                    _count_of("product_impression").label("impressions"),
+                    _count_of("product_viewed").label("views"),
+                    _count_of("add_to_cart").label("add_to_cart"),
+                    _count_of("checkout_initiated").label("checkout"),
+                    sa.func.coalesce(attention_sq.c.score, 0.0).label("attention"),
+                )
+                .select_from(Product)
+                .outerjoin(
+                    AnalyticsEvent,
+                    sa.and_(
+                        AnalyticsEvent.event_type.in_(
+                            ["product_impression", "product_viewed", "add_to_cart", "checkout_initiated"]
+                        ),
+                        AnalyticsEvent.created_at >= since,
+                        product_id_matches(Product.id),
                     ),
-                    AnalyticsEvent.created_at >= since,
-                    product_id_matches(Product.id),
-                ),
+                )
+                .outerjoin(attention_sq, attention_sq.c.product_id == sa.cast(Product.id, sa.Text))
+                .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+                .group_by(Product.id, Product.name, Product.shelf_rank, attention_sq.c.score)
+                .order_by(sa.desc("attention"), sa.desc("views"))
             )
-            .outerjoin(attention_sq, attention_sq.c.product_id == sa.cast(Product.id, sa.Text))
-            .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
-            .group_by(Product.id, Product.name, Product.shelf_rank, attention_sq.c.score)
-            .order_by(sa.desc("attention"), sa.desc("views"))
-        )
-    ).all()
+        ).all()
+    except Exception as exc:  # noqa: BLE001 - the page must render without this panel
+        logger.exception("dashboard: per-product funnel failed")
+        errors.append(f"product funnel: {type(exc).__name__}")
+        product_rows = []
 
     def _rate(num: int, den: int):
         return round(num / den, 4) if den else None
@@ -273,6 +303,7 @@ async def admin_dashboard(
             "checkout_enabled": settings.checkout_enabled,
             "launch_mode": settings.LAUNCH_MODE or "live",
             "events_recorded": events_total,
+            "errors": errors,
         },
         "commerce": {
             "orders_all_time": orders_total,
@@ -314,9 +345,196 @@ async def admin_dashboard(
         },
     }
 
+    _local_set(cache_key, payload)
     if redis is not None:
         try:
             await redis.set(cache_key, json.dumps(payload), ex=CACHE_SECONDS)
         except Exception:
             pass
+    return payload
+
+
+# ── The brief ──────────────────────────────────────────────────────────────
+#
+# "What is happening today, this week, and is anything critical" — the
+# question the founder actually opens the console with. The numbers come
+# from the queries below; the sentences come from Claude when a key is set
+# and from plain rules when it is not, so the panel never depends on the
+# model to exist.
+
+BRIEF_TTL_SECONDS = 15 * 60
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+async def _brief_facts(db: AsyncSession) -> dict:
+    now = datetime.now(timezone.utc)
+    today_start = now.astimezone(IST).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+    week_start = now - timedelta(days=7)
+    prev_week_start = now - timedelta(days=14)
+
+    async def orders_since(since):
+        row = (await db.execute(
+            select(sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
+            .where(Order.created_at >= since, Order.status != OrderStatus.CANCELLED)
+        )).one()
+        return int(row[0] or 0), int(row[1] or 0)
+
+    today_orders, today_rev = await orders_since(today_start)
+    week_orders, week_rev = await orders_since(week_start)
+
+    # Orders that are paid or confirmed and have sat unshipped for two days.
+    waiting = (await db.execute(
+        select(sa.func.count(Order.id)).where(
+            Order.status.in_([OrderStatus.PAID, OrderStatus.PACKED]),
+            Order.created_at < now - timedelta(days=2),
+        )
+    )).scalar_one()
+    cod_unconfirmed = (await db.execute(
+        select(sa.func.count(Order.id)).where(
+            Order.payment_method == PaymentMethod.COD,
+            Order.cod_confirmed_at.is_(None),
+            Order.status.in_([OrderStatus.CREATED, OrderStatus.PAID]),
+        )
+    )).scalar_one()
+
+    async def sessions_between(a, b):
+        return int((await db.execute(
+            select(sa.func.count(sa.distinct(AnalyticsEvent.session_id))).where(
+                AnalyticsEvent.session_id.isnot(None),
+                AnalyticsEvent.created_at >= a, AnalyticsEvent.created_at < b,
+            )
+        )).scalar_one() or 0)
+
+    sessions_week = await sessions_between(week_start, now)
+    sessions_prev = await sessions_between(prev_week_start, week_start)
+
+    top = (await db.execute(
+        select(Product.name, sa.func.count(AnalyticsEvent.id).label("views"))
+        .select_from(Product)
+        .join(AnalyticsEvent, sa.and_(
+            AnalyticsEvent.event_type == "product_viewed",
+            AnalyticsEvent.created_at >= week_start,
+            product_id_matches(Product.id),
+        ))
+        .where(Product.deleted_at.is_(None))
+        .group_by(Product.name).order_by(sa.desc("views")).limit(3)
+    )).all()
+
+    live_products = (await db.execute(
+        select(sa.func.count(Product.id)).where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+    )).scalar_one()
+    sold_out_variants = (await db.execute(
+        select(sa.func.count(ProductVariant.id)).join(Product, Product.id == ProductVariant.product_id)
+        .where(Product.deleted_at.is_(None), ProductVariant.is_active.is_(True), ProductVariant.stock == 0)
+    )).scalar_one()
+    low = (await db.execute(
+        select(Product.name, ProductVariant.size, ProductVariant.color, ProductVariant.stock)
+        .join(Product, Product.id == ProductVariant.product_id)
+        .where(Product.deleted_at.is_(None), ProductVariant.is_active.is_(True),
+               ProductVariant.stock > 0, ProductVariant.stock <= LOW_STOCK_THRESHOLD)
+        .order_by(ProductVariant.stock.asc()).limit(8)
+    )).all()
+    no_photos = (await db.execute(
+        select(Product.name).outerjoin(ProductMedia, ProductMedia.product_id == Product.id)
+        .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+        .group_by(Product.id, Product.name).having(sa.func.count(ProductMedia.id) == 0).limit(8)
+    )).scalars().all()
+    coupons_live = (await db.execute(
+        select(sa.func.count(Coupon.id)).where(
+            Coupon.is_active.is_(True), Coupon.is_referral.is_(False),
+            sa.or_(Coupon.expires_at.is_(None), Coupon.expires_at > now),
+        )
+    )).scalar_one()
+
+    return {
+        "as_of": now.isoformat(),
+        "today": {"orders": today_orders, "revenue_paise": today_rev},
+        "week": {"orders": week_orders, "revenue_paise": week_rev,
+                 "sessions": sessions_week, "sessions_previous_week": sessions_prev,
+                 "top_products": [{"name": n, "views": int(v)} for n, v in top]},
+        "orders": {"waiting_to_ship_over_2_days": int(waiting or 0),
+                   "cod_unconfirmed": int(cod_unconfirmed or 0)},
+        "catalogue": {"live_products": int(live_products or 0),
+                      "sold_out_variants": int(sold_out_variants or 0),
+                      "low_stock": [{"product": n, "size": s, "colour": c, "stock": int(st)} for n, s, c, st in low],
+                      "without_photos": list(no_photos),
+                      "coupons_live": int(coupons_live or 0)},
+        "system": {"launch_mode": settings.LAUNCH_MODE or "live",
+                   "checkout_enabled": settings.checkout_enabled,
+                   "ai": settings.has_ai},
+    }
+
+
+def _rule_brief(f: dict) -> dict:
+    """The brief without a model: the same shape, in plain sentences."""
+    rs = lambda p: f"₹{p // 100:,}"
+    bullets, critical = [], []
+    browse = not f["system"]["checkout_enabled"]
+    if browse:
+        bullets.append("The shop is in browse mode: no order can be placed yet.")
+    else:
+        bullets.append(f"Today: {f['today']['orders']} orders, {rs(f['today']['revenue_paise'])}. This week: {f['week']['orders']} orders, {rs(f['week']['revenue_paise'])}.")
+    sw, sp = f["week"]["sessions"], f["week"]["sessions_previous_week"]
+    if sp:
+        change = round((sw - sp) / sp * 100)
+        bullets.append(f"{sw} visits this week, {'+' if change >= 0 else ''}{change}% on last week.")
+    else:
+        bullets.append(f"{sw} visits this week.")
+    if f["week"]["top_products"]:
+        bullets.append("Most opened: " + ", ".join(f"{p['name']} ({p['views']})" for p in f["week"]["top_products"]) + ".")
+    if f["orders"]["waiting_to_ship_over_2_days"]:
+        critical.append(f"{f['orders']['waiting_to_ship_over_2_days']} paid orders have waited over two days to ship.")
+    if f["orders"]["cod_unconfirmed"]:
+        critical.append(f"{f['orders']['cod_unconfirmed']} COD orders are still unconfirmed.")
+    if f["catalogue"]["without_photos"]:
+        critical.append("Live without photographs: " + ", ".join(f["catalogue"]["without_photos"][:4]) + ".")
+    if f["catalogue"]["sold_out_variants"]:
+        bullets.append(f"{f['catalogue']['sold_out_variants']} sizes/colours show zero stock across {f['catalogue']['live_products']} live products.")
+    if f["catalogue"]["low_stock"]:
+        bullets.append("Running low: " + ", ".join(f"{l['product']} {l['size'] or ''} {l['colour'] or ''}".strip() + f" ({l['stock']})" for l in f["catalogue"]["low_stock"][:4]) + ".")
+    if not f["catalogue"]["coupons_live"]:
+        bullets.append("No coupon is live — the Deals band on the home page is empty.")
+    headline = "Quiet day in browse mode." if browse and not critical else (
+        "Something needs you today." if critical else "All clear today.")
+    return {"headline": headline, "bullets": bullets, "critical": critical, "source": "rules"}
+
+
+BRIEF_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "headline": {"type": "string", "description": "One line, at most twelve words, in plain English."},
+        "bullets": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 6,
+                    "description": "What happened today and this week, one fact per bullet, numbers included."},
+        "critical": {"type": "array", "items": {"type": "string"},
+                     "description": "Only things that need action today. Empty when nothing does."},
+    },
+    "required": ["headline", "bullets", "critical"],
+}
+
+
+@router.get("/dashboard/brief", tags=["Admin — Dashboard"])
+async def admin_dashboard_brief(
+    refresh: bool = Query(False, description="Skip the cache and rebuild"),
+    db: AsyncSession = Depends(get_async_db),
+):
+    if not refresh:
+        cached = _local_get("brief", BRIEF_TTL_SECONDS)
+        if cached is not None:
+            return cached
+    facts = await _brief_facts(db)
+    brief = _rule_brief(facts)
+    if settings.has_ai:
+        try:
+            written = await ai.extract(
+                "You write a morning brief for the founder of ZISUN, a small handloom clothing label. "
+                "Plain English, no hype, numbers exactly as given, rupees not paise (divide paise by 100). "
+                "Say what needs doing today under `critical`, and only that. Never invent a fact.",
+                json.dumps(facts, ensure_ascii=False),
+                BRIEF_SCHEMA, name="brief", description="The founder's brief for today.", max_tokens=700,
+            )
+            brief = {**written, "source": settings.AI_MODEL}
+        except ai.AIUnavailable as exc:
+            brief["note"] = f"Written from rules; Claude unavailable ({exc})."
+    payload = {"brief": brief, "facts": facts}
+    _local_set("brief", payload)
     return payload

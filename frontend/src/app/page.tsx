@@ -19,6 +19,8 @@ import { FeedCard, FeedItem, feedItemImage } from "@/components/FeedCard";
 import { Ticker } from "@/components/Ticker";
 import { Reveal } from "@/components/Reveal";
 import { HERO } from "@/lib/brand";
+import { Sticker } from "@/components/brand/Sticker";
+import { Underline } from "@/components/brand/Flourish";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { FIREBASE_ENABLED } from "@/lib/firebase";
@@ -200,6 +202,9 @@ export default function HomePage() {
             <Image src={heroSrc} alt="Handwoven South Indian cotton" fill priority sizes="100vw" onError={() => setHeroSrc(HERO_FALLBACK)} className="object-cover object-[50%_20%]" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent" />
+          {/* Pressed on like a label on a parcel. Sits under the header, out
+              of the way of the search and account buttons. */}
+          <Sticker className="absolute right-4 top-[7.5rem] lg:right-10 lg:top-28 z-[6] pointer-events-none drop-shadow-md" />
           {/* The tap target for the photograph itself: the featured piece. */}
           {allFeedItems[0] && (
             <button
@@ -271,6 +276,7 @@ export default function HomePage() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">This week</p>
                 <h3 className="font-display text-[28px] leading-none text-ink mt-1">The <em className="italic font-normal">drop.</em></h3>
+                <Underline className="text-rani mt-1" />
               </div>
               <button
                 onClick={() => router.push("/shop")}
@@ -293,11 +299,12 @@ export default function HomePage() {
         )}
 
         {/* Shop by Category — real data */}
-        <Reveal className="mt-12 px-5 lg:px-8">
+        <Reveal className="mt-12 px-5 lg:px-8 py-8 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(216,30,107,0.08),transparent_60%)]">
           <div className="flex justify-between items-end mb-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">Wardrobe</p>
               <h3 className="font-display text-[28px] leading-none text-ink mt-1">By <em className="italic font-normal">kind.</em></h3>
+              <Underline className="text-rani mt-1" />
             </div>
             <button
               onClick={() => router.push("/shop")}

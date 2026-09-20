@@ -90,6 +90,15 @@ class Settings(BaseSettings):
     # HMAC secret for inbound webhook signature verification
     WHATSAPP_APP_SECRET: str = ""
 
+    # ── Claude, for the console only ──────────────────────────────────────────
+    # Drafts listings from the founder's words (typed or spoken) and writes the
+    # morning brief. Never called from a storefront request: every call is
+    # behind an admin role, so the spend is bounded by how often she uses it.
+    # Empty key = every AI feature reports itself unavailable; nothing else
+    # changes.
+    ANTHROPIC_API_KEY: str = ""
+    AI_MODEL: str = "claude-sonnet-5"
+
     # ── Razorpay ─────────────────────────────────────────────────────────────
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
@@ -236,6 +245,11 @@ class Settings(BaseSettings):
         return bool(
             self.TWILIO_ACCOUNT_SID and self.TWILIO_FROM_NUMBER and self.has_twilio_auth
         )
+
+    @property
+    def has_ai(self) -> bool:
+        """True when the console's Claude features can run."""
+        return bool(self.ANTHROPIC_API_KEY)
 
     @property
     def has_twilio_auth(self) -> bool:

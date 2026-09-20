@@ -1,6 +1,10 @@
 "use client";
+import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import type { SizeChart } from "@/lib/queries/catalog";
 import SizeChartEditor from "@/components/admin/SizeChartEditor";
+import { adminApi } from "@/lib/adminApi";
+import { PALETTE, swatchStyle } from "@/lib/colours";
 
 export interface ProductFormData {
   name: string;
@@ -11,9 +15,8 @@ export interface ProductFormData {
 
   /**
    * Legal Metrology declarations. Optional: the API falls back to the
-   * brand-level default for all of them except `dimensions`, which has no
-   * honest brand-wide value — so an apparel listing that leaves it blank goes
-   * live without the measurement the Packaged Commodities Rules require.
+   * brand-level default. `dimensions` is kept in the shape for the API's
+   * sake but no longer has a field — the size chart carries measurements.
    */
   dimensions: string;
   net_quantity: string;
@@ -91,6 +94,34 @@ export function priceToPaise(rupees: string): number {
 }
 
 export default function ProductForm({ data, onChange, categories, compact = false }: Props) {
+  const [writing, setWriting] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
+  // The model only sees what is on the form. It cannot invent a fabric the
+  // founder did not enter, which is the whole point of feeding it facts
+  // rather than a name.
+  async function writeDescription() {
+    setWriting(true); setAiNote(null);
+    try {
+      const category = categories.find((c) => c.id === data.category_id)?.name ?? null;
+      const res = await adminApi.post("/ai/describe", {
+        name: data.name.trim(),
+        facts: {
+          category, price_rupees: data.base_price_rupees || null, colour: data.colour,
+          fabric_composition: data.fabric_composition, weave: data.weave, fabric_gsm: data.fabric_gsm,
+          wash_care: data.wash_care, has_pockets: data.has_pockets, print_type: data.print_type,
+          pattern: data.pattern, neck_type: data.neck_type, sleeve_type: data.sleeve_type,
+          sleeve_attached: data.sleeve_attached, dupatta_included: data.dupatta_included,
+          existing_description: data.description || null,
+        },
+      });
+      onChange({ ...data, description: res.data.description });
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      setAiNote(e?.response?.status === 503 ? `AI is unavailable: ${detail ?? "ANTHROPIC_API_KEY is not set"}.` : (detail ?? "Could not write a description right now."));
+    } finally {
+      setWriting(false);
+    }
+  }
   const f = (key: keyof ProductFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => onChange({ ...data, [key]: e.target.value });
@@ -111,7 +142,19 @@ export default function ProductForm({ data, onChange, categories, compact = fals
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700">Description</label>
+          <button
+            type="button"
+            onClick={writeDescription}
+            disabled={writing || !data.name.trim()}
+            title={data.name.trim() ? "Draft a description from the facts on this form" : "Give the product a name first"}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-ink disabled:opacity-40 hover:underline"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> {writing ? "Writing…" : data.description ? "Rewrite with AI" : "Write with AI"}
+          </button>
+        </div>
+        {aiNote && <p className="text-[11px] text-amber-700 mb-1">{aiNote}</p>}
         <textarea
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30 resize-none"
           rows={3}
@@ -277,13 +320,20 @@ export default function ProductForm({ data, onChange, categories, compact = fals
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Colour</label>
-              <input
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
-                placeholder="Indigo with off-white border"
-                value={data.colour}
-                onChange={f("colour")}
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Colour family</label>
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-4 w-4 shrink-0 rounded-full border border-black/10" style={swatchStyle(data.colour)} />
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30"
+                  value={data.colour}
+                  onChange={f("colour")}
+                >
+                  <option value="">— not set —</option>
+                  {data.colour && !PALETTE.some((c) => c.name === data.colour) && <option value={data.colour}>{data.colour}</option>}
+                  {PALETTE.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+              </span>
+              <p className="text-[11px] text-gray-500 mt-1">The main colour, for details and search. Each colour you sell is a variant below.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Print</label>
@@ -409,12 +459,11 @@ export default function ProductForm({ data, onChange, categories, compact = fals
       </details>
 
       {/* Legal Metrology declarations.
-          These are required on the listing before purchase, not optional
-          metadata. Dimensions is marked required in the UI even though the API
-          accepts it empty: it is the only one with no brand-level fallback, so
-          a blank here is a listing published without a statutory declaration.
-          The rest show their fallback as placeholder text, so it is obvious
-          that leaving them empty is safe rather than careless. */}
+          Required on the listing before purchase, not optional metadata. Each
+          shows its brand-level fallback as placeholder text, so leaving one
+          empty is obviously safe rather than careless. "Dimensions" used to be
+          a free-text line here; the size chart above is the measurement now,
+          so the field is gone from the form and sent blank. */}
       <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
         <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <span className="text-sm font-semibold text-gray-900">Product information</span>
@@ -424,28 +473,10 @@ export default function ProductForm({ data, onChange, categories, compact = fals
         <div className="px-5 pb-5">
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
           Shown on the product page before purchase, as the Legal Metrology rules
-          require. Blank fields fall back to the brand default — except dimensions.
+          require. Blank fields fall back to the brand default.
         </p>
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Dimensions <span className="text-red-500">*</span>
-            </label>
-            <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
-              placeholder="Bust 86-102 cm, Length 114-120 cm (varies by size)"
-              value={data.dimensions}
-              onChange={f("dimensions")}
-            />
-            {!data.dimensions.trim() && (
-              <p className="text-xs text-amber-600 mt-1">
-                Required for apparel. There is no brand default for this one — leave it
-                blank and the product page shows no measurements at all.
-              </p>
-            )}
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Net quantity</label>

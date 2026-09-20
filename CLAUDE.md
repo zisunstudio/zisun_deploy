@@ -101,6 +101,26 @@ as tickets on the home page and under the price on every product. A coupon
 the admin wants kept quiet must be created inactive and switched on at the
 moment it is announced — there is no "active but hidden" state.
 
+**In browse mode the storefront says nothing about stock.** No "sold out"
+overlay, no struck-through sizes, no "only 2 left": the counts are still
+being entered and a catalogue that has never sold anything must not open
+with "Sold out" on every card. The gates are `BROWSE_ONLY` in `ProductCard`,
+the PDP, `VariantSelector` (`honourStock`) and `BottomSheet`. The moment
+`LAUNCH_MODE` is unset every one of them tells the truth again, and the API
+never stopped enforcing stock at checkout.
+
+**Colours are picked, not typed.** `frontend/src/lib/colours.ts` is the
+palette; the console's variant editor, inventory page and product form
+offer it in a picker and the storefront draws swatches from it. A colour
+that is not in the palette still round-trips (old rows stay selectable)
+but new ones should be added to the palette, not typed.
+
+**Claude runs only behind the admin role.** `app/services/ai.py` is called
+from `/admin/ai/*` and `/admin/dashboard/brief` and nowhere else, so the
+Anthropic bill is bounded by the founder's own use. Every feature degrades
+to a plain message when `ANTHROPIC_API_KEY` is unset or the account has no
+credits; the brief falls back to rule-written sentences.
+
 ## Traps found the hard way
 
 Each of these produced a green build or a healthy-looking deploy:
@@ -195,6 +215,13 @@ pinned-then-attention shelf order with `/admin/shelf` and a per-product
 funnel on the dashboard. The WhatsApp button on every page currently opens
 the ZISUN Tales group (`NEXT_PUBLIC_WHATSAPP_GROUP_URL`); set
 `NEXT_PUBLIC_WHATSAPP_NUMBER` for a direct chat instead.
+
+The console can draft a listing from the founder's words (typed, or spoken
+via the browser's speech recogniser) and writes a daily brief on the
+Overview. `ANTHROPIC_API_KEY` is set on `zisun-api` but the Anthropic
+account had **no credits** on 2026-09-20 — the features report exactly that
+until credits are added. WhatsApp buttons open a direct chat with the
+support number (`COMPANY.phone`), no longer the group.
 
 **Celery is still down** — Upstash's free quota is spent and writes are
 refused. Harmless while no order can be created; must be resolved (Railway

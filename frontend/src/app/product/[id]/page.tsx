@@ -23,6 +23,7 @@ import { FabricSpecs } from "@/components/FabricSpecs";
 import { GarmentDetails } from "@/components/GarmentDetails";
 import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
 import { CouponTicket } from "@/components/CouponTicket";
+import { swatchStyle } from "@/lib/colours";
 import { useActiveCoupons } from "@/lib/queries/coupons";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -87,7 +88,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const price = selectedVariant
     ? product.base_price + selectedVariant.price_delta
     : product.base_price;
-  const isOutOfStock = !selectedVariant || selectedVariant.stock === 0;
+  const isOutOfStock = !BROWSE_ONLY && (!selectedVariant || selectedVariant.stock === 0);
   const inWishlist = wishlist?.items.some((i) => i.variant?.product?.id === product.id);
 
   function handleWishlistToggle() {
@@ -248,12 +249,13 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               </p>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Colour">
                 {colours.map((c) => {
-                  const any = product.variants.some((v) => v.color === c && v.stock > 0);
+                  const any = BROWSE_ONLY || product.variants.some((v) => v.color === c && v.stock > 0);
                   const on = c === selectedColour;
                   return (
                     <button key={c} type="button" role="radio" aria-checked={on} onClick={() => selectColour(c)}
-                      className={`h-10 px-3.5 rounded-full border text-xs font-semibold transition-all
+                      className={`h-10 pl-2.5 pr-3.5 rounded-full border text-xs font-semibold transition-all inline-flex items-center gap-2
                         ${on ? "border-ink bg-ink text-white" : any ? "border-line text-ink/80 hover:border-ink hover:text-ink" : "border-line text-ink/30 line-through"}`}>
+                      <span className={`inline-block h-4 w-4 rounded-full border ${on ? "border-white/60" : "border-black/10"}`} style={swatchStyle(c)} aria-hidden />
                       {c}
                     </button>
                   );
@@ -289,12 +291,13 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 selected={selectedVariantId ?? selectedVariant?.id ?? null}
                 onSelect={setSelectedVariantId}
                 groupBy="size"
+                honourStock={!BROWSE_ONLY}
               />
             </div>
           )}
 
           {/* Stock status */}
-          {selectedVariant && (
+          {selectedVariant && !BROWSE_ONLY && (
             <p className={`text-xs font-medium mb-4 ${selectedVariant.stock > 5 ? "text-moss" : selectedVariant.stock > 0 ? "text-rani" : "text-muted"}`}>
               {selectedVariant.stock === 0 ? "Sold out in this size" : selectedVariant.stock <= 5 ? `Only ${selectedVariant.stock} left in this size` : "In stock"}
             </p>

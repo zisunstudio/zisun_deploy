@@ -9,7 +9,8 @@ import ProductForm, {
   priceToPaise,
   type ProductFormData,
 } from "@/components/admin/ProductForm";
-import VariantEditor, { type VariantRow, type VariantEditorHandle } from "@/components/admin/VariantEditor";
+import VariantEditor, { gridVariants, type VariantRow, type VariantEditorHandle } from "@/components/admin/VariantEditor";
+import AiComposer, { type AiDraft } from "@/components/admin/AiComposer";
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -22,6 +23,37 @@ export default function NewProductPage() {
     queryKey: ["admin", "categories"],
     queryFn: async () => (await adminApi.get("/categories/")).data,
   });
+
+  // The draft lands in the same state the form and the variant table read
+  // from. Only fields the model actually filled are written, so a second
+  // draft never blanks something she typed by hand in between.
+  function applyDraft(d: AiDraft, categoryId: string | null) {
+    const yn = (b: boolean | null | undefined) => (b === true ? "yes" : b === false ? "no" : "");
+    setForm((f) => ({
+      ...f,
+      name: d.name || f.name,
+      description: d.description || f.description,
+      base_price_rupees: d.base_price_rupees ? String(d.base_price_rupees) : f.base_price_rupees,
+      compare_at_rupees: d.compare_at_rupees ? String(d.compare_at_rupees) : f.compare_at_rupees,
+      category_id: categoryId ?? f.category_id,
+      colour: d.colours?.[0] ?? f.colour,
+      fabric_composition: d.fabric_composition ?? f.fabric_composition,
+      weave: d.weave ?? f.weave,
+      fabric_gsm: d.fabric_gsm ? String(d.fabric_gsm) : f.fabric_gsm,
+      wash_care: d.wash_care ?? f.wash_care,
+      has_pockets: d.has_pockets == null ? f.has_pockets : yn(d.has_pockets),
+      print_type: d.print_type ?? f.print_type,
+      pattern: d.pattern ?? f.pattern,
+      neck_type: d.neck_type ?? f.neck_type,
+      sleeve_type: d.sleeve_type ?? f.sleeve_type,
+      sleeve_attached: d.sleeve_attached == null ? f.sleeve_attached : yn(d.sleeve_attached),
+      dupatta_included: d.dupatta_included == null ? f.dupatta_included : yn(d.dupatta_included),
+    }));
+    if ((d.colours?.length ?? 0) + (d.sizes?.length ?? 0) > 0) {
+      const prefix = (d.name || form.name || "ZS").split(/\s+/).slice(0, 2).join("-");
+      setVariants((v) => [...v, ...gridVariants(d.colours ?? [], d.sizes ?? [], d.stock_per_variant ?? 0, prefix, v)]);
+    }
+  }
 
   const createProduct = useMutation({
     mutationFn: async () => {
@@ -102,6 +134,9 @@ export default function NewProductPage() {
         </div>
       )}
 
+      <div className="mb-4">
+        <AiComposer onDraft={applyDraft} />
+      </div>
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
         <ProductForm data={form} onChange={setForm} categories={categories}  compact />
 
@@ -112,6 +147,7 @@ export default function NewProductPage() {
           variants={variants}
           onChange={setVariants}
           basePricePaise={priceToPaise(form.base_price_rupees)}
+          skuPrefix={(form.name || "ZS").split(/\s+/).slice(0, 2).join("-")}
         />
 
         <div className="flex gap-3 pt-2">

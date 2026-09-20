@@ -30,6 +30,7 @@ type Dash = {
     checkout_enabled: boolean;
     launch_mode: string;
     events_recorded: number;
+    errors?: string[];
   };
   commerce: {
     orders_all_time: number;
@@ -114,22 +115,91 @@ function Panel({
   );
 }
 
+type BriefPayload = {
+  brief: { headline: string; bullets: string[]; critical: string[]; source: string; note?: string };
+  facts: { as_of: string; today: { orders: number; revenue_paise: number }; week: { orders: number; revenue_paise: number; sessions: number } };
+};
+
+/**
+ * Today, this week, and anything critical — in sentences.
+ *
+ * The one panel the founder reads before the numbers. Written by Claude
+ * when a key is set, from rules when it is not, and it says which.
+ */
+function Brief() {
+  const { data, isLoading, error, refetch, isFetching } = useQuery<BriefPayload>({
+    queryKey: ["admin", "dashboard", "brief"],
+    queryFn: async () => (await adminApi.get("/dashboard/brief")).data,
+    staleTime: 15 * 60_000,
+    retry: 1,
+  });
+  if (isLoading) return <div className="mb-5 h-24 rounded-xl bg-rose/60 animate-pulse" />;
+  if (error || !data) {
+    const e: any = error;
+    return <p className="mb-5 text-xs text-gray-500">No brief right now ({e?.response?.status ?? "no response"}).</p>;
+  }
+  const { brief, facts } = data;
+  const when = new Date(facts.as_of).toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
+  return (
+    <section className="mb-6 rounded-xl border border-ink/10 bg-gradient-to-br from-rose via-white to-white p-4 sm:p-5" aria-labelledby="brief-heading">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rani">Today&apos;s brief</p>
+          <h2 id="brief-heading" className="font-display text-xl sm:text-2xl text-ink leading-tight mt-1">{brief.headline}</h2>
+        </div>
+        <button onClick={() => adminApi.get("/dashboard/brief", { params: { refresh: 1 } }).then(() => refetch())} disabled={isFetching}
+          className="text-[11px] text-gray-500 hover:text-ink underline underline-offset-2 whitespace-nowrap disabled:opacity-50">
+          {isFetching ? "Updating…" : "Refresh"}
+        </button>
+      </div>
+      {brief.critical.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {brief.critical.map((c, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-red-800 font-medium">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" /> {c}
+            </li>
+          ))}
+        </ul>
+      )}
+      <ul className="mt-3 space-y-1.5">
+        {brief.bullets.map((b, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm text-gray-800">
+            <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-rani shrink-0" /> {b}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[11px] text-gray-500">
+        As of {when} · {brief.source === "rules" ? "written from rules" : `written by ${brief.source}`}{brief.note ? ` · ${brief.note}` : ""}
+      </p>
+    </section>
+  );
+}
+
 export default function AdminDashboard() {
-  const { data, isLoading, error } = useQuery<Dash>({
+  const { data, isLoading, error, refetch } = useQuery<Dash>({
     queryKey: ["admin", "dashboard"],
     queryFn: async () => (await adminApi.get("/dashboard")).data,
     refetchOnWindowFocus: true,
+    retry: 1,
   });
 
   if (isLoading) {
     return <div className="p-6 text-sm text-gray-500">Loading the overview…</div>;
   }
   if (error || !data) {
+    const e: any = error;
+    const detail = e?.response?.data?.detail ?? e?.message ?? "no response";
+    const status = e?.response?.status;
     return (
-      <div className="p-6">
-        <p className="text-sm text-red-700">
-          Could not load the overview. It needs the admin API — try reloading.
-        </p>
+      <div className="p-6 space-y-3">
+        <Brief />
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm text-red-800 font-semibold">The overview could not load.</p>
+          <p className="text-xs text-red-700 mt-1">
+            {status ? `The API answered ${status}: ` : "The API did not answer: "}{String(detail)}
+          </p>
+          <button onClick={() => refetch()} className="mt-2 text-xs font-semibold text-red-800 underline underline-offset-2">Try again</button>
+        </div>
       </div>
     );
   }
@@ -147,6 +217,10 @@ export default function AdminDashboard() {
         <p className="text-xs text-gray-500">Last {meta.window_days} days</p>
       </div>
 
+      <Brief />
+      {meta.errors?.length ? (
+        <p className="mb-3 text-xs text-amber-700">Some panels are missing: {meta.errors.join("; ")}.</p>
+      ) : null}
       {browse && (
         <div className="mb-5 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-3.5 py-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />

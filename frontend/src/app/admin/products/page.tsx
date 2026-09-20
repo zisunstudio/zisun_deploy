@@ -134,12 +134,18 @@ export default function AdminProductsPage() {
                           onClick={() => openEdit(p)}
                           className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-semibold hover:bg-gray-200"
                         >Quick</button>
-                        {p.is_active && (
-                          <button
-                            onClick={() => { if (confirm(`Deactivate "${p.name}"?`)) softDelete.mutate(p.id); }}
-                            className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-semibold hover:bg-red-200"
-                          >Deactivate</button>
-                        )}
+                        {/* Two different things, named as such. Hide takes it off
+                            the shop and keeps everything; Delete removes the
+                            listing (photographs stay in storage). The old
+                            "Deactivate" button actually deleted. */}
+                        <button
+                          onClick={() => updateProduct.mutate({ id: p.id, data: { is_active: !p.is_active } })}
+                          className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-semibold hover:bg-gray-200"
+                        >{p.is_active ? "Hide" : "Show"}</button>
+                        <button
+                          onClick={() => { if (confirm(`Delete "${p.name}"?\n\nIt disappears from the shop and this list. Its photographs stay in storage.`)) softDelete.mutate(p.id); }}
+                          className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-semibold hover:bg-red-200"
+                        >Delete</button>
                       </div>
                     </td>
                   </tr>

@@ -10,11 +10,17 @@
  * moment later, which is a worse experience than not offering it at all.
  * Changing it therefore needs a frontend REBUILD, not a restart.
  */
+import { COMPANY } from "@/lib/legal";
+
 export const BROWSE_ONLY =
   (process.env.NEXT_PUBLIC_LAUNCH_MODE ?? "").trim().toLowerCase() === "browse";
 
 /** Digits only, with country code, e.g. 919876543210. */
-const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
+// The founder asked for a direct chat, not the group. NEXT_PUBLIC_WHATSAPP_NUMBER
+// wins when set; otherwise the support number from the contact page, which
+// is the same phone. The group link is only a fallback when neither exists.
+const WHATSAPP_NUMBER = ((process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "")
+  || COMPANY.phone.replace(/\D/g, ""));
 
 export const HAS_WHATSAPP = WHATSAPP_NUMBER.length > 0;
 

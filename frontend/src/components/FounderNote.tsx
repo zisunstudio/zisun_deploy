@@ -4,6 +4,7 @@ import Image from "next/image";
 import { BRAND, FOUNDER } from "@/lib/brand";
 import { ZisunMark } from "@/components/brand/ZisunMark";
 import { FeedCard, FeedItem } from "@/components/FeedCard";
+import { Bloom } from "@/components/brand/Flourish";
 
 interface Props {
   /** One piece of the catalogue, shown on its own. Omit to render the note alone. */
@@ -35,10 +36,13 @@ export function FounderNote({ feature }: Props) {
 
   return (
     <section
-      className="mt-16 bg-rose"
+      className="mt-16 bg-rose relative overflow-hidden"
       aria-labelledby="founder-note-heading"
     >
-      <div className="mx-auto max-w-6xl px-5 lg:px-8 py-12 lg:py-16">
+      {/* The embroidered flower from the first kurti, drawn in one line and
+          set faintly behind her words. Decoration that comes from the cloth. */}
+      <Bloom className="absolute -left-6 top-6 h-64 w-auto text-rani/20 lg:h-80 lg:left-4 pointer-events-none" />
+      <div className="mx-auto max-w-6xl px-5 lg:px-8 py-12 lg:py-16 relative">
         <div className="grid gap-10 lg:gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           {/* The words */}
           <div>

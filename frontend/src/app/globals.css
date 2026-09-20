@@ -55,7 +55,7 @@ body {
 .font-display,
 .font-serif {
   font-optical-sizing: auto;
-  font-variation-settings: "SOFT" 60, "WONK" 1;
+  font-variation-settings: "SOFT" 85, "WONK" 1;
   letter-spacing: -0.015em;
 }
 

@@ -10,6 +10,7 @@ import { BROWSE_ONLY } from "@/lib/launchMode";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { OfferBadge } from "@/components/OfferBadge";
 import { useImpression } from "@/lib/useImpression";
+import { swatchStyle } from "@/lib/colours";
 
 interface Props {
   product: Product;
@@ -28,7 +29,11 @@ export function ProductCard({ product, className = "" }: Props) {
 
   const firstVariant = product.variants[0];
   const inWishlist = wishlist?.items.some((i) => i.variant?.product?.id === product.id);
-  const isOutOfStock = product.variants.every((v) => v.stock === 0);
+  // Stock only speaks once the shop can sell. In browse mode the counts are
+  // still being entered, and "Sold out" across a catalogue that has never
+  // sold anything is the worst possible first impression.
+  const isOutOfStock = !BROWSE_ONLY && product.variants.every((v) => v.stock === 0);
+  const colours = Array.from(new Set(product.variants.filter((v) => v.is_active && v.color).map((v) => v.color as string)));
   const imageUrl = productImageUrl(product);
   const price = firstVariant
     ? product.base_price + firstVariant.price_delta
@@ -92,11 +97,21 @@ export function ProductCard({ product, className = "" }: Props) {
         )}
       </div>
       <p className="text-ink font-medium text-[13px] mt-2.5 leading-snug line-clamp-2">{product.name}</p>
+      {/* The colours it comes in, as dots. Says "there is a choice" without
+          a word, which is what makes a thumb stop on a card. */}
+      {colours.length > 1 && (
+        <span className="mt-1 flex items-center gap-1" aria-label={`Available in ${colours.join(", ")}`}>
+          {colours.slice(0, 6).map((c) => (
+            <span key={c} className="inline-block h-2.5 w-2.5 rounded-full border border-black/10" style={swatchStyle(c)} />
+          ))}
+          {colours.length > 6 && <span className="text-[10px] text-muted">+{colours.length - 6}</span>}
+        </span>
+      )}
       {(() => {
         // Scarcity only when it is true and small. "Only 2 left" on a piece
         // with 2 left is information; on every card it is a dark pattern.
         const left = product.variants.filter((v) => v.is_active).reduce((s, v) => s + v.stock, 0);
-        return left > 0 && left <= 3
+        return !BROWSE_ONLY && left > 0 && left <= 3
           ? <p className="text-[11px] text-rani font-semibold mt-1">Only {left} left</p>
           : null;
       })()}

@@ -36,7 +36,7 @@ export function CategoryCard({ category }: { category: Category }) {
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ink/70 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-3">
           <p className="font-display text-white text-lg leading-tight drop-shadow-sm">{category.name}</p>
-          <p className="text-white/75 text-[11px] mt-0.5">{n} {n === 1 ? "piece" : "pieces"}</p>
+          <p className="mt-1 inline-block rounded-full bg-white/90 text-ink text-[10px] font-semibold px-2 py-0.5">{n} {n === 1 ? "piece" : "pieces"}</p>
         </div>
       </div>
     </button>
