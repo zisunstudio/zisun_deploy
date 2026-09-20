@@ -172,16 +172,21 @@ Each of these produced a green build or a healthy-looking deploy:
   processes has to happen inside the Python process (`app/celery_app.py`
   at import time), not in the shell wrapper. `SKIP_MIGRATIONS=1` on them is
   harmless but also meaningless.
-- **Pushing to `main` deploys the api — and only the api.** The backend
-  services carry Railway's GitHub trigger; `zisun-web` has none
-  (`service.repoTriggers` is empty), so a push never builds the storefront
-  and every web deploy is a manual `serviceInstanceDeploy`. Two rules follow.
+- **Pushing to `main` deploys the api — and only the api.** Checked
+  `service.repoTriggers` on all four: `zisun-api` has the GitHub trigger;
+  `zisun-worker`, `zisun-beat` and `zisun-web` have none. A push never
+  builds those three. They rebuild from the latest commit on `main` when one
+  of their variables changes, or on a manual `serviceInstanceDeploy`. So
+  after every backend push the worker and beat are running the *previous*
+  commit until something redeploys them — a migration the api applied can
+  be one the worker's code has never seen. Two rules follow.
   Never call `serviceInstanceDeploy` on the api after a push: it starts a
   *second* deploy of the same commit, both run `alembic upgrade head` at
   once, and the loser fails with `DuplicateColumn` while the winner is
   already serving. Always call it on the web after a push, or the site keeps
   serving the previous build with a green "SUCCESS" beside it; it is safe
-  there because the web image runs no migrations.
+  there because the web image runs no migrations. Redeploy worker and beat
+  after a backend push too — safe for the same reason.
 - **Firebase Phone Auth denies every SMS region by default** on new projects.
   Until India is allowed under Authentication → Settings → SMS region policy,
   `sendVerificationCode` returns `OPERATION_NOT_ALLOWED: SMS unable to be sent
