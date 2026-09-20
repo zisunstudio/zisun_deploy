@@ -61,6 +61,17 @@ fi
 # If a command was passed (the worker/beat services' startCommand, or
 # `docker run ... celery`) run that instead of the API server. Without this,
 # ENTRYPOINT would swallow the command and every service would start a web server.
+# Pause switch for the background processes. With the broker dead, a worker
+# or beat that starts is a crash loop, and on a metered Redis every retry of
+# the loop is a billed AUTH - the loop itself kept Upstash's spent quota
+# pinned at its limit. CELERY_PAUSED=1 makes the container sleep instead:
+# zero broker traffic, no restart storm, and one variable to unset once a
+# working Redis is in place.
+if [ "${CELERY_PAUSED:-0}" = "1" ] && [ "${1:-}" = "celery" ]; then
+  echo "==> CELERY_PAUSED=1 - not starting '$*'. Unset CELERY_PAUSED once Redis is healthy."
+  exec sleep infinity
+fi
+
 if [ "$#" -gt 0 ]; then
   echo "==> Starting: $*"
   exec "$@"

@@ -83,6 +83,12 @@ celery_app.conf.update(
     # Block longer on an empty queue: fewer wake-ups, same latency once a
     # message arrives, since BRPOP returns immediately when one does.
     broker_transport_options={"socket_timeout": 30},
+    # A broker that refuses the connection is not going to accept it on the
+    # ninety-ninth try, and on a metered Redis every try is a billed AUTH.
+    # Three attempts, then exit and let the platform's restart policy - which
+    # gives up after ten - bound the damage. Was the default of 100 per boot.
+    broker_connection_retry_on_startup=True,
+    broker_connection_max_retries=3,
     # Remote control (pidbox) is deliberately LEFT ON — `/health` uses
     # control.inspect() to prove the worker is alive, and that probe is the only
     # thing standing between a crashed worker and another silent eight days.

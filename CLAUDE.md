@@ -161,6 +161,11 @@ Each of these produced a green build or a healthy-looking deploy:
   while the old one kept serving on a pre-quota connection — deploys failed
   their healthcheck with the fix in the build. Startup now logs and runs
   degraded; `/health` reports `redis: degraded` with HTTP 200.
+  The worker's own reconnect loop is billed too: 100 retries per boot × ten
+  restarts kept the quota pinned at its limit. Retries are capped at 3 now,
+  and `CELERY_PAUSED=1` on `zisun-worker`/`zisun-beat` makes the container
+  `sleep infinity` instead of starting Celery at all - the switch to flip
+  while the broker is dead, and to unset the moment a working Redis exists.
 - **Pushing to `main` deploys the api — and only the api.** The backend
   services carry Railway's GitHub trigger; `zisun-web` has none
   (`service.repoTriggers` is empty), so a push never builds the storefront
