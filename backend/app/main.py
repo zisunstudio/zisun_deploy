@@ -42,8 +42,19 @@ async def lifespan(app: FastAPI):
     _load_keys()                           # Validate / generate RS256 keys
     redis = await get_redis_client()
     app.state.redis = redis
-    await redis.ping()                     # Fail fast if Redis is unreachable
-    logger.info("Redis connected")
+    # Probe, but do not die. This used to be a fail-fast ping, and on
+    # 2026-09-20 it made the api undeployable: Upstash's spent quota rejects
+    # the AUTH on every *new* connection, so each fresh container crashed
+    # here while the old one - holding a connection from before the quota
+    # ran out - kept serving. Every deploy failed its healthcheck with the
+    # fix for the outage sitting in the build. Redis-backed features fail on
+    # their own request path (OTP throttling raises, caches miss), which is
+    # still fail-closed; the whole api refusing to start is not.
+    try:
+        await redis.ping()
+        logger.info("Redis connected")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Redis unreachable at startup - running degraded: %s", exc)
     logger.info("ZISUN backend started", extra={"environment": settings.ENVIRONMENT})
 
     yield

@@ -156,6 +156,11 @@ Each of these produced a green build or a healthy-looking deploy:
   days**. Hence `task_ignore_result`, no task events, no broker heartbeat,
   `--without-gossip --without-mingle --without-heartbeat`, and a 120s (not
   30s) outbox sweep. Before shortening any schedule, check the command budget.
+  A spent quota also rejects the **AUTH on every new connection**, so a
+  fail-fast `redis.ping()` at startup made every new api container crash
+  while the old one kept serving on a pre-quota connection — deploys failed
+  their healthcheck with the fix in the build. Startup now logs and runs
+  degraded; `/health` reports `redis: degraded` with HTTP 200.
 - **Pushing to `main` deploys the api — and only the api.** The backend
   services carry Railway's GitHub trigger; `zisun-web` has none
   (`service.repoTriggers` is empty), so a push never builds the storefront
