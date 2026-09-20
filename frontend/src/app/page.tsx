@@ -67,7 +67,7 @@ export default function HomePage() {
   const toggleCart = useCartStore((state) => state.toggleCart);
   const cartItemsCount = useCartStore((state) => state.items.length);
   const { data: categories, isLoading: loadingCategories } = useCategories();
-  const { data: feedData } = useFeed(feedPage);
+  const { data: feedData, isLoading: loadingFeed } = useFeed(feedPage);
   const heroRef = useRef<HTMLDivElement>(null);
 
   // Accumulate feed pages
@@ -181,10 +181,18 @@ export default function HomePage() {
 
         {/* Hero */}
         <div ref={heroRef} className="relative h-[72vh] lg:h-[52vh]">
+          {/* Three states, not two. The hero is the first feed item, so
+              rendering the static fallback while the feed is still in flight
+              paints one hero and then visibly swaps it for another — it reads
+              as the site loading the wrong page first and correcting itself.
+              A quiet placeholder holds the space until we actually know; the
+              fallback is for a feed that came back genuinely empty. */}
           {allFeedItems[0] ? (
             <div className="absolute inset-0">
               <FeedCard item={allFeedItems[0]} className="h-full" />
             </div>
+          ) : loadingFeed ? (
+            <div className="absolute inset-0 bg-[#EFE7DC] animate-pulse" aria-hidden="true" />
           ) : (
             <>
               <Image
