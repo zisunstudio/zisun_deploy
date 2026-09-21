@@ -1,651 +1,437 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  ChevronLeft,
-  CheckCircle,
-  MapPin,
-  CreditCard,
-  ShoppingBag,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { useCart, useInitiateCheckout, useVerifyPayment, useApplyCoupon } from "@/lib/queries/cart";
-import { useAddresses, useCreateAddress } from "@/lib/queries/address";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Check, Loader2, MessageCircle, ShieldCheck, Truck } from "lucide-react";
+import { api } from "@/lib/api";
+import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/lib/queries/catalog";
 import { trackEvent } from "@/lib/queries/analytics";
-import { BROWSE_ONLY } from "@/lib/launchMode";
-import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
+import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
+import { recordEnquiry } from "@/lib/enquiry";
+import { INDIAN_STATES } from "@/lib/india";
+import { POLICY_TERMS } from "@/lib/legal";
 
-// Declare Razorpay on window to avoid TypeScript errors
 declare global {
-  interface Window {
-    Razorpay: any;
-  }
+  interface Window { Razorpay: any }
 }
 
-type Step = "cart" | "address" | "payment" | "confirmation";
+/**
+ * Checkout, without a login wall.
+ *
+ * A first-time buyer gives a name, a phone and an address and pays. No
+ * account is required, because an account was never what protected this
+ * shop: an unconfirmed COD order cannot be dispatched, and a prepaid order
+ * is proven by the payment. Signed-in details prefill the form, and the
+ * order attaches to that phone either way, so it appears in her history.
+ *
+ * Prepaid is presented first and recommended. That is not a dark pattern -
+ * cash on delivery genuinely costs the shop more (a courier COD fee, and a
+ * refused parcel is freight paid twice for nothing), and saying so plainly
+ * is fairer than burying it. COD stays one tap away.
+ *
+ * Payment is confirmed by Razorpay's webhook, not by this page. The browser
+ * telling us "it worked" is advisory; the signed server-to-server callback
+ * is the truth, and it is the only thing that moves an order to PAID.
+ */
+type Step = "bag" | "details" | "pay" | "done";
 
-const INDIAN_STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-  "Delhi",
-  "Jammu and Kashmir",
-  "Ladakh",
-  "Chandigarh",
-  "Puducherry",
-];
+const STEPS: Array<[Step, string]> = [["bag", "Bag"], ["details", "Details"], ["pay", "Payment"]];
 
-const STEPS: { key: Step; label: string }[] = [
-  { key: "cart", label: "Cart" },
-  { key: "address", label: "Address" },
-  { key: "payment", label: "Payment" },
-  { key: "confirmation", label: "Done" },
-];
+interface Serviceability {
+  serviceable: boolean;
+  cod_available: boolean;
+  estimated_days: number | null;
+  source: string;
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
-  const sessionChecked = useAuthStore((s) => s.sessionChecked);
   const user = useAuthStore((s) => s.user);
+  const items = useCartStore((s) => s.items);
+  const getCartTotal = useCartStore((s) => s.getCartTotal);
+  const clearCart = useCartStore((s) => s.clearCart);
 
-  const { data: cart, isLoading: cartLoading } = useCart();
-  const { data: addresses } = useAddresses();
-  const initiateCheckout = useInitiateCheckout();
-  const verifyPayment = useVerifyPayment();
-  const createAddress = useCreateAddress();
-  const applyCoupon = useApplyCoupon();
-
-  const [step, setStep] = useState<Step>("cart");
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
-  const [showAddressForm, setShowAddressForm] = useState(false);
-  const [newAddress, setNewAddress] = useState({ line1: "", city: "", state: "", pincode: "" });
+  const [step, setStep] = useState<Step>("bag");
+  const [placing, setPlacing] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<{
-    code: string; discount_amount: number; final_total: number; message: string;
-  } | null>(null);
+  const [pin, setPin] = useState<Serviceability | null>(null);
+  const [checkingPin, setCheckingPin] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const [form, setForm] = useState({
+    name: "", phone: "", line1: "", line2: "", city: "", state: "Karnataka", pincode: "",
+  });
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Prefill from the account when there is one. Never overwrite typing.
   useEffect(() => {
-    // In preview there is no login to send anyone to — a bare /checkout URL
-    // should explain itself, not bounce the visitor to an OTP screen that
-    // cannot send an OTP.
-    if (BROWSE_ONLY) return;
-    // Wait for the session restore to finish. On first render there is no
-    // answer yet, and treating that as "signed out" bounced a signed-in
-    // customer to /login before the refresh cookie had even been read.
-    if (!sessionChecked) return;
-    if (!isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isAuthenticated, sessionChecked, router]);
+    if (!user) return;
+    setForm((f) => ({
+      ...f,
+      name: f.name || user.name || "",
+      phone: f.phone || (user.phone ?? "").replace(/^\+91/, ""),
+    }));
+  }, [user]);
 
+  const totalRupees = getCartTotal();
+  const totalPaise = Math.round(totalRupees * 100);
+
+  // Serviceability, once the pincode is complete. Fails open by design on the
+  // API side, so a Shiprocket outage never blocks a sale.
   useEffect(() => {
-    if (addresses?.length) {
-      const def = addresses.find((a) => a.is_default);
-      setSelectedAddressId(def?.id ?? addresses[0].id);
-    }
-  }, [addresses]);
+    if (form.pincode.length !== 6) { setPin(null); return; }
+    let cancelled = false;
+    setCheckingPin(true);
+    api.get(`/checkout/pincode/${form.pincode}/check`)
+      .then((r) => { if (!cancelled) setPin(r.data); })
+      .catch(() => { if (!cancelled) setPin(null); })
+      .finally(() => { if (!cancelled) setCheckingPin(false); });
+    return () => { cancelled = true; };
+  }, [form.pincode]);
 
-  // Anyone reaching /checkout directly — a bookmark, a stale link, a shared
-  // URL. The API would 503 this flow anyway; say why instead of erroring.
-  if (BROWSE_ONLY) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-5 px-8 text-center">
-        <ShoppingBag className="w-14 h-14 text-gray-200" />
-        <div>
-          <h1 className="font-serif text-xl font-bold text-foreground">
-            Checkout isn&apos;t open yet
-          </h1>
-          <p className="text-muted text-sm mt-1.5 leading-relaxed">
-            The collection is live to browse. Online ordering opens shortly —
-            until then we take orders directly.
-          </p>
-        </div>
-        <div className="w-full max-w-xs">
-          <BrowseOnlyCTA />
-        </div>
-        <button
-          onClick={() => router.push("/shop")}
-          className="text-primary text-sm font-semibold underline underline-offset-4"
-        >
-          Back to the collection
-        </button>
-      </div>
-    );
-  }
+  // A courier that will not carry cash to this pincode must not be offered it.
+  useEffect(() => {
+    if (pin && !pin.cod_available && paymentMethod === "COD") setPaymentMethod("RAZORPAY");
+  }, [pin, paymentMethod]);
 
-  if (!sessionChecked || !isAuthenticated) return null;
+  const detailsValid = useMemo(() => (
+    form.name.trim().length >= 2 &&
+    /^[6-9]\d{9}$/.test(form.phone.trim()) &&
+    form.line1.trim().length >= 4 &&
+    form.city.trim().length >= 2 &&
+    INDIAN_STATES.includes(form.state) &&
+    /^\d{6}$/.test(form.pincode)
+  ), [form]);
 
-  if (cartLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-8 h-8 border-2 border-primary rounded-full border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!cart || cart.items.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 px-6">
-        <ShoppingBag className="w-16 h-16 text-muted" />
-        <p className="text-muted">Your cart is empty</p>
-        <button
-          onClick={() => router.push("/shop")}
-          className="bg-primary text-white px-6 py-3 rounded-full font-semibold"
-        >
-          Shop Now
-        </button>
-      </div>
-    );
-  }
-
-  async function handleApplyCoupon() {
-    if (!couponCode.trim()) return;
-    const cartTotal = appliedCoupon ? appliedCoupon.final_total : (cart?.cart_total ?? 0);
+  async function placeOrder() {
+    setPlacing(true); setError(null);
     try {
-      const res = await applyCoupon.mutateAsync({ code: couponCode.trim().toUpperCase(), order_total: cartTotal });
-      setAppliedCoupon(res.data);
-      showToast(res.data.message, "success");
-    } catch (err: any) {
-      showToast(err?.response?.data?.detail ?? "Invalid coupon", "error");
-    }
-  }
-
-  async function handlePayment() {
-    if (!selectedAddressId) {
-      showToast("Please select an address", "warning");
-      return;
-    }
-
-    try {
-      const res = await initiateCheckout.mutateAsync({
-        address_id: selectedAddressId,
+      const res = await api.post("/checkout/guest", {
+        name: form.name.trim(),
+        phone: `+91${form.phone.trim()}`,
+        items: items.map((i) => ({ variant_id: i.id, quantity: i.quantity })),
+        address: {
+          line1: form.line1.trim(),
+          line2: form.line2.trim() || null,
+          city: form.city.trim(),
+          state: form.state,
+          pincode: form.pincode,
+        },
         payment_method: paymentMethod,
-        coupon_code: appliedCoupon?.code,
+        idempotency_key: `zisun-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       });
-      const { order_id, razorpay_order_id, amount, is_cod } = res.data;
+      const { order_id, razorpay_order_id, razorpay_key_id, total_amount } = res.data;
+      trackEvent("checkout_initiated", { order_id, payment_method: paymentMethod, amount: total_amount });
 
-      // COD flow — no Razorpay modal
-      if (is_cod) {
-        showToast("Order placed! Pay on delivery.", "success");
-        setConfirmedOrderId(order_id);
-        setStep("confirmation");
+      if (paymentMethod === "COD" || !razorpay_order_id) {
+        finish(order_id);
         return;
       }
-
-      const RAZORPAY_KEY = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-
-      // Load Razorpay script if not already loaded
       if (!window.Razorpay) {
         await new Promise<void>((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://checkout.razorpay.com/v1/checkout.js";
-          script.onload = () => resolve();
-          script.onerror = () =>
-            reject(new Error("Razorpay script failed to load"));
-          document.body.appendChild(script);
+          const s = document.createElement("script");
+          s.src = "https://checkout.razorpay.com/v1/checkout.js";
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Could not reach Razorpay"));
+          document.body.appendChild(s);
         });
       }
-
-      // Dev mode: skip Razorpay modal when key is missing, no gateway order, or mock
-      if (!RAZORPAY_KEY || !razorpay_order_id || razorpay_order_id.startsWith("mock_order_")) {
-        showToast("Dev mode: payment simulated", "success");
-        setConfirmedOrderId(order_id);
-        setStep("confirmation");
-        return;
-      }
-
       const rzp = new window.Razorpay({
-        key: RAZORPAY_KEY,
-        amount,
+        key: razorpay_key_id,
+        amount: total_amount,
         currency: "INR",
         order_id: razorpay_order_id,
-        prefill: { contact: user?.phone },
-        theme: { color: "#1A1417" },
-        handler: async (response: {
-          razorpay_payment_id: string;
-          razorpay_order_id: string;
-          razorpay_signature: string;
-        }) => {
-          try {
-            const verifyRes = await verifyPayment.mutateAsync({
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            setConfirmedOrderId(verifyRes.data.order_id);
-            setStep("confirmation");
-            showToast("Payment successful!", "success");
-          } catch {
-            showToast(
-              "Payment verification failed. Please contact support with your payment ID: " +
-                response.razorpay_payment_id,
-              "error"
-            );
-          }
-        },
-        modal: {
-          ondismiss: () => showToast("Payment cancelled", "warning"),
-        },
+        name: "ZISUN",
+        description: `${items.length} ${items.length === 1 ? "piece" : "pieces"}`,
+        prefill: { name: form.name.trim(), contact: form.phone.trim() },
+        theme: { color: "#7A1F3A" },
+        // The webhook is what marks this order PAID. This handler only moves
+        // the customer along; if the tab dies here the order still completes.
+        handler: () => finish(order_id),
+        modal: { ondismiss: () => { setPlacing(false); showToast("Payment cancelled — your bag is safe", "info"); } },
       });
       rzp.open();
-    } catch (err: any) {
-      showToast(
-        err?.response?.data?.error?.message ?? "Checkout failed",
-        "error"
-      );
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "We could not place that order. Please try again.");
+      setPlacing(false);
     }
   }
 
-  async function handleAddAddress() {
-    try {
-      const addr = await createAddress.mutateAsync({
-        line1: newAddress.line1,
-        city: newAddress.city,
-        state: newAddress.state,
-        pincode: newAddress.pincode,
-      });
-      setSelectedAddressId(addr.id);
-      setShowAddressForm(false);
-      setNewAddress({ line1: "", city: "", state: "", pincode: "" });
-      showToast("Address added", "success");
-    } catch {
-      showToast("Failed to add address", "error");
-    }
+  function finish(id: string) {
+    setOrderId(id);
+    setStep("done");
+    setPlacing(false);
+    clearCart();
   }
 
-  const stepIdx = STEPS.findIndex((s) => s.key === step);
-
-  return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="flex items-center px-5 pt-12 pb-4 border-b border-gray-100">
-        {step !== "confirmation" && (
-          <button onClick={() => router.back()} className="mr-3">
-            <ChevronLeft className="w-5 h-5 text-foreground" />
+  // ── Empty bag ─────────────────────────────────────────────────────────────
+  if (items.length === 0 && step !== "done") {
+    return (
+      <Shell>
+        <div className="px-5 py-20 text-center">
+          <p className="font-display text-2xl text-ink">Your bag is empty.</p>
+          <button onClick={() => router.push("/shop")} className="mt-5 bg-burgundy text-white px-6 py-3 rounded-full text-sm font-semibold">
+            See the collection
           </button>
-        )}
-        <h1 className="font-serif text-lg font-bold text-foreground">
-          Checkout
-        </h1>
-      </div>
+        </div>
+      </Shell>
+    );
+  }
 
-      {/* Step progress bar */}
-      <div className="flex px-5 pt-3 pb-2 gap-1">
-        {STEPS.map((s, i) => (
-          <div
-            key={s.key}
-            className={`flex-1 h-1 rounded-full transition-all ${
-              i <= stepIdx ? "bg-primary" : "bg-gray-200"
-            }`}
-          />
-        ))}
-      </div>
-
-      <div className="px-5 pb-4">
-        {/* Step 1: Cart Review */}
-        {step === "cart" && (
-          <div className="pt-4">
-            <h2 className="font-semibold text-foreground mb-3">Your Items</h2>
-            <div className="space-y-3">
-              {cart.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex gap-3 bg-white rounded-xl p-3 shadow-sm"
-                >
-                  {item.image_url && (
-                    <div className="relative w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden">
-                      <Image
-                        src={item.image_url}
-                        alt={item.product_name ?? "Product"}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-foreground truncate">
-                      {item.product_name ?? "Item"}
-                    </p>
-                    {item.size && (
-                      <p className="text-xs text-muted">Size: {item.size}</p>
-                    )}
-                    {item.color && (
-                      <p className="text-xs text-muted">
-                        Colour: {item.color}
-                      </p>
-                    )}
-                    <p className="text-sm font-bold text-primary mt-1">
-                      {formatPrice(item.unit_price)} &times; {item.quantity}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-between font-bold text-foreground border-t border-gray-100 pt-3">
-              <span>Subtotal</span>
-              <span>{formatPrice(cart.cart_total)}</span>
-            </div>
+  // ── Confirmation ──────────────────────────────────────────────────────────
+  if (step === "done") {
+    return (
+      <Shell>
+        <div className="px-5 py-16 text-center max-w-md mx-auto">
+          <div className="w-14 h-14 rounded-full bg-burgundy/10 flex items-center justify-center mx-auto">
+            <Check className="w-7 h-7 text-burgundy" />
           </div>
-        )}
+          <h1 className="mt-5 font-display text-[32px] leading-tight text-ink">Thank you.</h1>
+          <p className="mt-3 text-sm text-muted leading-relaxed">
+            {paymentMethod === "COD"
+              ? "We will message you on WhatsApp shortly to confirm the order before it is packed."
+              : "Your payment is being confirmed. We will message you on WhatsApp once it is packed."}
+          </p>
+          {orderId && <p className="mt-4 text-xs text-muted">Order reference <span className="font-mono text-ink">{orderId.slice(0, 8).toUpperCase()}</span></p>}
+          <button onClick={() => router.push("/shop")} className="mt-8 border border-line text-ink px-6 py-3 rounded-full text-sm font-semibold">
+            Keep looking
+          </button>
+        </div>
+      </Shell>
+    );
+  }
 
-        {/* Step 2: Address Selection */}
-        {step === "address" && (
-          <div className="pt-4">
-            <h2 className="font-semibold text-foreground mb-3">
-              Delivery Address
-            </h2>
-            <div className="space-y-2">
-              {(addresses ?? []).map((addr) => (
-                <div
-                  key={addr.id}
-                  onClick={() => setSelectedAddressId(addr.id)}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-                    selectedAddressId === addr.id
-                      ? "border-primary bg-primary/5"
-                      : "border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {addr.line1}
-                      </p>
-                      {addr.line2 && (
-                        <p className="text-xs text-muted">{addr.line2}</p>
-                      )}
-                      <p className="text-xs text-muted">
-                        {addr.city}, {addr.state} &mdash; {addr.pincode}
-                      </p>
-                      {addr.is_default && (
-                        <span className="text-xs text-primary font-semibold">
-                          Default
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {!showAddressForm ? (
-              <button
-                onClick={() => setShowAddressForm(true)}
-                className="mt-3 text-primary text-sm font-semibold"
-              >
-                + Add new address
-              </button>
-            ) : (
-              <div className="mt-3 space-y-2 p-4 bg-gray-50 rounded-xl">
-                <input
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="Address Line 1"
-                  value={newAddress.line1}
-                  onChange={(e) =>
-                    setNewAddress({ ...newAddress, line1: e.target.value })
-                  }
-                />
-                <input
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="City"
-                  value={newAddress.city}
-                  onChange={(e) =>
-                    setNewAddress({ ...newAddress, city: e.target.value })
-                  }
-                />
-                <select
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  value={newAddress.state}
-                  onChange={(e) =>
-                    setNewAddress({ ...newAddress, state: e.target.value })
-                  }
-                >
-                  <option value="">Select State</option>
-                  {INDIAN_STATES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="Pincode"
-                  maxLength={6}
-                  inputMode="numeric"
-                  value={newAddress.pincode}
-                  onChange={(e) =>
-                    setNewAddress({ ...newAddress, pincode: e.target.value })
-                  }
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleAddAddress}
-                    disabled={createAddress.isPending}
-                    className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
-                  >
-                    {createAddress.isPending ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddressForm(false);
-                      setNewAddress({
-                        line1: "",
-                        city: "",
-                        state: "",
-                        pincode: "",
-                      });
-                    }}
-                    className="flex-1 border py-2 rounded-lg text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Payment / Order Summary */}
-        {step === "payment" && (
-          <div className="pt-4 space-y-3">
-            <h2 className="font-semibold text-foreground">Order Summary</h2>
-            <div className="bg-white rounded-xl p-4 shadow-sm space-y-2">
-              {cart.items.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-foreground truncate max-w-[60%]">
-                    {item.product_name ?? "Item"} &times; {item.quantity}
-                  </span>
-                  <span className="font-medium">
-                    {formatPrice(item.unit_price * item.quantity)}
-                  </span>
-                </div>
-              ))}
-              {appliedCoupon && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Coupon ({appliedCoupon.code})</span>
-                  <span>- {formatPrice(appliedCoupon.discount_amount)}</span>
-                </div>
-              )}
-              <div className="border-t border-gray-100 pt-2 flex justify-between font-bold text-foreground">
-                <span>Total</span>
-                <span className="text-primary">
-                  {formatPrice(appliedCoupon ? appliedCoupon.final_total : cart.cart_total)}
-                </span>
-              </div>
-            </div>
-
-            {/* Coupon input */}
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-gray-600 mb-2">Coupon Code</p>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 border rounded-lg px-3 py-2 text-sm uppercase"
-                  placeholder="e.g. ZISUN10"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  disabled={!!appliedCoupon}
-                />
-                {appliedCoupon ? (
-                  <button
-                    onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
-                    className="text-sm text-red-500 font-semibold px-3"
-                  >Remove</button>
-                ) : (
-                  <button
-                    onClick={handleApplyCoupon}
-                    disabled={applyCoupon.isPending || !couponCode.trim()}
-                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
-                  >
-                    {applyCoupon.isPending ? "…" : "Apply"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Payment method */}
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-gray-600 mb-2">Payment Method</p>
-              <div className="flex gap-2">
-                {(["RAZORPAY", "COD"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setPaymentMethod(m)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${
-                      paymentMethod === m
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-gray-200 text-gray-500"
-                    }`}
-                  >
-                    {m === "RAZORPAY" ? "Pay Online" : "Cash on Delivery"}
-                  </button>
-                ))}
-              </div>
-              {paymentMethod === "COD" && (
-                <p className="text-xs text-amber-600 mt-2">
-                  COD available for orders up to ₹5,000. Pay when delivered.
-                </p>
-              )}
-            </div>
-
-            {selectedAddressId && addresses && (
-              <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-                <p className="text-sm text-muted">
-                  Delivering to:{" "}
-                  <span className="font-medium text-foreground">
-                    {addresses.find((a) => a.id === selectedAddressId)?.city}
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 4: Confirmation */}
-        {step === "confirmation" && confirmedOrderId && (
-          <div className="pt-8 flex flex-col items-center text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-            <h2 className="font-serif text-2xl font-bold text-foreground mb-2">
-              Order Placed!
-            </h2>
-            <p className="text-muted text-sm mb-4">
-              Order #{confirmedOrderId.slice(0, 8).toUpperCase()}
-            </p>
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 w-full mb-6">
-              <p className="text-sm text-green-700">
-                Check your WhatsApp for order confirmation
-              </p>
-            </div>
-            <button
-              onClick={() => router.push(`/orders/${confirmedOrderId}`)}
-              className="w-full bg-primary text-white py-4 rounded-full font-semibold mb-3"
-            >
-              Track Order
-            </button>
-            <button
-              onClick={() => router.push("/shop")}
-              className="w-full border border-gray-200 py-4 rounded-full font-semibold text-foreground"
-            >
-              Continue Shopping
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom CTA */}
-      {step !== "confirmation" && (
-        <div className="px-5 pb-8 pt-3 border-t border-gray-100 bg-background">
-          {step === "cart" && (
-            <button
-              onClick={() => setStep("address")}
-              className="w-full bg-primary text-white py-4 rounded-full font-semibold"
-            >
-              Proceed to Address
-            </button>
-          )}
-          {step === "address" && (
-            <button
-              onClick={() => {
-                if (!selectedAddressId) {
-                  showToast("Please select an address", "warning");
-                  return;
-                }
-                trackEvent("checkout_initiated", { cart_total: cart?.cart_total });
-                setStep("payment");
-              }}
-              className="w-full bg-primary text-white py-4 rounded-full font-semibold"
-            >
-              Proceed to Payment
-            </button>
-          )}
-          {step === "payment" && (
-            <button
-              onClick={handlePayment}
-              disabled={initiateCheckout.isPending}
-              className="w-full bg-primary text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <CreditCard className="w-5 h-5" />
-              {initiateCheckout.isPending
-                ? "Processing..."
-                : paymentMethod === "COD"
-                ? `Place COD Order — ${formatPrice(appliedCoupon ? appliedCoupon.final_total : cart.cart_total)}`
-                : `Pay ${formatPrice(appliedCoupon ? appliedCoupon.final_total : cart.cart_total)}`}
-            </button>
+  // ── Browse mode: the API refuses orders, so do not pretend otherwise ──────
+  if (BROWSE_ONLY) {
+    const href = whatsappCartUrl(items, totalRupees, typeof window !== "undefined" ? window.location.origin : undefined);
+    return (
+      <Shell>
+        <div className="px-5 py-16 text-center max-w-md mx-auto">
+          <h1 className="font-display text-[28px] text-ink">Orders are on WhatsApp for now</h1>
+          <p className="mt-3 text-sm text-muted">Online checkout opens shortly. Send your bag over and we will confirm everything there.</p>
+          {href && (
+            <a href={href} target="_blank" rel="noopener noreferrer"
+               onClick={() => recordEnquiry({ source: "bag", quantity: items.reduce((s, i) => s + i.quantity, 0), total_paise: totalPaise })}
+               className="mt-6 inline-flex items-center gap-2 bg-burgundy text-white px-6 py-3.5 rounded-full text-sm font-semibold">
+              <MessageCircle className="w-4 h-4" /> Order on WhatsApp
+            </a>
           )}
         </div>
-      )}
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <div className="px-5 lg:px-8 max-w-2xl mx-auto pb-32">
+        <Steps current={step} />
+
+        {error && <p className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3.5 py-2.5 text-sm text-red-800">{error}</p>}
+
+        {/* 1. Bag */}
+        {step === "bag" && (
+          <section>
+            <h1 className="font-display text-[30px] text-ink mb-5">Your bag</h1>
+            <ul className="space-y-4">
+              {items.map((i) => (
+                <li key={i.id} className="flex gap-3.5">
+                  <div className="relative w-16 h-20 rounded-card overflow-hidden bg-rose shrink-0">
+                    {i.image && <Image src={i.image} alt="" fill sizes="64px" className="object-cover" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-ink leading-snug">{i.name}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {[i.size && `Size ${i.size}`, i.color].filter(Boolean).join(" · ")}{i.quantity > 1 ? ` · ×${i.quantity}` : ""}
+                    </p>
+                  </div>
+                  <p className="text-sm text-ink tabular-nums">{formatPrice(Math.round(i.price * 100) * i.quantity)}</p>
+                </li>
+              ))}
+            </ul>
+            <Total total={totalPaise} />
+            <Primary onClick={() => setStep("details")}>Continue</Primary>
+          </section>
+        )}
+
+        {/* 2. Details */}
+        {step === "details" && (
+          <section>
+            <h1 className="font-display text-[30px] text-ink mb-1">Where to?</h1>
+            <p className="text-sm text-muted mb-5">No account needed. We use your number to confirm the order.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Full name" className="col-span-2"><input className={input} value={form.name} onChange={set("name")} autoComplete="name" /></Field>
+              <Field label="Mobile number" className="col-span-2">
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-line bg-rose text-sm text-ink">+91</span>
+                  <input className={`${input} rounded-l-none`} value={form.phone} onChange={set("phone")} inputMode="numeric" maxLength={10} autoComplete="tel-national" />
+                </div>
+              </Field>
+              <Field label="Address" className="col-span-2"><input className={input} value={form.line1} onChange={set("line1")} placeholder="House / flat, street" autoComplete="address-line1" /></Field>
+              <Field label="Landmark (optional)" className="col-span-2"><input className={input} value={form.line2} onChange={set("line2")} autoComplete="address-line2" /></Field>
+              <Field label="City"><input className={input} value={form.city} onChange={set("city")} autoComplete="address-level2" /></Field>
+              <Field label="Pincode"><input className={input} value={form.pincode} onChange={set("pincode")} inputMode="numeric" maxLength={6} autoComplete="postal-code" /></Field>
+              <Field label="State" className="col-span-2">
+                <select className={input} value={form.state} onChange={set("state")}>
+                  {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+            </div>
+
+            {checkingPin && <p className="mt-3 text-xs text-muted">Checking delivery…</p>}
+            {pin && (
+              <p className="mt-3 flex items-start gap-2 text-xs text-muted">
+                <Truck className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                {pin.serviceable
+                  ? <span>We deliver here{pin.estimated_days ? `, usually in ${pin.estimated_days} days` : ""}.{!pin.cod_available && " Cash on delivery is not available at this pincode."}</span>
+                  : <span>We could not confirm delivery to this pincode. Place the order and we will check before dispatch.</span>}
+              </p>
+            )}
+
+            <Primary disabled={!detailsValid} onClick={() => setStep("pay")}>Continue to payment</Primary>
+            <BackLink onClick={() => setStep("bag")} />
+          </section>
+        )}
+
+        {/* 3. Payment */}
+        {step === "pay" && (
+          <section>
+            <h1 className="font-display text-[30px] text-ink mb-5">How would you like to pay?</h1>
+            <div className="space-y-3">
+              <PayOption
+                selected={paymentMethod === "RAZORPAY"}
+                onSelect={() => setPaymentMethod("RAZORPAY")}
+                title="Pay now"
+                subtitle="UPI, card or netbanking — through Razorpay"
+                note="Recommended. It is the fastest to dispatch and costs the shop least, which is how a small label keeps prices where they are."
+              />
+              <PayOption
+                selected={paymentMethod === "COD"}
+                onSelect={() => setPaymentMethod("COD")}
+                disabled={pin ? !pin.cod_available : false}
+                title="Cash on delivery"
+                subtitle={pin && !pin.cod_available ? "Not available at this pincode" : "Pay the courier when it arrives"}
+                note="We will confirm on WhatsApp before packing."
+              />
+            </div>
+            <Total total={totalPaise} />
+            <ul className="mt-5 space-y-2 border-t border-line pt-4">
+              <Assure Icon={ShieldCheck}>Payments handled by Razorpay. We never see your card or UPI details.</Assure>
+              <Assure Icon={Truck}>Dispatched in {POLICY_TERMS.dispatchTimeframe}, shipped across India.</Assure>
+              <Assure Icon={MessageCircle}>{POLICY_TERMS.exchangeRaiseWindowHours}h size exchange — message us and we sort it.</Assure>
+            </ul>
+            <Primary disabled={placing} onClick={placeOrder}>
+              {placing ? <><Loader2 className="w-4 h-4 animate-spin" /> Placing…</> : paymentMethod === "COD" ? "Place order" : `Pay ${formatPrice(totalPaise)}`}
+            </Primary>
+            <BackLink onClick={() => setStep("details")} />
+            {/* The fallback, kept deliberately quiet. Some customers would
+                rather talk to a person before paying a label they have not
+                bought from; sending them to WhatsApp is better than losing
+                them at the last step. */}
+            {(() => {
+              const href = whatsappCartUrl(items, totalRupees, typeof window !== "undefined" ? window.location.origin : undefined);
+              return href ? (
+                <a href={href} target="_blank" rel="noopener noreferrer"
+                   onClick={() => recordEnquiry({ source: "bag", quantity: items.reduce((s, i) => s + i.quantity, 0), total_paise: totalPaise })}
+                   className="mt-4 block text-center text-xs text-muted underline underline-offset-4 decoration-line hover:text-ink">
+                  or send this bag to us on WhatsApp instead
+                </a>
+              ) : null;
+            })()}
+          </section>
+        )}
+      </div>
+    </Shell>
+  );
+}
+
+// ── pieces ──────────────────────────────────────────────────────────────────
+
+const input = "w-full h-11 rounded-lg border border-line bg-white px-3 text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-burgundy/25 focus:border-burgundy";
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="w-full bg-background min-h-screen pt-6">{children}</div>;
+}
+
+function Steps({ current }: { current: Step }) {
+  const idx = STEPS.findIndex(([s]) => s === current);
+  return (
+    <ol className="flex items-center gap-2 mb-7 text-[11px] uppercase tracking-[0.16em]">
+      {STEPS.map(([s, label], i) => (
+        <li key={s} className="flex items-center gap-2">
+          <span className={i <= idx ? "text-burgundy font-semibold" : "text-muted"}>{label}</span>
+          {i < STEPS.length - 1 && <span className="text-ink/20">—</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-xs text-muted mb-1.5">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Total({ total }: { total: number }) {
+  return (
+    <div className="mt-6 flex items-baseline justify-between border-t border-line pt-4">
+      <span className="text-sm text-muted">Total</span>
+      <span className="font-display text-[26px] text-ink tabular-nums">{formatPrice(total)}</span>
     </div>
+  );
+}
+
+function Primary({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className="mt-6 w-full bg-burgundy text-white py-4 rounded-full font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 hover:bg-burgundy-deep transition-colors">
+      {children}
+    </button>
+  );
+}
+
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="mt-3 w-full text-center text-xs text-muted inline-flex items-center justify-center gap-1.5 hover:text-ink">
+      <ArrowLeft className="w-3.5 h-3.5" /> Back
+    </button>
+  );
+}
+
+function PayOption({ selected, onSelect, title, subtitle, note, disabled }: {
+  selected: boolean; onSelect: () => void; title: string; subtitle: string; note: string; disabled?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onSelect} disabled={disabled}
+      className={`w-full text-left rounded-card border p-4 transition-colors disabled:opacity-45 ${selected ? "border-burgundy bg-burgundy/[0.04]" : "border-line bg-white hover:border-ink/30"}`}>
+      <div className="flex items-start gap-3">
+        <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 ${selected ? "border-burgundy bg-burgundy" : "border-ink/25"}`} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">{title}</p>
+          <p className="text-xs text-muted mt-0.5">{subtitle}</p>
+          <p className="text-[11px] text-muted mt-1.5 leading-relaxed">{note}</p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function Assure({ Icon, children }: { Icon: typeof Truck; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5 text-xs text-muted">
+      <Icon className="w-3.5 h-3.5 mt-0.5 shrink-0 text-ink/50" strokeWidth={1.8} />
+      <span>{children}</span>
+    </li>
   );
 }
