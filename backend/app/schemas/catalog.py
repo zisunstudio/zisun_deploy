@@ -38,6 +38,12 @@ class ProductVariantBase(BaseModel):
     sku: str
     size: Optional[str] = None
     color: Optional[str] = None
+
+    @field_validator("size", "color", mode="before")
+    @classmethod
+    def _trim(cls, v):
+        # "Purple " and "Purple" were two colours on the product page.
+        return v.strip() or None if isinstance(v, str) else v
     stock: int = Field(default=0, ge=0)
     price_delta: int = Field(default=0)
 
@@ -303,7 +309,10 @@ class LegalMetrology(BaseModel):
             dimensions=getattr(product, "dimensions", None) or None,
             country_of_origin=getattr(product, "country_of_origin", None) or settings.LM_COUNTRY_OF_ORIGIN,
             manufacturer_name=getattr(product, "manufacturer_name", None) or settings.LM_MANUFACTURER_NAME,
-            manufacturer_address=getattr(product, "manufacturer_address", None) or settings.LM_MANUFACTURER_ADDRESS,
+            # Always the configured value, never the product row's. The form used
+            # to pre-fill the founder's home address into every listing, so
+            # rows in the database still carry it; the public page must not.
+            manufacturer_address=settings.LM_MANUFACTURER_ADDRESS,
             consumer_care_name=settings.LM_CONSUMER_CARE_NAME,
             consumer_care_email=settings.LM_CONSUMER_CARE_EMAIL,
             consumer_care_phone=settings.LM_CONSUMER_CARE_PHONE,

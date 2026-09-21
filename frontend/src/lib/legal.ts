@@ -44,9 +44,11 @@ export const COMPANY: CompanyDetails = {
   // onboarding, so this needs the proprietor's name before KYC is submitted.
   legalName: "ZISUN",
   brandName: "ZISUN",
-  address:
-    "35, RMV 2nd Stage, Railway Men's Colony, near Lottegollhalli Railway Station, " +
-    "Bengaluru, Karnataka 560094",
+  // City only, at the founder's request: this is her home, and a street
+  // address on a public page is a safety problem before it is a compliance
+  // one. Razorpay KYC and any statutory notice get the full address
+  // privately; customers reach her by phone, email and WhatsApp.
+  address: "Bengaluru, Karnataka, India",
   email: "zisunstudio@gmail.com",
   phone: "+91 93636 08792",
   gstin: "29BAYPT2026A1ZH",

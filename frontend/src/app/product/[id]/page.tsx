@@ -379,7 +379,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           )}
 
           {product.legal_metrology && (
-            <ProductDeclarations declarations={product.legal_metrology} price={price} />
+            <ProductDeclarations declarations={product.legal_metrology} price={price} hasSizeChart={Boolean(product.size_chart?.rows?.length)} />
           )}
         </div>
       </div>

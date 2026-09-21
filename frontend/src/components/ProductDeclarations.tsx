@@ -23,7 +23,7 @@ interface ProductDeclarationsProps {
  * screen. Rendered in the DOM either way, so it is searchable and reachable by
  * a screen reader without the toggle.
  */
-export function ProductDeclarations({ declarations, price }: ProductDeclarationsProps) {
+export function ProductDeclarations({ declarations, price, hasSizeChart = false }: ProductDeclarationsProps & { hasSizeChart?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -44,7 +44,8 @@ export function ProductDeclarations({ declarations, price }: ProductDeclarations
   const rows: Array<[string, string | null]> = [
     ["Commodity", declarations.commodity_name],
     ["Net quantity", declarations.net_quantity],
-    ["Dimensions", declarations.dimensions],
+    // The size chart is the measurement now; a stray "42, 44" beside it is noise.
+    ["Dimensions", hasSizeChart ? "See the size guide" : declarations.dimensions],
     // Stated as "inclusive of all taxes" because that is the declaration the
     // rules ask for, and because the price shown on this page is the price
     // charged — GST is inside it, not added at checkout.

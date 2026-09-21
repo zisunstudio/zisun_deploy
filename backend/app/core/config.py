@@ -139,10 +139,9 @@ class Settings(BaseSettings):
     # A product may still override any of them (see the columns on Product) for
     # the day we stock a garment we did not pack ourselves.
     LM_MANUFACTURER_NAME: str = "ZISUN"
-    LM_MANUFACTURER_ADDRESS: str = (
-        "35, RMV 2nd Stage, Railway Men's Colony, near Lottegollhalli Railway "
-        "Station, Bengaluru, Karnataka 560094"
-    )
+    # City only. The business is run from the founder's home; the street
+    # address is not published. Set the variable to override.
+    LM_MANUFACTURER_ADDRESS: str = "Bengaluru, Karnataka, India"
     LM_COUNTRY_OF_ORIGIN: str = "India"
     LM_COMMODITY_NAME: str = "Women's cotton garment"
     LM_NET_QUANTITY: str = "1 unit"

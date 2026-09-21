@@ -554,18 +554,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Packer address
-                </label>
-                <textarea
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30 resize-none"
-                  rows={2}
-                  placeholder="Falls back to the registered ZISUN address"
-                  value={data.manufacturer_address}
-                  onChange={f("manufacturer_address")}
-                />
-              </div>
+              
             </div>
           </details>
         </div>
