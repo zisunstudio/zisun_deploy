@@ -7,6 +7,13 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# The worker stamps this every time it finishes an outbox sweep, and /health
+# reads it. Proof that a task actually RAN beats proof that a socket is open:
+# a worker can hold a broker connection and still be wedged, and that failure
+# is silent - orders reach PAID and nothing ships.
+WORKER_HEARTBEAT_KEY = "zisun:worker:heartbeat"
+WORKER_HEARTBEAT_TTL = 900  # generous: the sweep runs every 120s
+
 _redis_client: Redis | None = None
 
 

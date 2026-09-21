@@ -190,6 +190,24 @@ async def _release_expired_locks():
 @celery_app.task(name="app.tasks.commerce.process_outbox")
 def process_outbox():
     run_async(_process_outbox())
+    run_async(_touch_heartbeat())
+
+
+async def _touch_heartbeat() -> None:
+    """Record that the worker is alive and executing tasks.
+
+    One SETEX every two minutes - about 22k commands a month, which the
+    metered Upstash budget absorbs easily. It replaces a Celery control
+    broadcast on every /health call, which cost far more and took six
+    seconds over TLS, long enough that the probe timed out and reported a
+    perfectly healthy worker as unavailable.
+    """
+    try:
+        from app.core.redis import WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL, get_redis_client
+        redis = await get_redis_client()
+        await redis.setex(WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL, datetime.now(timezone.utc).isoformat())
+    except Exception as exc:  # noqa: BLE001 - never let the heartbeat fail the sweep
+        logger.warning("worker heartbeat write failed: %s", exc)
 
 
 async def _process_outbox():

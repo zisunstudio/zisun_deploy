@@ -1,5 +1,5 @@
 """Enhanced health check — DB, Redis, Celery heartbeat."""
-import asyncio
+from datetime import datetime, timezone
 from fastapi import APIRouter
 from sqlalchemy import text
 from app.core.config import settings
@@ -38,33 +38,38 @@ async def health_check():
         status["components"]["redis"] = f"degraded: {e}"
         status["status"] = "degraded"
 
-    # Celery heartbeat check (optional — won't fail health if unavailable).
+    # Worker liveness, read from a stamp rather than asked over the broker.
     #
-    # inspect.active() is a synchronous broadcast that waits for replies. Its
-    # `timeout` bounds how long it waits for answers, not the call itself:
-    # measured at 6.3s against a TLS broker with no workers responding. Called
-    # straight from this coroutine it blocked the event loop for that whole
-    # time, which is enough for the platform healthcheck to give up on the
-    # container — an "optional" probe taking the service down with it.
+    # This used to call celery_app.control.inspect().active() — a synchronous
+    # broadcast that waits for replies. Over TLS to Upstash it measured ~6s,
+    # longer than the probe's own timeout, so a perfectly healthy worker was
+    # reported "unavailable"; and once browse mode lifted it ran on every
+    # health check, spending broker commands from a metered quota on a
+    # question the worker can answer for free.
     #
-    # Off the loop now, and hard-bounded. A slow answer costs an "unavailable"
-    # label instead of the deployment.
-    if settings.is_browse_only:
-        # Browse-only creates no orders, so nothing is queued and there is
-        # nothing for a worker to be doing. Probing for one costs seconds on
-        # every healthcheck to learn something we already know.
-        status["components"]["celery"] = "not probed (browse mode)"
-        return status
-
+    # The worker now stamps a key when it starts and after every outbox
+    # sweep. Reading it is one GET, it is instant, and it proves a task
+    # actually EXECUTED — which is the failure that matters here. A worker
+    # can hold a broker connection and still be wedged, and that is silent:
+    # orders reach PAID and nothing ever ships.
     try:
-        from app.celery_app import celery_app
+        from app.core.redis import WORKER_HEARTBEAT_KEY
 
-        def _probe():
-            return celery_app.control.inspect(timeout=1.0).active()
-
-        active = await asyncio.wait_for(asyncio.to_thread(_probe), timeout=2.0)
-        status["components"]["celery"] = "ok" if active else "no workers"
-    except Exception:
-        status["components"]["celery"] = "unavailable"
+        redis = await get_redis_client()
+        stamp = await redis.get(WORKER_HEARTBEAT_KEY)
+        if stamp:
+            seen = datetime.fromisoformat(stamp if isinstance(stamp, str) else stamp.decode())
+            age = int((datetime.now(timezone.utc) - seen).total_seconds())
+            # The sweep runs every 120s; anything under five minutes is normal.
+            if age <= 300:
+                status["components"]["celery"] = f"ok (last task {age}s ago)"
+            else:
+                status["components"]["celery"] = f"stale — last task {age}s ago"
+                status["status"] = "degraded"
+        else:
+            status["components"]["celery"] = "no heartbeat — worker down or starting"
+            status["status"] = "degraded"
+    except Exception as exc:  # noqa: BLE001
+        status["components"]["celery"] = f"unknown: {type(exc).__name__}"
 
     return status

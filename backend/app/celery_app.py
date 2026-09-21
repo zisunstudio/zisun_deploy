@@ -19,9 +19,12 @@ if os.environ.get("CELERY_PAUSED") == "1" and os.path.basename(sys.argv[0]) == "
         time.sleep(3600)
 
 from celery import Celery
+from celery.signals import worker_ready
 from celery.schedules import crontab
 
 from app.core.config import settings
+import logging
+from datetime import datetime, timezone
 
 
 def _redis_url() -> str:
@@ -134,3 +137,32 @@ celery_app.conf.update(
     # control.inspect() to prove the worker is alive, and that probe is the only
     # thing standing between a crashed worker and another silent eight days.
 )
+
+
+# ── Liveness ────────────────────────────────────────────────────────────────
+#
+# /health reports the worker from this stamp rather than from a control
+# broadcast. The broadcast took ~6s over TLS to Upstash - longer than the
+# probe's timeout - so a healthy worker was reported "unavailable", and it
+# cost broker commands on every health check.
+
+@worker_ready.connect
+def _stamp_ready(**_kwargs):
+    """Announce liveness immediately, not after the first scheduled sweep."""
+    import asyncio
+
+    from app.core.redis import WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL, close_redis, get_redis_client
+
+    async def _write():
+        redis = await get_redis_client()
+        try:
+            await redis.setex(WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL, datetime.now(timezone.utc).isoformat())
+        finally:
+            # This runs on its own short-lived loop; leaving the client bound
+            # to a closed loop breaks the next use of it in this process.
+            await close_redis()
+
+    try:
+        asyncio.run(_write())
+    except Exception as exc:  # noqa: BLE001 - never block worker startup
+        logging.getLogger(__name__).warning("startup heartbeat failed: %s", exc)
