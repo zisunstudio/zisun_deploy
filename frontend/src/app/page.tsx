@@ -8,6 +8,7 @@ import { CategoryCard } from "@/components/CategoryCard";
 import { CategoryCardSkeleton, ProductCardSkeleton } from "@/components/skeletons/Skeleton";
 import { ProductCard } from "@/components/ProductCard";
 import { useCartStore } from "@/store/useCartStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useCategories, useFeed, useProducts } from "@/lib/queries/catalog";
 import { POLICY_TERMS } from "@/lib/legal";
 import { DealsRail } from "@/components/DealsRail";
@@ -59,6 +60,7 @@ export default function HomePage() {
   // shelf decides what is shown beneath it, so a pinned piece leads the grid.
   const { data: dropData, isLoading: loadingDrop } = useProducts({ limit: 6, sort_by: "shelf" });
   const heroRef = useRef<HTMLDivElement>(null);
+  const isSignedIn = useAuthStore((s) => s.isAuthenticated());
 
   // Accumulate feed pages
   useEffect(() => {
@@ -102,9 +104,9 @@ export default function HomePage() {
     // than a checkout, so it leads somewhere. Profile stays out until there
     // are orders to show.
     { Icon: ShoppingBag, label: "Bag", id: "cart", href: null },
-    ...(BROWSE_ONLY ? [] : [
-      { Icon: User, label: "Profile", id: "profile", href: "/profile" },
-    ]),
+    // Account, always. Signed out this is the only route to sign-in; signed
+    // in it is the only route to sign-out.
+    { Icon: User, label: isSignedIn ? "Account" : "Sign in", id: "profile", href: isSignedIn ? "/profile" : "/login" },
   ];
 
   // The hero's photograph and credit line come from the first feed item,
@@ -165,13 +167,15 @@ export default function HomePage() {
             >
               <Search className="w-4 h-4 text-foreground" />
             </button>
-            {/* /profile redirects to / in browse mode, so this button would
-                only ever reload the home screen. */}
-            {!BROWSE_ONLY && (
+            {/* Always present. It used to be hidden in browse mode, which left
+                the storefront with no way to sign in and no way to sign out -
+                /login existed but nothing pointed at it. Signed out it opens
+                sign-in; signed in it opens the account. */}
+            {(
               <button
-                onClick={() => router.push("/profile")}
+                onClick={() => router.push(isSignedIn ? "/profile" : "/login")}
                 className="w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/70"
-                aria-label="Profile"
+                aria-label={isSignedIn ? "Your account" : "Sign in"}
               >
                 <User className="w-4 h-4 text-foreground" />
               </button>
