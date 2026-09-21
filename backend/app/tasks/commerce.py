@@ -9,12 +9,16 @@ from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal, async_engine
 from app.models.catalog import ProductVariant
 from app.models.order import (
+    PaymentMethod,
     InventoryLock,
     LockStatus,
     Order,
     OrderStatus,
     OutboxEvent,
 )
+# COD_GIVE_UP_AFTER_HOURS is imported, not redeclared: the inventory lock is
+# sized to the same window, and two copies would drift into overselling.
+from app.services.checkout import COD_GIVE_UP_AFTER_HOURS
 from app.services.order_state_machine import OrderStateMachine
 
 logger = logging.getLogger(__name__)
@@ -74,6 +78,16 @@ async def _cleanup_zombie_orders():
             .where(
                 Order.status == OrderStatus.PAYMENT_PENDING,
                 Order.created_at < cutoff,
+                # COD is NOT a zombie. A cash order rests in PAYMENT_PENDING
+                # by design while the customer is asked to confirm, and that
+                # conversation is allowed 24 hours by
+                # sweep_cod_confirmations. Without this line the two tasks
+                # contradicted each other and every COD order ever placed was
+                # cancelled half an hour later, stock returned, with an
+                # ORDER_CANCELLED notice to a customer who had done nothing
+                # wrong. A zombie is an abandoned *payment*, which only a
+                # gateway order can be.
+                Order.payment_method != PaymentMethod.COD,
             )
             .with_for_update(skip_locked=True)
         )
@@ -282,7 +296,6 @@ async def _send_cod_ask(db, payload: dict) -> None:
 # One nudge, then give up. Reply rates fall off quickly, and a third message
 # about the same order reads as harassment rather than service.
 COD_NUDGE_AFTER_MINUTES = 30
-COD_GIVE_UP_AFTER_HOURS = 24
 
 
 @celery_app.task(name="app.tasks.commerce.sweep_cod_confirmations")
@@ -367,6 +380,20 @@ async def _release_locks(db, order_id) -> None:
         )
     ).scalars().all()
     for lock in locks:
+        # Put the stock back on the shelf, not just the lock to rest. Marking
+        # the lock RELEASED alone deducted the unit permanently: the sibling
+        # release paths both restore the count, this one did not, and a shop
+        # whose COD orders go unanswered would have watched its stock walk
+        # down to zero with nothing sold.
+        variant = (
+            await db.execute(
+                select(ProductVariant)
+                .where(ProductVariant.id == lock.product_variant_id)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if variant:
+            variant.stock += lock.reserved_qty
         lock.status = LockStatus.RELEASED
 
 

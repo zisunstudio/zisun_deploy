@@ -23,6 +23,17 @@ from app.models.order import (
 
 logger = logging.getLogger(__name__)
 
+# How long stock is held for an unpaid order.
+#
+# A gateway order is holding stock while someone finishes paying: half an
+# hour is generous. A COD order is not waiting on a payment at all — it is
+# placed, and only the confirmation call is outstanding, which the COD sweep
+# allows a full day for. Holding the stock for thirty minutes and then
+# selling it to someone else, while still promising to ship it, is how a shop
+# with one unit per size oversells.
+GATEWAY_LOCK_MINUTES = 30
+COD_GIVE_UP_AFTER_HOURS = 24
+
 
 def _razorpay_client():
     """Return a live Razorpay client, or None if credentials are absent/unusable.
@@ -322,7 +333,11 @@ class CheckoutService:
         await self.db.flush()  # get order.id
 
         # Create OrderItems and InventoryLocks
-        lock_expiry = datetime.now(timezone.utc) + timedelta(minutes=30)
+        lock_expiry = datetime.now(timezone.utc) + (
+            timedelta(hours=COD_GIVE_UP_AFTER_HOURS)
+            if payment_method == PaymentMethod.COD
+            else timedelta(minutes=GATEWAY_LOCK_MINUTES)
+        )
         for cart_item, variant, unit_price in item_snapshots:
             order_item = OrderItem(
                 order_id=order.id,
