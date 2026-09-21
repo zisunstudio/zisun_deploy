@@ -4,9 +4,10 @@ import hmac
 import logging
 import re
 import uuid
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,19 @@ from app.core.database import get_async_db
 from app.core.redis import get_redis_client
 from app.core.launch import require_checkout_enabled
 from app.core.security import get_current_user
-from app.models.order import Order, OrderStatus, Payment, PaymentStatus, OutboxEvent
+from app.models.cart import CartItem
+from app.models.order import (
+    Address,
+    Order,
+    OrderStatus,
+    Payment,
+    PaymentMethod,
+    PaymentStatus,
+    OutboxEvent,
+)
+from app.models.user import User, UserRole
+from app.schemas.address import AddressCreate
+from app.services.checkout import CheckoutService
 from app.services.order_state_machine import OrderStateMachine
 
 logger = logging.getLogger(__name__)
@@ -227,3 +240,115 @@ async def verify_payment(
     )
 
     return {"success": True, "order_id": str(order.id)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /checkout/guest
+# ─────────────────────────────────────────────────────────────────────────────
+
+class GuestItem(BaseModel):
+    variant_id: uuid.UUID
+    quantity: int = Field(default=1, ge=1, le=20)
+
+
+class GuestCheckoutRequest(BaseModel):
+    """Everything a first-time buyer can give us without an account."""
+    name: str = Field(..., min_length=2, max_length=120)
+    phone: str = Field(..., pattern=r"^\+91[6-9]\d{9}$", description="Indian mobile: +91XXXXXXXXXX")
+    email: Optional[EmailStr] = None
+    items: List[GuestItem] = Field(..., min_length=1, max_length=20)
+    address: AddressCreate
+    payment_method: PaymentMethod = PaymentMethod.COD
+    coupon_code: Optional[str] = Field(default=None, max_length=50)
+    idempotency_key: Optional[str] = Field(default=None, max_length=100)
+
+
+@router.post(
+    "/guest",
+    tags=["Checkout"],
+    status_code=201,
+    dependencies=[Depends(require_checkout_enabled)],
+)
+async def guest_checkout(
+    body: GuestCheckoutRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Place an order without creating an account first.
+
+    A login wall in front of a first purchase costs more orders than it
+    prevents fraud, and it was never the thing preventing fraud here: an
+    unconfirmed COD order cannot reach PACKED (`may_dispatch`), so the
+    founder speaks to every COD customer before anything ships, and a
+    prepaid order is proven by the payment itself.
+
+    Deliberately issues NO session. A user row is found or created from the
+    phone number so the order has an owner and shows up in that person's
+    history the day they do sign in — but typing someone else's number here
+    grants no access to their account, because nothing here returns a token.
+    That is the whole reason this is a separate endpoint rather than a
+    "sign in without OTP" shortcut.
+
+    The cart is set to exactly what is being bought and then consumed by
+    `initiate_checkout`, which is left completely untouched: the same
+    server-side price recalculation, the same FOR UPDATE stock locks, the
+    same coupon handling and the same Razorpay call as a signed-in order.
+    A saved cart on a matching account is replaced, which is the intended
+    reading of "this is my basket right now".
+    """
+    phone = body.phone.strip()
+
+    # Find or create the buyer. Name and email fill blanks on an existing
+    # account but never overwrite what the owner set themselves.
+    user = (await db.execute(select(User).where(User.phone == phone))).scalar_one_or_none()
+    if user is None:
+        user = User(phone=phone, name=body.name.strip(), email=body.email, role=UserRole.user)
+        db.add(user)
+        await db.flush()
+    else:
+        if not user.name:
+            user.name = body.name.strip()
+        if body.email and not user.email:
+            user.email = body.email
+
+    address = Address(
+        user_id=user.id,
+        line1=body.address.line1,
+        line2=body.address.line2,
+        city=body.address.city,
+        state=body.address.state,
+        pincode=body.address.pincode,
+        is_default=True,
+    )
+    db.add(address)
+    await db.flush()
+
+    svc = CheckoutService(db)
+    cart = await svc.get_or_create_cart(user.id)
+    for existing in list(cart.items):
+        await db.delete(existing)
+    await db.flush()
+    for item in body.items:
+        db.add(CartItem(cart_id=cart.id, product_variant_id=item.variant_id, quantity=item.quantity))
+    await db.flush()
+    db.expire(cart, ["items"])
+
+    order, razorpay_order_id = await svc.initiate_checkout(
+        user_id=user.id,
+        address_id=address.id,
+        payment_method=body.payment_method,
+        coupon_code=body.coupon_code,
+        idempotency_key=body.idempotency_key,
+    )
+    await db.commit()
+
+    return {
+        "order_id": str(order.id),
+        "status": order.status.value,
+        "total_amount": order.total_amount,
+        "payment_method": order.payment_method.value,
+        "razorpay_order_id": razorpay_order_id,
+        # The publishable key. Safe to return: it identifies the merchant to
+        # Razorpay's client SDK and cannot authorise anything on its own.
+        "razorpay_key_id": settings.RAZORPAY_KEY_ID if razorpay_order_id else None,
+        "cod_amount_due": order.cod_amount_due,
+    }
