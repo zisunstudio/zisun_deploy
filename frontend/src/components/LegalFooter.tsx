@@ -9,7 +9,9 @@ import { recordEnquiry } from "@/lib/enquiry";
 
 const LINKS = [
   { href: "/shop", label: "Shop" },
-  { href: "/privacy", label: "Privacy" },
+  // "Privacy Policy" in full: an automated reviewer looks for the phrase,
+  // and "Privacy" alone was one of the things Google could not find.
+  { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms" },
   // The route is still /refund; the policy behind it is an exchange policy.
   { href: "/refund", label: "Exchanges" },

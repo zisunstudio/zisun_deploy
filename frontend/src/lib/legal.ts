@@ -36,6 +36,9 @@ type CompanyDetails = {
   websiteUrl: string;
 };
 
+/** The canonical origin. Used by robots.txt, the sitemap and metadataBase. */
+export const SITE_URL = "https://zisun.in";
+
 export const COMPANY: CompanyDetails = {
   // TODO: GSTIN 29BAYPT2026A1ZH carries PAN BAYPT2026A, whose fourth character
   // "P" marks an individual proprietorship. The registered legal name is

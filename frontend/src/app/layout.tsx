@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SITE_URL } from "@/lib/legal";
 import { BRAND_TITLE } from "@/lib/brand";
 import { Caveat, Instrument_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
@@ -20,6 +21,7 @@ const display = Instrument_Serif({ subsets: ["latin"], variable: "--font-display
 const hand = Caveat({ subsets: ["latin"], variable: "--font-hand" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: BRAND_TITLE,
   description:
     "Handwoven South Indian cotton, cut for the way you actually live. Kurtis and co-ords in breathable cotton, made for Bengaluru, Chennai and Kochi.",
