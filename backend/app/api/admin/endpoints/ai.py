@@ -126,3 +126,58 @@ async def ai_describe(body: DescribeRequest):
     except ai.AIUnavailable as exc:
         raise HTTPException(503, str(exc))
     return {"description": text, "model": settings.AI_MODEL}
+
+
+class StylingRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    facts: dict[str, Any] = Field(default_factory=dict)
+
+
+STYLING_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "notes": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "occasion": {"type": "string", "description": "Two or three words, e.g. 'The office', 'A long lunch', 'A family function'."},
+                    "note": {"type": "string", "description": "35-55 words. Footwear, jewellery, hair, a bag, a layer - concrete and wearable in Indian weather."},
+                },
+                "required": ["occasion", "note"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["notes"],
+    "additionalProperties": False,
+}
+
+
+@router.post("/styling")
+async def ai_styling(body: StylingRequest):
+    """Three ways to wear a piece, drafted for the founder to edit.
+
+    A draft, never a publish: the console puts these in the form and she
+    saves them like any other field. Only what she saves reaches a customer.
+    """
+    facts = "\n".join(f"- {k}: {v}" for k, v in body.facts.items() if v not in (None, "", [], {}))
+    user = (
+        f"Product: {body.name}\nFacts:\n{facts or '- (none given)'}\n\n"
+        "Write three ways to wear this piece, for three different occasions in the life of a "
+        "woman in an Indian city. Speak as the founder advising a friend: specific things she "
+        "already owns (kolhapuris, jhumkas, a tote, a watch), never brand names, never "
+        "'elevate', 'effortless' or 'chic'. Do not invent facts about the garment."
+    )
+    try:
+        result = await ai.extract(BRAND_VOICE, user, STYLING_SCHEMA, name="styling")
+    except ai.AIUnavailable as exc:
+        raise HTTPException(503, str(exc))
+    notes = [
+        {"occasion": str(n.get("occasion", "")).strip()[:40], "note": str(n.get("note", "")).strip()[:360]}
+        for n in result.get("notes", [])
+        if n.get("occasion") and n.get("note")
+    ]
+    return {"notes": notes[:4], "model": settings.AI_MODEL}

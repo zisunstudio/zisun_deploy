@@ -203,6 +203,20 @@ class SizeChart(BaseModel):
         return rows
 
 
+class StylingNote(BaseModel):
+    """One way to wear a piece: where to, and how."""
+    occasion: str = Field(..., min_length=1, max_length=40)
+    note: str = Field(..., min_length=1, max_length=360)
+
+    @field_validator("occasion", "note")
+    @classmethod
+    def trimmed(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("cannot be blank")
+        return v
+
+
 class MerchandisingFields(BaseModel):
     """Offers, shelf position and the size chart, as an admin submits them."""
 
@@ -214,6 +228,9 @@ class MerchandisingFields(BaseModel):
     # Manual shelf position; None = let attention decide.
     shelf_rank: Optional[int] = Field(None, ge=0, le=100000)
     size_chart: Optional[SizeChart] = None
+    # Ways to wear it. Four is the ceiling: the product page shows them as
+    # chips on one line of a phone, and a fifth wraps.
+    styling_notes: Optional[List[StylingNote]] = Field(None, max_length=4)
 
     def merchandising_values(self) -> dict:
         supplied = self.model_dump(exclude_unset=True)
@@ -461,6 +478,9 @@ class ProductResponse(ProductBase):
     # back to the category chart when this is null.
     size_chart: Optional[SizeChart] = None
     shelf_rank: Optional[int] = None
+    # How the founder would wear it, by occasion. Null or empty hides the
+    # section on the product page.
+    styling_notes: Optional[List[StylingNote]] = None
 
     class Config:
         from_attributes = True

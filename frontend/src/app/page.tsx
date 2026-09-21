@@ -14,7 +14,8 @@ import { POLICY_TERMS } from "@/lib/legal";
 import { DealsRail } from "@/components/DealsRail";
 import { FeedItem, feedItemImage } from "@/components/FeedCard";
 import { Reveal } from "@/components/Reveal";
-import { CRAFT, HERO, MANIFESTO, OCCASIONS } from "@/lib/brand";
+import { CRAFT, HERO, LOOM, MANIFESTO, OCCASIONS, daypartAt } from "@/lib/brand";
+import { Weave } from "@/components/Weave";
 import { markOpenSource } from "@/lib/enquiry";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
@@ -60,6 +61,17 @@ export default function HomePage() {
   // shelf decides what is shown beneath it, so a pinned piece leads the grid.
   const { data: dropData, isLoading: loadingDrop } = useProducts({ limit: 6, sort_by: "shelf" });
   const heroRef = useRef<HTMLDivElement>(null);
+  // Her clock, read after mount: the server has no idea what time it is for
+  // her, and guessing would flash the wrong greeting before correcting it.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => { setNow(new Date()); }, []);
+  const daypart = now ? daypartAt(now.getHours()) : null;
+  // Today's cloth: the colours of whatever is in the drop, seeded by the
+  // date, so the loom weaves something new every day without anyone
+  // touching it.
+  const loomColours = Array.from(new Set((dropData?.items ?? []).flatMap((p) => p.variants.map((v) => v.color)).filter(Boolean))) as string[];
+  const loomSeed = now ? `zisun-${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}` : null;
+  const loomDate = now ? now.toLocaleDateString("en-IN", { day: "numeric", month: "long" }) : "";
   const isSignedIn = useAuthStore((s) => s.isAuthenticated());
 
   // Accumulate feed pages
@@ -246,6 +258,16 @@ export default function HomePage() {
           ))}
         </ul>
 
+        {/* The part of the day she is in. One line in serif, reserved at a
+            fixed height so it arrives without moving the page. */}
+        <div className="px-5 min-h-[72px] lg:min-h-[60px] flex items-center justify-center" aria-live="off">
+          {daypart && (
+            <p className="max-w-md text-center font-display text-[21px] lg:text-[24px] leading-[1.25] text-ink text-balance animate-fade-up">
+              {daypart.greeting} <em className="italic text-muted">{daypart.line}</em>
+            </p>
+          )}
+        </div>
+
         <DealsRail />
 
         {/* The drop: six pieces, photograph, name, price. No buttons - the
@@ -273,7 +295,29 @@ export default function HomePage() {
         {/* What the label is for. Three lines of serif with air around them,
             between the drop and the categories, so the visitor meets the
             point of view before the taxonomy. */}
-        <Reveal className="mt-24 lg:mt-36 px-5 lg:px-8">
+        {/* The loom. Full-bleed, in the colours of the drop above it, and
+            woven by the scroll: the weft advances as she moves down the page.
+            It sits directly over the label's statement so the cloth finishes
+            as the words arrive. Not inside a Reveal - it has its own entrance
+            and a fade on top of a weave is two ideas. */}
+        {loomSeed && (
+          <section className="mt-24 lg:mt-36" aria-labelledby="loom-heading">
+            <div className="px-5 lg:px-8 max-w-6xl mx-auto flex items-end justify-between gap-4 mb-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-burgundy">{LOOM.eyebrow} · {loomDate}</p>
+                <h2 id="loom-heading" className="font-display text-[34px] lg:text-[44px] leading-none text-ink mt-1.5">{LOOM.heading}</h2>
+              </div>
+            </div>
+            <div className="h-[46svh] min-h-[280px] lg:h-[52vh] bg-rose">
+              <Weave seed={loomSeed} colours={loomColours} mode="scroll" cols={84} rows={60} label="A handloom cloth in the colours of this week's drop, being woven as you scroll" />
+            </div>
+            <p className="px-5 lg:px-8 max-w-6xl mx-auto mt-4 text-[13px] leading-relaxed text-muted">
+              {LOOM.body} <span className="text-ink">{LOOM.touch}</span>
+            </p>
+          </section>
+        )}
+
+        <Reveal className="mt-20 lg:mt-28 px-5 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <p className="font-display text-[30px] lg:text-[48px] leading-[1.1] text-ink text-balance">
               {MANIFESTO.lines.map((line, i) => (

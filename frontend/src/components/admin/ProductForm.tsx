@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
-import type { SizeChart } from "@/lib/queries/catalog";
+import type { SizeChart, StylingNote } from "@/lib/queries/catalog";
+import StylingNotesEditor from "@/components/admin/StylingNotesEditor";
 import SizeChartEditor from "@/components/admin/SizeChartEditor";
 import { adminApi } from "@/lib/adminApi";
 import { PALETTE, swatchStyle } from "@/lib/colours";
@@ -59,6 +60,8 @@ export interface ProductFormData {
   offer_ends_at: string;
   /** Per-product size chart; null uses the category chart on the storefront. */
   size_chart: SizeChart | null;
+  /** Ways to wear it; empty hides the section on the product page. */
+  styling_notes: StylingNote[];
 }
 
 interface Category {
@@ -88,7 +91,7 @@ export function emptyProductForm(): ProductFormData {
     has_pockets: "", colourfastness: "", wash_care: "",
     colour: "", print_type: "", pattern: "", neck_type: "",
     sleeve_type: "", sleeve_attached: "", dupatta_included: "",
-    compare_at_rupees: "", offer_ends_at: "", size_chart: null,
+    compare_at_rupees: "", offer_ends_at: "", size_chart: null, styling_notes: [],
   };
 }
 
@@ -465,6 +468,32 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <p className="text-xs text-gray-400 mt-1">The storefront counts down to this and stops the offer at it.</p>
           </div>
         </div>
+        </div>
+      </details>
+
+      {/* Ways to wear it. Open on the full form: it is the newest thing she
+          can say about a piece and the one Claude is most use for. */}
+      <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
+        <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold text-gray-900">Ways to wear it</span>
+          <span className="text-xs text-gray-400">{data.styling_notes.length ? `${data.styling_notes.length} written` : "optional"}</span>
+        </summary>
+        <div className="px-5 pb-5">
+          <p className="text-xs text-gray-400 mt-1 mb-4">
+            How you would wear this to the office, to lunch, to a function. Shown on the product page under the description, one occasion at a time.
+          </p>
+          <StylingNotesEditor
+            value={data.styling_notes}
+            onChange={(n) => onChange({ ...data, styling_notes: n })}
+            name={data.name}
+            facts={{
+              category: categories.find((c) => c.id === data.category_id)?.name ?? null,
+              description: data.description || null, colour: data.colour,
+              fabric_composition: data.fabric_composition, weave: data.weave,
+              print_type: data.print_type, pattern: data.pattern, neck_type: data.neck_type,
+              sleeve_type: data.sleeve_type, has_pockets: data.has_pockets, dupatta_included: data.dupatta_included,
+            }}
+          />
         </div>
       </details>
 

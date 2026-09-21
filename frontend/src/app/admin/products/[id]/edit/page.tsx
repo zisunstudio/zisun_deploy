@@ -45,6 +45,7 @@ export default function EditProductPage() {
     compare_at_rupees: "",
     offer_ends_at: "",
     size_chart: null,
+    styling_notes: [],
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -107,6 +108,7 @@ export default function EditProductPage() {
         ? new Date(new Date(product.offer_ends_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
         : "",
       size_chart: product.size_chart ?? null,
+      styling_notes: product.styling_notes ?? [],
     });
     setVariants(
       (product.variants ?? []).map((v: any) => ({
@@ -156,6 +158,7 @@ export default function EditProductPage() {
         compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
         offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
         size_chart: form.size_chart,
+        styling_notes: form.styling_notes.map((n) => ({ occasion: n.occasion.trim(), note: n.note.trim() })).filter((n) => n.occasion && n.note),
       });
     },
     onSuccess: () => {

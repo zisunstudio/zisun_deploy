@@ -123,3 +123,53 @@ export const CRAFT = [
   { title: "Small batches", body: "Never re-run. A colour that sells out is a dye lot that will not come back." },
   { title: "Made for the heat", body: "Open, breathable weaves for Indian summers and long days." },
 ] as const;
+
+/**
+ * The site knows what time it is.
+ *
+ * ZISUN is a point of view about the ordinary day, so the page says
+ * something about the part of the day the visitor is actually in. One line,
+ * under the hero, from her own clock. `from` is the hour it starts (24h);
+ * the last entry before the current hour wins, and the list wraps, so the
+ * late-night line also covers the small hours. Hers to rewrite - keep them
+ * short enough for two lines on a phone.
+ */
+export const DAYPARTS = [
+  { from: 5, greeting: "Good morning.", line: "The day has not decided what it is yet. You can." },
+  { from: 11, greeting: "It is the middle of the day.", line: "The best-dressed hour is the one nobody planned." },
+  { from: 16, greeting: "Good evening.", line: "Somewhere to be, or nowhere at all. Both deserve cotton." },
+  { from: 21, greeting: "It is late.", line: "Tomorrow's outfit is a good thing to fall asleep having decided." },
+] as const;
+
+export function daypartAt(hour: number) {
+  const past = DAYPARTS.filter((d) => d.from <= hour);
+  return past.length ? past[past.length - 1] : DAYPARTS[DAYPARTS.length - 1];
+}
+
+/**
+ * The loom on the home page: a cloth in the colours of the current drop,
+ * woven by the visitor's scroll, and a different cloth every day.
+ */
+export const LOOM = {
+  eyebrow: "On the loom",
+  heading: "Every piece begins like this.",
+  body: "Thread over thread, by hand. Keep scrolling: you are the shuttle.",
+  touch: "Go on, touch it.",
+} as const;
+
+/** The caption under a piece's own weave on its product page. */
+export const WEAVE = {
+  eyebrow: "The weave",
+  body: "Drawn from this piece's own colours, and from nothing else. No other piece has this cloth.",
+  touch: "Touch it.",
+} as const;
+
+/**
+ * "Ways to wear it" on the product page. The credit line is there because
+ * it is true: the notes are drafted with AI in the console and she edits and
+ * approves every one. Saying so is the honest version of an "AI stylist".
+ */
+export const WAYS_TO_WEAR = {
+  eyebrow: "Ways to wear it",
+  credit: "Drafted with AI, edited and approved by Sushmita.",
+} as const;

@@ -147,6 +147,20 @@ Anthropic bill is bounded by the founder's own use. Every feature degrades
 to a plain message when `ANTHROPIC_API_KEY` is unset or the account has no
 credits; the brief falls back to rule-written sentences.
 
+**The storefront never calls a model.** "Ways to wear it" is
+`products.styling_notes` (migration 0014): drafted by Claude at
+`/admin/ai/styling`, edited and saved by the founder, served as stored text.
+Any future "AI" on a customer-facing page follows the same shape - generate
+behind the admin role, store, serve - or it breaks the rule above and puts
+the Anthropic bill in strangers' hands.
+
+**A piece's weave is its id.** `designWeave(product.id, colours)` in
+`frontend/src/lib/weave.ts` is deterministic and its number ("No. D20A") is
+shown to customers. Changing the hash, the RNG, or the order in which
+`designWeave` draws random numbers re-numbers and re-weaves every piece
+ever shown; add new seeded choices *after* the existing ones. The canvas
+redraws only while weaving or rippling - do not add a free-running loop.
+
 ## Traps found the hard way
 
 Each of these produced a green build or a healthy-looking deploy:

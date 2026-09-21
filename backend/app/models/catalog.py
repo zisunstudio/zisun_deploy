@@ -115,6 +115,12 @@ class Product(BaseModel):
     # customer can toggle. bottom_length is optional per row.
     size_chart: Mapped[Optional[dict]] = mapped_column(JSONB)
 
+    # ── Ways to wear it ───────────────────────────────────────────────────────
+    # [{"occasion": "The office", "note": "..."}], at most four. Drafted by
+    # Claude in the console, edited by the founder, served as stored text -
+    # the storefront never calls a model.
+    styling_notes: Mapped[Optional[list]] = mapped_column(JSONB)
+
     # ── Garment attributes ────────────────────────────────────────────────────
     # The questions a customer asks before buying ethnic wear, and the ones the
     # founder is answering by hand in the WhatsApp group today. Every one is a

@@ -26,6 +26,8 @@ import { CouponTicket } from "@/components/CouponTicket";
 import { swatchStyle } from "@/lib/colours";
 import { recordEnquiry, takeOpenSource } from "@/lib/enquiry";
 import { useActiveCoupons } from "@/lib/queries/coupons";
+import { PieceWeave } from "@/components/PieceWeave";
+import { WaysToWear } from "@/components/WaysToWear";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -357,6 +359,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           {product.description && (
             <p className="mt-2 font-display text-[19px] lg:text-[21px] text-ink leading-[1.45]">{product.description}</p>
           )}
+          {/* Desire, continued: how she would actually wear it. */}
+          <WaysToWear notes={product.styling_notes} />
           {/* Reassurance after desire, before the facts. */}
           <ProductAssurances />
 
@@ -373,6 +377,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           {/* Above the statutory declarations, and open rather than behind a
               toggle: this is the argument for buying, and the block below is a
               legal obligation. */}
+          <PieceWeave productId={product.id} colours={selectedColour ? [selectedColour, ...colours.filter((c) => c !== selectedColour)] : colours} />
           {product.fabric_specs && <FabricSpecs specs={product.fabric_specs} />}
           {product.garment_attributes && (
             <GarmentDetails attributes={product.garment_attributes} />

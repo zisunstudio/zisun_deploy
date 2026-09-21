@@ -65,6 +65,9 @@ depth comes from photography, not from CSS. One primary action per screen.
 
 **Motion.** Sections rise 18px as they enter, once. The hero's words arrive
 in sequence. Nothing spins, scrolls sideways on its own, or pulses.
+The one exception is the loom (§8), which moves only because the visitor
+moves it: it weaves with her scroll and gives under her finger, then is
+still. Nothing on the site animates by itself in a loop.
 
 **Photography** is the highest-leverage element and the one code cannot
 supply. The hero and cards use the first photograph of the featured piece;
@@ -144,3 +147,45 @@ product page on a phone and ask, without reading: does this feel different,
 feminine, tasteful, trustworthy and modern; do I want to scroll; can I
 imagine wearing it? If a change makes the answer to any of those weaker,
 it is not done.
+
+## 8. The living layer
+
+The first pass made the site tasteful. Tasteful is a 4/10 experience: nothing
+on it could only have been made by ZISUN, and nothing on it was alive. The
+catalogue is small (one piece, at the time of writing), so "AI that
+recommends" would be theatre. What a small label *can* do that a marketplace
+cannot is make one piece, and the day she is wearing it in, feel attended to.
+Three additions, each an expression of something already in the thesis:
+
+**The loom** (`lib/weave.ts`, `components/Weave.tsx`). A generative cloth
+with the real structure of South Indian handloom: a warp in the piece's
+colour, a weft of ivory that has taken some of the dye, irregular
+pinstripes, a ribbed burgundy-and-gold selvedge, and one of four
+interlacings. It is deterministic from a seed.
+- On the home page the seed is today's date and the colours are the drop's,
+  so there is a new cloth every day with nobody touching it, and the visitor
+  weaves it by scrolling: bare warp first, weft rising row by row, shuttle
+  alternating. It sits directly above the label's statement.
+- On a product page the seed is the product id, led by the selected colour.
+  "No. D20A · Herringbone" is that piece's weave on every device, forever,
+  which is what lets it go on a swing tag or an order card later.
+- It answers a touch with a ripple and the lightest haptic tick.
+Burgundy in the selvedge is within the colour rule: it is the label's hand
+on the cloth, which is where memory is built. Colours come from
+`colours.ts` by name; the file has no hex codes.
+
+**The day** (`DAYPARTS` in `lib/brand.ts`). ZISUN is "a point of view about
+the ordinary day", so the page says one line about the part of the day she
+is actually in, read from her clock after mount. Four lines, hers to rewrite.
+
+**Ways to wear it** (`components/WaysToWear.tsx`, `products.styling_notes`).
+Occasion chips under the description; one note at a time in the serif, in
+the same voice as the description. Claude drafts them in the console from
+the facts on the form, she edits and saves, and the page serves stored
+text. The credit line says exactly that, because an honest "drafted with
+AI, approved by Sushmita" is a better brand statement than a chatbot.
+
+Review additions to §7: scroll the home page on a mid-range Android and
+watch the loom - if it stutters, lower `cols`/`rows` before shipping; and
+check every new section with reduced motion on, where the cloth must
+simply be there, finished.

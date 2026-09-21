@@ -86,6 +86,9 @@ export interface SizeChart {
   rows: SizeChartRow[];
 }
 
+/** One way to wear a piece: where to, and how. */
+export interface StylingNote { occasion: string; note: string }
+
 export interface GarmentAttributes {
   colour: string | null;
   print_type: string | null;
@@ -114,6 +117,7 @@ export interface Product {
   offer: Offer;
   size_chart: SizeChart | null;
   shelf_rank: number | null;
+  styling_notes?: StylingNote[] | null;
 }
 
 export interface ProductListResponse {
