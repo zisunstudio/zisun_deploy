@@ -105,6 +105,8 @@ export default function NewProductPage() {
         size_chart: form.size_chart,
         model_size: form.model_size.trim(),
         model_height: form.model_height.trim(),
+        worn_by_founder: form.worn_by_founder,
+        named_for: form.named_for.trim(),
         fit: form.fit.trim(),
         garment_length: form.garment_length.trim(),
         embroidery: form.embroidery.trim(),

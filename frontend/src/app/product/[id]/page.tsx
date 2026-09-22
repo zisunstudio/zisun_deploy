@@ -28,7 +28,7 @@ import { recordEnquiry, takeOpenSource } from "@/lib/enquiry";
 import { useActiveCoupons } from "@/lib/queries/coupons";
 import { PieceWeave } from "@/components/PieceWeave";
 import { WaysToWear } from "@/components/WaysToWear";
-import { AVAILABILITY, INCLUDED } from "@/lib/brand";
+import { AVAILABILITY, FOUNDER, INCLUDED } from "@/lib/brand";
 import { setExpressItem } from "@/lib/buyNow";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -325,6 +325,12 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <h1 className="font-display text-[34px] lg:text-[44px] text-ink leading-[1.02] mb-3 text-balance">
             {product.name}
           </h1>
+          {/* Who the piece is named for. The tale in "Tales, Antiqued." -
+              one line, in the serif italic, directly under her name so the
+              name reads as a person rather than a SKU. */}
+          {product.named_for?.trim() && (
+            <p className="-mt-1 mb-3 font-display italic text-[17px] leading-snug text-muted text-balance">{product.named_for.trim()}</p>
+          )}
           <div className="mb-4">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-ink text-[20px] font-medium tabular-nums">{formatPrice(price)}</p>
@@ -426,13 +432,24 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           {/* The fit cue a chart cannot give: a real person, her height and
               her size, to compare against. Sits under the sizes, where the
               decision is being made. */}
-          {product.model_size?.trim() && (
+          {product.worn_by_founder ? (
+            /* Not a model: the founder, at the customer's own height. The
+               most honest fit guide a small label can offer, stated once
+               and plainly. */
+            <div className="-mt-2 mb-4">
+              <p className="text-xs text-ink">
+                Worn by {FOUNDER.name}, the founder &middot; {FOUNDER.heightCm} cm
+                {product.model_size?.trim() && <> &middot; size <span className="font-medium">{product.model_size.trim()}</span></>}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{FOUNDER.fitNote}</p>
+            </div>
+          ) : product.model_size?.trim() ? (
             <p className="-mt-2 mb-4 text-xs text-muted">
               {product.model_height?.trim()
                 ? <>Model is {product.model_height.trim()} and wears <span className="text-ink font-medium">{product.model_size.trim()}</span></>
                 : <>Model wears size <span className="text-ink font-medium">{product.model_size.trim()}</span></>}
             </p>
-          )}
+          ) : null}
           {/* Only for a size she has chosen: "Only 1 left in XL" about a
               size she never picked is noise, and reads as pressure. */}
           {selectedVariant && sizeReady && !BROWSE_ONLY && selectedVariant.stock <= AVAILABILITY.lowStockAt && (

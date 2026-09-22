@@ -156,6 +156,12 @@ class Product(BaseModel):
     # chart cannot give - a real person to compare herself with.
     model_size: Mapped[Optional[str]] = mapped_column(String(12))
     model_height: Mapped[Optional[str]] = mapped_column(String(20))
+    # Sushmita models her own pieces. True prints "Worn by Sushmita, the
+    # founder - 153 cm" instead of an anonymous model line.
+    worn_by_founder: Mapped[Optional[bool]] = mapped_column(Boolean)
+    # Who the piece is named for, in one line: "Meera, my grandmother, who
+    # wore cotton every day of her life." The tale in "Tales, Antiqued."
+    named_for: Mapped[Optional[str]] = mapped_column(String(160))
 
     variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"

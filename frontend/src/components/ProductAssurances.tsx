@@ -45,8 +45,11 @@ const ITEMS: Assurance[] = [
     href: "/refund",
   },
   {
+    // Free was always true - the order total has never carried a shipping
+    // line - and the site never said so. The shipping policy now commits to
+    // it; this is the promise stated where it is decided.
     Icon: Truck,
-    text: `Dispatched in ${POLICY_TERMS.dispatchTimeframe}, ships across India`,
+    text: `Free shipping across India · dispatched in ${POLICY_TERMS.dispatchTimeframe}`,
     href: "/shipping",
   },
   {

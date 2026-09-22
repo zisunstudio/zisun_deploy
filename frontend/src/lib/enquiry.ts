@@ -47,7 +47,7 @@ export function recordEnquiry(payload: EnquiryPayload): void {
  * compared with the impressions of the surface that produced it. Opens with
  * no source (a shared link, a search result, the back button) are "direct".
  */
-export function markOpenSource(source: "card" | "hero" | "deal" | "search" | "category"): void {
+export function markOpenSource(source: "card" | "hero" | "deal" | "search" | "category" | "story"): void {
   try { sessionStorage.setItem("zisun.open_source", source); } catch { /* ignore */ }
 }
 export function takeOpenSource(): string {

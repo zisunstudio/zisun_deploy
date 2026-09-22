@@ -129,6 +129,10 @@ export interface Product {
   /** Who wears it in the photographs: "M", "5'4\"". */
   model_size?: string | null;
   model_height?: string | null;
+  /** Sushmita models her own pieces; true prints "Worn by Sushmita · 153 cm". */
+  worn_by_founder?: boolean | null;
+  /** One line about the woman the piece is named for. */
+  named_for?: string | null;
 }
 
 export interface ProductListResponse {

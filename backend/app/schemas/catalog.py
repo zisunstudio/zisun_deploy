@@ -258,8 +258,10 @@ class MerchandisingFields(BaseModel):
     # The model in the photographs. Blank is "", so it can be cleared.
     model_size: Optional[str] = Field(None, max_length=12)
     model_height: Optional[str] = Field(None, max_length=20)
+    worn_by_founder: Optional[bool] = None
+    named_for: Optional[str] = Field(None, max_length=160)
 
-    @field_validator("model_size", "model_height")
+    @field_validator("model_size", "model_height", "named_for")
     @classmethod
     def trim_model(cls, v: Optional[str]) -> Optional[str]:
         return None if v is None else v.strip()
@@ -589,6 +591,9 @@ class ProductResponse(ProductBase):
     # "Model is 5'4" and wears M". Empty hides the line.
     model_size: Optional[str] = None
     model_height: Optional[str] = None
+    worn_by_founder: Optional[bool] = None
+    # One line about the woman the piece is named for. Empty hides it.
+    named_for: Optional[str] = None
 
     class Config:
         from_attributes = True

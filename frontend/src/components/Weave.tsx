@@ -27,6 +27,7 @@ export function Weave({
   label,
   className = "",
   onSpec,
+  still = false,
 }: {
   seed: string;
   colours: (string | null | undefined)[];
@@ -36,8 +37,10 @@ export function Weave({
   label: string;
   className?: string;
   onSpec?: (spec: WeaveSpec) => void;
+  /** The finished cloth, drawn once: for print (hang tags) and thumbnails. */
+  still?: boolean;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotion() || still;
   const canvas = useRef<HTMLCanvasElement>(null);
   const colourKey = colours.filter(Boolean).join("|");
   // eslint-disable-next-line react-hooks/exhaustive-deps

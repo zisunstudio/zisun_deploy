@@ -6,6 +6,7 @@ import StylingNotesEditor from "@/components/admin/StylingNotesEditor";
 import SetPiecesEditor from "@/components/admin/SetPiecesEditor";
 import SizeChartEditor from "@/components/admin/SizeChartEditor";
 import { adminApi } from "@/lib/adminApi";
+import { FOUNDER } from "@/lib/brand";
 import { PALETTE, swatchStyle } from "@/lib/colours";
 
 /** The price points this label sells at. Edit freely; it is a shortcut, not a rule. */
@@ -63,6 +64,10 @@ export interface ProductFormData {
   /** The model in the photographs. */
   model_size: string;
   model_height: string;
+  /** Sushmita is wearing it in the photographs. */
+  worn_by_founder: boolean;
+  /** One line about the woman the piece is named for. */
+  named_for: string;
   /**
    * Offer. Rupees in the form, paise on the wire like base_price; empty means
    * no offer. offer_ends_at is a datetime-local string, or "" for open-ended.
@@ -103,7 +108,7 @@ export function emptyProductForm(): ProductFormData {
     colour: "", print_type: "", pattern: "", neck_type: "",
     sleeve_type: "", sleeve_attached: "", dupatta_included: "",
     fit: "", garment_length: "", embroidery: "", bottom_type: "", occasion: "", set_pieces: [],
-    model_size: "", model_height: "",
+    model_size: "", model_height: "", worn_by_founder: false, named_for: "",
     compare_at_rupees: "", offer_ends_at: "", size_chart: null, styling_notes: [],
   };
 }
@@ -210,11 +215,20 @@ export default function ProductForm({ data, onChange, categories, compact = fals
         </label>
         <input
           className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
-          placeholder="e.g. Floral Kurta Set"
+          placeholder="e.g. Meera — purple rose co-ord set"
           value={data.name}
           onChange={f("name")}
           required
         />
+        {/* The tale. Shown under the name on the product page in italic. */}
+        <input
+          className="mt-2 w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
+          placeholder="Named for… e.g. Meera, my grandmother, who wore cotton every day of her life."
+          maxLength={160}
+          value={data.named_for}
+          onChange={f("named_for")}
+        />
+        <p className="text-[11px] text-gray-500 mt-1">Give each piece a woman&rsquo;s name, and say in one line who she is. Optional.</p>
       </div>
 
       <div>
@@ -614,12 +628,25 @@ export default function ProductForm({ data, onChange, categories, compact = fals
         <SizeChartEditor value={data.size_chart} onChange={(c) => onChange({ ...data, size_chart: c })} />
         {/* Printed under the size buttons as "Model is 5'4" and wears M" -
             the fit cue a chart cannot give. */}
-        <div className="mt-5 border-t border-gray-100 pt-4 grid grid-cols-2 gap-4">
+        <label className="mt-5 border-t border-gray-100 pt-4 flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox" className="mt-0.5 h-5 w-5 accent-burgundy"
+            checked={data.worn_by_founder}
+            onChange={(e) => onChange({ ...data, worn_by_founder: e.target.checked })}
+          />
+          <span>
+            <span className="block text-sm font-medium text-gray-800">I am wearing it in the photos</span>
+            <span className="block text-[11px] text-gray-500 mt-0.5">
+              The page says &ldquo;Worn by {FOUNDER.name}, the founder &middot; {FOUNDER.heightCm} cm&rdquo; &mdash; about the height of most Indian women, which makes it the best fit guide on the page.
+            </span>
+          </span>
+        </label>
+        <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Model wears</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Size in the photos</label>
             <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="M" maxLength={12} value={data.model_size} onChange={f("model_size")} />
           </div>
-          <div>
+          <div className={data.worn_by_founder ? "hidden" : ""}>
             <label className="block text-sm font-medium text-gray-700 mb-1">Model height</label>
             <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder={"5'4\""} maxLength={20} value={data.model_height} onChange={f("model_height")} />
           </div>

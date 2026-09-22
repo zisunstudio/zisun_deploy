@@ -39,6 +39,11 @@ export function FounderNote() {
         ) : showDevSlots ? (
           <DevSlot label="FOUNDER.story" hint="One or two sentences, in her voice." />
         ) : null}
+        {/* The fit promise, in her voice: she is the model, and she is the
+            customer's height. Said once here, and on every piece she wears. */}
+        {FOUNDER.modelNote && (
+          <p className="mt-4 max-w-prose text-[15px] lg:text-base leading-relaxed text-ink/80">{FOUNDER.modelNote}</p>
+        )}
         <div className="mt-8 flex items-center gap-3">
           {FOUNDER.portrait && (
             <Image src={FOUNDER.portrait} alt={FOUNDER.name} width={40} height={40} className="rounded-full object-cover" />

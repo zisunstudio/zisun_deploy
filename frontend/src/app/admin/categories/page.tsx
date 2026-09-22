@@ -96,7 +96,7 @@ export default function AdminCategoriesPage() {
   return (
     <Page title="Categories" description="Each one is an occasion on the home page; its description is the line under the name." actions={<><button
           onClick={openCreate}
-          className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#4a2a12]"
+          className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-ink/85"
         >
           <Plus className="w-4 h-4" /> New Category
         </button></>}>

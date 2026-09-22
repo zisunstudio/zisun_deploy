@@ -68,7 +68,7 @@ export const COMPANY: CompanyDetails = {
 };
 
 /** Last reviewed date shown on each policy. Update when you change a policy. */
-export const POLICY_LAST_UPDATED = "22 August 2026";
+export const POLICY_LAST_UPDATED = "22 September 2026";
 
 /**
  * Windows referenced across the policies — keep these consistent with ops reality.

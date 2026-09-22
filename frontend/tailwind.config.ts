@@ -6,9 +6,12 @@ import type { Config } from "tailwindcss";
  * ink      the text and the buy button. Not black: a black with a plum cast,
  *          so it sits with the pinks and reds people said they wear rather
  *          than against them.
- * porcelain the ground. Near-neutral with a trace of warmth, for the same
- *          reason the old cream went: the garment is the only saturated
- *          thing on the screen.
+ * porcelain the ground: unbleached cotton. The colour of her cloth before
+ *          it is dyed - warm enough to feel held, pale enough that the
+ *          garment is still the only saturated thing on the screen. It was
+ *          a near-neutral ivory (#FAF8F6) until the founder asked for the
+ *          warmth a handloom label should have; the name stayed so no call
+ *          site changed.
  * burgundy the brand colour — the founder's covers and cards are burgundy,
  *          so the site is too. Spent where a thumb should stop: offers,
  *          timers, the heart, the underline under a heading, the footer.
@@ -31,10 +34,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#FAF8F6",
+        background: "#FAF3E8",
         foreground: "#1A1417",
         ink: "#1A1417",
-        porcelain: "#FAF8F6",
+        porcelain: "#FAF3E8",
         burgundy: { DEFAULT: "#7A1F3A", deep: "#5E1630", soft: "#F5E6EA" },
         rani: { DEFAULT: "#7A1F3A", soft: "#F5E6EA" },
         haldi: { DEFAULT: "#F2C14E", deep: "#D9A62E" },

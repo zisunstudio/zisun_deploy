@@ -77,6 +77,18 @@ export const FOUNDER = {
 
   /** Optional portrait in /public. */
   portrait: null as string | null,
+
+  /**
+   * She photographs every piece on herself, and she is 153 cm - about the
+   * height of the average Indian woman (NFHS-5: 151-153 cm). That makes her
+   * a truer fit guide for this customer than any agency model, which is why
+   * the product page says "Worn by Sushmita" instead of "Model wears".
+   */
+  heightCm: 153,
+  /** Under the founder line on a product page. */
+  fitNote: "About the height of most Indian women, so this is close to how it will sit on you.",
+  /** In her note on the home page. First person, hers to rewrite. */
+  modelNote: "Every piece here is photographed on me. I am 153 cm, like most of the women I make these for - so what you see is how it really falls.",
 } as const;
 
 /**

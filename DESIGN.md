@@ -267,3 +267,39 @@ tapped; Buy now without one scrolls to the sizes and asks.
 The statutory block is titled **Legal declarations**, collapsed, last and
 muted. Every row in it is required on an online listing, so none can be
 removed; named for what it is, a shopper knows she can skip it.
+
+## 11. Real women, not models
+
+The founder liked The Loom Room (warm cream, burgundy, story circles,
+flat-lays with a branded tag, pieces named like women). We took the ideas,
+not the look, and pushed each one through a single ZISUN truth: **Sushmita
+models every piece herself, and she is 153 cm - about the height of the
+average Indian woman (NFHS-5: 151-153 cm).** An agency model shows how a
+kurta hangs on someone the customer is not. The founder shows how it hangs
+on her.
+
+- **"Worn by Sushmita, the founder · 153 cm · size M"** under the sizes,
+  with "About the height of most Indian women". Ticked per product in the
+  console. The same line heads every story frame, and her note on the home
+  page says it in the first person.
+- **Named for a woman.** Each piece can carry one italic line under its
+  name: who it is named for and who she was. "Tales, Antiqued." finally
+  has tales in it. Names are hers to choose.
+- **Unbleached cotton.** The ground warmed from near-neutral ivory to the
+  colour of her cloth before it is dyed (#FAF3E8), rather than a borrowed
+  peach. One token; the garment is still the only saturated thing.
+- **Free shipping across India, said out loud.** It was always free - the
+  order total has never carried a shipping line. The policy now commits to
+  it, and checkout shows "Shipping · Free" above the total.
+- **Stories.** Circles of the drop under the day's line. Tap for her
+  photographs full-screen - tap through, hold to pause, swipe down to
+  close - ending on the piece and "See the piece". An unwatched piece keeps
+  a burgundy ring; watched, it goes quiet.
+- **Hang tags with the weave.** Console → a product → Tags prints fold-over
+  tags, one per colour: the piece's weave and its number on the front, her
+  line, the recorded fabric and care on the back. The number on the parcel
+  is the number on the product page and on "It's yours".
+
+Not taken: their monogram, a permanent "Sale" badge on every piece, a
+scrolling announcement bar, floating buttons over the photographs, and
+their return promise.

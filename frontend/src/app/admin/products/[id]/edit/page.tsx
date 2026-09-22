@@ -1,8 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Tag } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import ProductForm, {
   priceToPaise,
@@ -53,6 +54,8 @@ export default function EditProductPage() {
     set_pieces: [],
     model_size: "",
     model_height: "",
+    worn_by_founder: false,
+    named_for: "",
     styling_notes: [],
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
@@ -124,6 +127,8 @@ export default function EditProductPage() {
       set_pieces: product.set_pieces ?? [],
       model_size: product.model_size ?? "",
       model_height: product.model_height ?? "",
+      worn_by_founder: Boolean(product.worn_by_founder),
+      named_for: product.named_for ?? "",
       styling_notes: product.styling_notes ?? [],
     });
     setVariants(
@@ -176,6 +181,8 @@ export default function EditProductPage() {
         size_chart: form.size_chart,
         model_size: form.model_size.trim(),
         model_height: form.model_height.trim(),
+        worn_by_founder: form.worn_by_founder,
+        named_for: form.named_for.trim(),
         fit: form.fit.trim(),
         garment_length: form.garment_length.trim(),
         embroidery: form.embroidery.trim(),
@@ -250,9 +257,13 @@ export default function EditProductPage() {
         <button onClick={() => router.back()} aria-label="Back" className="h-10 w-10 -ml-2 shrink-0 inline-flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-[22px] sm:text-2xl font-semibold text-gray-900 truncate">
+        <h1 className="min-w-0 flex-1 text-[22px] sm:text-2xl font-semibold text-gray-900 truncate">
           {product?.name ?? "Edit Product"}
         </h1>
+        {/* The piece's hang tags: its weave, per colour, ready to print. */}
+        <Link href={`/admin/products/${productId}/tag`} className="shrink-0 h-10 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-800 hover:bg-gray-50">
+          <Tag className="w-4 h-4" /> Tags
+        </Link>
       </div>
 
       {error && (

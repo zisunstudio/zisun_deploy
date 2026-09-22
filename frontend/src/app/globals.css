@@ -16,7 +16,7 @@
  * same family as the accent instead of sitting outside it.
  */
 :root {
-  --background: #FAF8F6;
+  --background: #FAF3E8; /* unbleached cotton - see tailwind.config.ts */
   --foreground: #1A1417;
   --rani: #7A1F3A; /* burgundy - the brand colour */
   --haldi: #F2C14E;

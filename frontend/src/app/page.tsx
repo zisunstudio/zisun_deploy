@@ -16,6 +16,7 @@ import { FeedItem, feedItemImage } from "@/components/FeedCard";
 import { Reveal } from "@/components/Reveal";
 import { CRAFT, HERO, LOOM, MANIFESTO, OCCASIONS, daypartAt } from "@/lib/brand";
 import { Weave } from "@/components/Weave";
+import { Stories } from "@/components/Stories";
 import { markOpenSource } from "@/lib/enquiry";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
@@ -253,7 +254,7 @@ export default function HomePage() {
             A three-column row rather than one dotted line: at phone width a
             single line broke mid-word, which is the opposite of quiet. */}
         <ul className="mx-auto max-w-3xl px-5 py-8 grid grid-cols-3 gap-3 text-center text-[10px] lg:text-[11px] uppercase tracking-[0.16em] lg:tracking-[0.2em] text-muted leading-snug">
-          {["Ships across India", `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange`, BROWSE_ONLY ? "Orders on WhatsApp" : "Cash on delivery"].map((line) => (
+          {["Free shipping across India", `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange`, BROWSE_ONLY ? "Orders on WhatsApp" : "Cash on delivery"].map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
@@ -266,6 +267,12 @@ export default function HomePage() {
               {daypart.greeting} <em className="italic text-muted">{daypart.line}</em>
             </p>
           )}
+        </div>
+
+        {/* The drop as stories - the browsing gesture already in her thumb.
+            Built from the drop query below, so it costs no extra request. */}
+        <div className="mt-2 mb-2">
+          <Stories products={dropData?.items ?? []} />
         </div>
 
         <DealsRail />

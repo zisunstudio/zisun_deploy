@@ -408,7 +408,7 @@ export default function CheckoutPage() {
             <Total total={totalPaise} />
             <ul className="mt-5 space-y-2 border-t border-line pt-4">
               <Assure Icon={ShieldCheck}>Payments handled by Razorpay. We never see your card or UPI details.</Assure>
-              <Assure Icon={Truck}>Dispatched in {POLICY_TERMS.dispatchTimeframe}, shipped across India.</Assure>
+              <Assure Icon={Truck}>Free shipping. Dispatched in {POLICY_TERMS.dispatchTimeframe}.</Assure>
               <Assure Icon={MessageCircle}>{POLICY_TERMS.exchangeRaiseWindowHours}h size exchange — message us and we sort it.</Assure>
             </ul>
             <Primary disabled={placing} onClick={placeOrder}>
@@ -471,9 +471,18 @@ function Field({ label, children, className = "" }: { label: string; children: R
 
 function Total({ total }: { total: number }) {
   return (
-    <div className="mt-6 flex items-baseline justify-between border-t border-line pt-4">
-      <span className="text-sm text-muted">Total</span>
-      <span className="font-display text-[26px] text-ink tabular-nums">{formatPrice(total)}</span>
+    <div className="mt-6 border-t border-line pt-4">
+      {/* A zero line she can see. "Free" beside shipping is the one moment
+          in checkout where the total gets no bigger than the price she
+          already accepted, and it is worth showing rather than implying. */}
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="text-muted">Shipping</span>
+        <span className="text-ink font-medium">Free</span>
+      </div>
+      <div className="mt-2 flex items-baseline justify-between">
+        <span className="text-sm text-muted">Total</span>
+        <span className="font-display text-[26px] text-ink tabular-nums">{formatPrice(total)}</span>
+      </div>
     </div>
   );
 }
