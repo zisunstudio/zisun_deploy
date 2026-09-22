@@ -17,9 +17,11 @@ import { markOpenSource } from "@/lib/enquiry";
 interface Props {
   product: Product;
   className?: string;
+  /** Off when every piece on the page is new - then the badge distinguishes nothing. */
+  markNew?: boolean;
 }
 
-export function ProductCard({ product, className = "" }: Props) {
+export function ProductCard({ product, className = "", markNew = true }: Props) {
   const router = useRouter();
   // Counts this card as shown once it has been half-visible for a
   // moment, giving the view count a denominator.
@@ -74,7 +76,7 @@ export function ProductCard({ product, className = "" }: Props) {
         <OfferBadge offer={product.offer} className="absolute top-2.5 left-2.5 z-10 shadow-sm" />
         {/* "New" for two weeks after listing, only when there is no offer badge
             in that corner — two pills stacked in one corner read as clutter. */}
-        {!product.offer?.active && Date.now() - new Date(product.created_at).getTime() < 14 * 86400000 && (
+        {markNew && !product.offer?.active && Date.now() - new Date(product.created_at).getTime() < 14 * 86400000 && (
           <span className="absolute top-2.5 left-2.5 z-10 rounded-sm bg-white/92 text-ink text-[10px] font-semibold px-1.5 py-0.5 tracking-[0.14em]">NEW</span>
         )}
         {isOutOfStock && (

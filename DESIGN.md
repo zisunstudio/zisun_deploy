@@ -384,3 +384,29 @@ freight paid twice for nothing. So:
   page, product page, checkout, footer and size guide; the refund and terms
   pages keep the full policy. The one step that must happen early - filming
   the parcel as it is opened - is a friendly tip on the "It's yours" screen.
+
+## 15. Feeling understood, not marketed to (audit of 2026-09-22)
+
+A review of the live site against one question - does ZISUN make a woman
+feel understood, or merely marketed to? - found the thesis stronger than
+the experience in four places. Each fix is a matter of hierarchy or truth,
+not decoration:
+
+- **The category tiles showed a different woman**, licensed stock in clothes
+  ZISUN does not sell, one section below "photographed on me". A tile now
+  shows a piece from that category on Sushmita; stock art is only the
+  fallback for an empty category. Her photographs are the proof; nothing
+  stands in for them.
+- **Scarcity is designed, not accidental.** Below `SMALL_COLLECTION_AT`
+  pieces the collection drops its filter, sort and search chrome and opens
+  "Two pieces. *That is the drop. When a piece goes, it goes.*" The home
+  page offers "Everything →" only when there is more than the drop shows,
+  and "NEW" appears only when it distinguishes one piece from another.
+- **Identity before trust.** The founder's note follows the manifesto - what
+  we believe, then who she is and who it is for - instead of sitting last,
+  after the craft facts.
+- **On the product page the facts outrank the mark.** Fabric, fit and the
+  garment come first; the ZISUN mark is the flourish before the small print.
+
+Still open, and not a design matter: the home page's handloom, Mangalgiri /
+Ilkal / Kasavu and never-re-run claims need the founder's confirmation.

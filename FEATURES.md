@@ -28,6 +28,8 @@ string, and every component, from `9a0585c` to `HEAD`).
 | The drop grid, quiet cards, "Only N left" at ≤3 | `frontend/src/components/ProductCard.tsx` | Live |
 | Today's pattern — drawn from the week's colours, woven by scroll, new each day (a pattern, not a claim about the fabric) | `frontend/src/components/Weave.tsx`, `frontend/src/lib/weave.ts` | Live |
 | Manifesto, occasions, craft facts | `frontend/src/lib/brand.ts` | Live |
+| Category tiles show a piece on Sushmita (stock art only for an empty category) | `frontend/src/components/CategoryCard.tsx` | Live |
+| Small collection presented as a drop (no chrome, count in words, no redundant "Everything"/"NEW") | `frontend/src/app/shop/ShopView.tsx`, `frontend/src/lib/words.ts` | Live |
 | Founder note (incl. "photographed on me, 153 cm") | `frontend/src/components/FounderNote.tsx` | Live |
 | Legal footer with policy links | `frontend/src/components/LegalFooter.tsx` | Live |
 

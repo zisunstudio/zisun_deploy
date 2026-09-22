@@ -9,7 +9,7 @@ import { CategoryCardSkeleton, ProductCardSkeleton } from "@/components/skeleton
 import { ProductCard } from "@/components/ProductCard";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useCategories, useFeed, useProducts, type Category, type ProductListResponse } from "@/lib/queries/catalog";
+import { productImageUrl, useCategories, useFeed, useProducts, type Category, type ProductListResponse } from "@/lib/queries/catalog";
 import { POLICY_TERMS } from "@/lib/legal";
 import { DealsRail } from "@/components/DealsRail";
 import { FeedItem, feedItemImage } from "@/components/FeedCard";
@@ -18,6 +18,7 @@ import { CRAFT, HERO, LOOM, MANIFESTO, OCCASIONS, daypartAt } from "@/lib/brand"
 import { Weave } from "@/components/Weave";
 import { Stories } from "@/components/Stories";
 import { navigate } from "@/lib/viewTransition";
+import { SMALL_COLLECTION_AT } from "@/lib/brand";
 import { markOpenSource } from "@/lib/enquiry";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
@@ -83,6 +84,9 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
   // date, so the loom weaves something new every day without anyone
   // touching it.
   const loomColours = Array.from(new Set((dropData?.items ?? []).flatMap((p) => p.variants.map((v) => v.color)).filter(Boolean))) as string[];
+  // "NEW" tells her which pieces are new. When every piece is, it tells her
+  // nothing and reads as a sticker on a stall.
+  const allNew = (dropData?.items ?? []).length > 0 && (dropData?.items ?? []).every((p) => Date.now() - new Date(p.created_at).getTime() < 14 * 86400000);
   const loomSeed = now ? `zisun-${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}` : null;
   const loomDate = now ? now.toLocaleDateString("en-IN", { day: "numeric", month: "long" }) : "";
   const isSignedIn = useAuthStore((s) => s.isAuthenticated());
@@ -265,9 +269,12 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
             says how an order happens today and changes when checkout opens.
             A three-column row rather than one dotted line: at phone width a
             single line broke mid-word, which is the opposite of quiet. */}
-        <ul className="mx-auto max-w-3xl px-5 py-8 grid grid-cols-3 gap-3 text-center text-[10px] lg:text-[11px] uppercase tracking-[0.16em] lg:tracking-[0.2em] text-muted leading-snug">
+        <ul className="mx-auto max-w-3xl px-5 py-8 flex flex-wrap justify-center gap-x-5 gap-y-2 text-center text-[10px] lg:text-[11px] uppercase tracking-[0.16em] lg:tracking-[0.2em] text-muted leading-snug">
+          {/* Each promise is one unbreakable unit; the row wraps between
+              them. Three fixed columns broke "FREE SHIPPING / ON PREPAID" and
+              "DISPATCHED IN 2- / 3 DAYS" mid-phrase on a 412px screen. */}
           {["Free shipping on prepaid", `Dispatched in ${POLICY_TERMS.dispatchTimeframe.replace(" business", "")}`, BROWSE_ONLY ? "Orders on WhatsApp" : "UPI, cards, netbanking"].map((line) => (
-            <li key={line}>{line}</li>
+            <li key={line} className="whitespace-nowrap">{line}</li>
           ))}
         </ul>
 
@@ -299,14 +306,18 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-burgundy">This week</p>
                 <h2 className="font-display text-[34px] lg:text-[44px] leading-none text-ink mt-1.5">The drop</h2>
               </div>
-              <button onClick={() => router.push("/shop")} className="text-ink text-sm hover:underline underline-offset-4 pb-1">
-                Everything →
-              </button>
+              {/* Only when there is more than the drop shows. "Everything"
+                  over two pieces leads to a page of the same two. */}
+              {(dropData?.total ?? 0) > Math.max(SMALL_COLLECTION_AT, dropData?.items.length ?? 0) && (
+                <button onClick={() => router.push("/shop")} className="text-ink text-sm hover:underline underline-offset-4 pb-1">
+                  Everything →
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-8 lg:gap-x-8 lg:gap-y-12">
               {loadingDrop
                 ? Array(6).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)
-                : (dropData?.items ?? []).map((product) => <ProductCard key={product.id} product={product} />)}
+                : (dropData?.items ?? []).map((product) => <ProductCard key={product.id} product={product} markNew={!allNew} />)}
             </div>
           </div>
         </Reveal>
@@ -347,6 +358,12 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
           </div>
         </Reveal>
 
+        {/* Who this is for, straight after what we believe: the manifesto is
+            the label's point of view and her note is the woman behind it -
+            one beat, not two. It used to sit last, after the craft facts,
+            which put trust before identity. */}
+        <FounderNote />
+
         {/* Categories, as occasions. The founder's description under each
             name is the mood line; the page asks the question. A category with
             nothing in it yet stays off the home page - a door to an empty
@@ -361,7 +378,14 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
             <div className="flex gap-4 overflow-x-auto no-scrollbar -mx-5 px-5 pb-2 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:gap-8 lg:overflow-visible">
               {loadingCategories
                 ? Array(3).fill(0).map((_, i) => <CategoryCardSkeleton key={i} />)
-                : categories?.filter((c) => c.product_count > 0).map((cat) => <CategoryCard key={cat.id} category={cat} />)}
+                : categories?.filter((c) => c.product_count > 0).map((cat) => (
+                    <CategoryCard
+                      key={cat.id}
+                      category={cat}
+                      // A photograph of a piece in this category, on her.
+                      pieceImage={(dropData?.items ?? []).filter((p) => p.category_id === cat.id).map(productImageUrl)[0] ?? null}
+                    />
+                  ))}
             </div>
           </div>
         </Reveal>
@@ -379,7 +403,6 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
           </div>
         </Reveal>
 
-        <FounderNote />
 
         {/* The policy links have to be reachable from the home page itself:
             Google's app verification and Razorpay's onboarding both look

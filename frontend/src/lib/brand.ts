@@ -210,6 +210,18 @@ export const AVAILABILITY = {
   batch: "We keep very few of each. When a size sells out, it may not come back.",
 } as const;
 
+/**
+ * When the whole collection is small, it is presented as the drop it is,
+ * not as a catalogue that has not filled up yet. Below this many pieces the
+ * collection page loses its filter and sort chrome, the count reads as a
+ * decision, and the home page stops offering "Everything" it already shows.
+ */
+export const SMALL_COLLECTION_AT = 6;
+export const DROP = {
+  /** "Two pieces. That is the drop." - the count in words, then this line. */
+  small: "That is the drop. When a piece goes, it goes.",
+} as const;
+
 /** The pieces in a set, said the way she would say it. */
 export const INCLUDED = {
   label: "What you get",

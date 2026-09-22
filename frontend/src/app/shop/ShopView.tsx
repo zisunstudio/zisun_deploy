@@ -8,6 +8,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { ProductCardSkeleton } from "@/components/skeletons/Skeleton";
 import { SearchBar } from "@/components/SearchBar";
 import { LegalFooter } from "@/components/LegalFooter";
+import { DROP, SMALL_COLLECTION_AT } from "@/lib/brand";
+import { countInWords } from "@/lib/words";
 
 const SORT_OPTIONS: { label: string; value: SortBy }[] = [
   { label: "Newest", value: "newest" },
@@ -28,6 +30,11 @@ export default function ShopView({ initial = {} }: { initial?: ShopInitial }) {
   const isDefault = categoryId === undefined && sortBy === "newest";
   const { data, isLoading } = useProducts({ category_id: categoryId, sort_by: sortBy }, isDefault ? initial.products : undefined);
   const { data: categories } = useCategories(initial.categories);
+  // A small collection is a drop, and is shown as one: no filters or sort to
+  // rummage through two pieces with, and the count said as a decision rather
+  // than a stock report ("Two pieces. That is the drop.").
+  const allNew = (data?.items ?? []).length > 0 && (data?.items ?? []).every((p) => Date.now() - new Date(p.created_at).getTime() < 14 * 86400000);
+  const small = !isLoading && (data?.total ?? 0) > 0 && (data?.total ?? 0) <= SMALL_COLLECTION_AT && isDefault;
 
   return (
     <div className="w-full bg-background">
@@ -37,18 +44,22 @@ export default function ShopView({ initial = {} }: { initial?: ShopInitial }) {
           <ChevronLeft className="w-4 h-4 text-foreground" />
         </button>
         <h1 className="font-display text-[32px] text-ink flex-1 leading-none">Collection</h1>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${showFilters ? "bg-ink border-ink text-white" : "bg-white border-line"}`}
-          aria-label="Filters"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-        </button>
+        {!small && (
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${showFilters ? "bg-ink border-ink text-white" : "bg-white border-line"}`}
+            aria-label="Filters"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      <div className="px-5 mb-3">
-        <SearchBar onSearch={(q) => q.trim() && router.push(`/search?q=${encodeURIComponent(q)}`)} />
-      </div>
+      {!small && (
+        <div className="px-5 mb-3">
+          <SearchBar onSearch={(q) => q.trim() && router.push(`/search?q=${encodeURIComponent(q)}`)} />
+        </div>
+      )}
 
       {/* Filter panel */}
       {showFilters && (
@@ -109,10 +120,16 @@ export default function ShopView({ initial = {} }: { initial?: ShopInitial }) {
           </div>
         ) : (
           <>
-            <p className="text-muted text-xs mb-4">{data?.total ?? 0} pieces</p>
+            {small ? (
+              <p className="font-display text-[22px] leading-snug text-ink mb-6 text-balance">
+                {countInWords(data?.total ?? 0)} {(data?.total ?? 0) === 1 ? "piece" : "pieces"}. <span className="italic text-muted">{DROP.small}</span>
+              </p>
+            ) : (
+              <p className="text-muted text-xs mb-4">{data?.total ?? 0} pieces</p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
               {data?.items.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} markNew={!allNew} />
               ))}
             </div>
           </>

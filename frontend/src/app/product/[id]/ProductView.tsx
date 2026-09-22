@@ -562,10 +562,8 @@ export default function ProductView({ params, initial }: { params: { id: string 
             of the cloth. Neither is a defect, and neither is grounds for an exchange.
           </p>
 
-          {/* Above the statutory declarations, and open rather than behind a
-              toggle: this is the argument for buying, and the block below is a
-              legal obligation. */}
-          <PieceWeave productId={product.id} colours={selectedColour ? [selectedColour, ...colours.filter((c) => c !== selectedColour)] : colours} />
+          {/* Open rather than behind a toggle: this is the argument for
+              buying, and the small print below is a legal obligation. */}
           {product.fabric_specs && <FabricSpecs specs={product.fabric_specs} />}
           {product.garment_attributes && (
             <GarmentDetails
@@ -574,6 +572,12 @@ export default function ProductView({ params, initial }: { params: { id: string 
               selectedColour={selectedColour}
             />
           )}
+
+          {/* The mark comes after the facts, not before them. On a fashion
+              product page the fabric, the cut and the fit outrank a
+              signature - the mark is the last thing before the small print,
+              a flourish after the decision, not a block in the way of it. */}
+          <PieceWeave productId={product.id} colours={selectedColour ? [selectedColour, ...colours.filter((c) => c !== selectedColour)] : colours} />
 
           {product.legal_metrology && (
             <ProductDeclarations declarations={product.legal_metrology} price={price} hasSizeChart={Boolean(product.size_chart?.rows?.length)} />

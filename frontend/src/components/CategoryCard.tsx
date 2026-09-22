@@ -13,8 +13,20 @@ const FALLBACK_IMAGE = "/placeholder-product.svg";
  * line is what turns a garment category into a way of dressing for a day.
  * No item count: "12 items" is a stock report, and this is not a stock room.
  */
-export function CategoryCard({ category }: { category: Category }) {
+/**
+ * Launch-time category art was licensed stock: a different woman, in clothes
+ * ZISUN does not sell, one section below "photographed on me". Once a
+ * category has a real piece in it, its tile shows that piece - on Sushmita -
+ * and the stock image is only the fallback for a category with nothing in
+ * it yet. Photographs of her are the brand's proof; nothing else should
+ * stand in for them.
+ */
+const LAUNCH_STOCK = /\/launch\//;
+
+export function CategoryCard({ category, pieceImage }: { category: Category; pieceImage?: string | null }) {
   const router = useRouter();
+  const stock = !category.image_url || LAUNCH_STOCK.test(category.image_url);
+  const src = (stock && pieceImage) || category.image_url || pieceImage || FALLBACK_IMAGE;
   return (
     <button
       type="button"
@@ -24,7 +36,7 @@ export function CategoryCard({ category }: { category: Category }) {
     >
       <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
         <Image
-          src={category.image_url ?? FALLBACK_IMAGE}
+          src={src}
           alt=""
           fill
           sizes="(min-width: 1024px) 33vw, 236px"
