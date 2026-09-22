@@ -255,7 +255,7 @@ export default function HomePage() {
             A three-column row rather than one dotted line: at phone width a
             single line broke mid-word, which is the opposite of quiet. */}
         <ul className="mx-auto max-w-3xl px-5 py-8 grid grid-cols-3 gap-3 text-center text-[10px] lg:text-[11px] uppercase tracking-[0.16em] lg:tracking-[0.2em] text-muted leading-snug">
-          {["Free shipping across India", `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange`, BROWSE_ONLY ? "Orders on WhatsApp" : "Cash on delivery"].map((line) => (
+          {["Free shipping on prepaid", `Dispatched in ${POLICY_TERMS.dispatchTimeframe.replace(" business", "")}`, BROWSE_ONLY ? "Orders on WhatsApp" : "UPI, cards, netbanking"].map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>

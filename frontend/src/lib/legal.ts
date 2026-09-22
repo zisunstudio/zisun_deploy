@@ -104,6 +104,12 @@ export const POLICY_TERMS = {
    * enforcement; this only lets checkout say so before she taps Place order.
    */
   codMaxRupees: 5000,
+  /**
+   * Shipping on a Cash on Delivery order, in rupees. Prepaid ships free.
+   * Mirrors COD_SHIPPING_FEE_PAISE in backend/app/core/config.py, which the
+   * server adds to the order total; this only lets the page show it first.
+   */
+  codShippingRupees: 99,
 } as const;
 
 /** Which required details are still outstanding for Razorpay KYC. */

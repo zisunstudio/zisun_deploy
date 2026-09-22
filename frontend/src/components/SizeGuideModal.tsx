@@ -4,9 +4,8 @@ import { chartKind, type Chart } from "@/lib/fitMath";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, X } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
-import { POLICY_TERMS } from "@/lib/legal";
 import { chartForCategory, HOW_TO_MEASURE, SIZE_CHART_NOTES } from "@/lib/sizeGuide";
 import type { SizeChart, SizeChartRow, SizeUnit } from "@/lib/queries/catalog";
 import { chartInUnit, formatMeasure, readPreferredUnit, writePreferredUnit } from "@/lib/sizeUnits";
@@ -148,43 +147,19 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, ch
                 chart?.intro && <p className="text-sm text-muted leading-relaxed">{chart.intro}</p>
               )}
 
-              {/* Above the chart, not below it. With no returns and a size-only
-                  exchange this is the reason the chart matters, and one line of
-                  it is time-critical: "record before you open the parcel" is
-                  useless advice once the parcel is open. Measured on a 390px
-                  viewport it sat at 949px inside a 743px modal — reachable only
-                  by scrolling past the very table it is asking them to read. */}
-              <div className="rounded-xl bg-primary/5 border border-primary/15 p-3.5">
-                <div className="flex gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-semibold text-foreground">
-                      Please measure before you order
-                    </p>
-                    <p className="text-xs text-muted leading-relaxed">
-                      We do not accept returns. If the size does not fit we will exchange
-                      it within{" "}
-                      <strong className="font-semibold text-foreground">
-                        {POLICY_TERMS.exchangeRaiseWindowHours} hours of delivery
-                      </strong>
-                      , and size is the only reason we can accept.
-                    </p>
-                    <p className="text-xs text-muted leading-relaxed">
-                      An exchange needs an{" "}
-                      <strong className="font-semibold text-foreground">
-                        unedited, single-shot video
-                      </strong>{" "}
-                      of the sealed parcel being opened — so please start recording
-                      before you open it. We arrange and pay for the pickup.
-                    </p>
-                    <Link
-                      href="/refund"
-                      className="inline-block text-xs text-primary font-medium underline underline-offset-2"
-                    >
-                      Read the exchange policy
-                    </Link>
-                  </div>
-                </div>
+              {/* Measure first - said calmly. This box used to open with an
+                  alert icon and "We do not accept returns", a time limit and a
+                  video requirement: a warning, before she had bought anything.
+                  The parcel-video advice now arrives on the "It's yours"
+                  screen, when it is useful; the policy is one tap away. */}
+              <div className="rounded-xl bg-rose p-3.5">
+                <p className="text-sm font-semibold text-foreground">Measure before you order</p>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  Compare with the chart below, or tap <span className="text-ink">Find my size</span> on the page and we will work it out with you.
+                </p>
+                <Link href="/refund" className="mt-1.5 inline-block text-xs text-ink underline underline-offset-2 decoration-burgundy/40">
+                  Our exchange policy
+                </Link>
               </div>
 
 

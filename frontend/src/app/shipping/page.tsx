@@ -38,10 +38,11 @@ export default function ShippingPage() {
 
       <Section heading="3. Shipping charges">
         <p>
-          Shipping is free on every order to any serviceable pincode in India,
-          whether you pay online or by Cash on Delivery. There is no Cash on
-          Delivery handling fee. If this ever changes, the charge will be shown
-          at checkout before you pay, and this page will be updated first.
+          Shipping is free on every order paid online (UPI, card or
+          netbanking) to any serviceable pincode in India. Cash on Delivery
+          orders carry a shipping charge of ₹{POLICY_TERMS.codShippingRupees}, shown at checkout
+          before you place the order and collected with the order amount. If
+          this changes, this page will be updated first.
         </p>
       </Section>
 

@@ -21,7 +21,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Feature | Where | Status |
 |---|---|---|
 | Hero from the featured piece, credit line | `frontend/src/app/page.tsx` | Live |
-| Three promises (free shipping, 24h exchange, COD) | `frontend/src/app/page.tsx` | Live |
+| Three promises (free shipping on prepaid, dispatch time, UPI/cards) | `frontend/src/app/page.tsx` | Live |
 | The day's line (from her clock) | `frontend/src/lib/brand.ts` (`DAYPARTS`) | Live |
 | Stories of the drop, full-screen viewer, seen rings | `frontend/src/components/Stories.tsx` | Live |
 | Deals rail (offers, coupons) | `frontend/src/components/DealsRail.tsx` | Live |
@@ -49,7 +49,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Find my size — usual size (server rules + Claude phrasing) | `backend/app/services/fit.py`, `backend/app/api/endpoints/stylist.py` | Live |
 | Find my size — kurta / measurements, private on-device | `frontend/src/components/FitStylist.tsx`, `frontend/src/lib/fitMath.ts` | Live |
 | Description, Ways to wear it | `frontend/src/components/WaysToWear.tsx` | Needs data |
-| Assurances (exchange, free shipping, Razorpay, COD, help) | `frontend/src/components/ProductAssurances.tsx` | Live |
+| Assurances (free shipping online, Razorpay, COD + ₹99, help) | `frontend/src/components/ProductAssurances.tsx` | Live |
 | The weave as cloth (WebGL), No. + interlace | `frontend/src/components/PieceWeave.tsx`, `frontend/src/components/ClothWeave.tsx` | Live |
 | Fabric & care | `frontend/src/components/FabricSpecs.tsx` | Live |
 | The garment (fit, length, neck, sleeve, print, embroidery, pockets, dupatta…) | `frontend/src/components/GarmentDetails.tsx` | Needs data |
@@ -67,8 +67,9 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Returning buyer lands on Pay (details on device) | `frontend/src/lib/buyNow.ts` | Live |
 | Saved addresses for signed-in customers | `frontend/src/app/checkout/page.tsx`, `frontend/src/lib/queries/address.ts` | Live (restored 2026-09-22) |
 | Pincode serviceability, arrival date | `frontend/src/app/checkout/page.tsx` | Live |
-| Prepaid recommended; COD with ₹5,000 limit stated | `frontend/src/lib/legal.ts` (`codMaxRupees`) | Live (limit restored 2026-09-22) |
-| Shipping · Free line | `frontend/src/app/checkout/page.tsx` | Live |
+| Prepaid first ("Free shipping" badge); COD +₹99 shipping, ₹5,000 limit, "pay online and save ₹99" | `frontend/src/lib/legal.ts` (`codMaxRupees`, `codShippingRupees`) | Live |
+| Shipping line: free online, ₹99 on COD — charged by the server | `backend/app/services/pricing.py`, `backend/alembic/versions/0018_shipping_amount.py` | Live |
+| Parcel-video tip on "It's yours" (moved from the size guide) | `frontend/src/app/checkout/page.tsx` | Live |
 | WhatsApp fallback link | `frontend/src/lib/launchMode.ts` | Live |
 | "It's yours" confirmation with the weave keepsake | `frontend/src/app/checkout/page.tsx` | Live |
 | Bag drawer, bag → WhatsApp order | `frontend/src/components/CartDrawer.tsx` | Live |
@@ -106,6 +107,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Feature | Where | Status |
 |---|---|---|
 | COD orders never zombie-cancelled; COD locks last the COD window | `backend/app/tasks/commerce.py`, `backend/app/services/checkout.py` | Live |
+| Shiprocket told COD vs prepaid, real name + phone, shipping charge | `backend/app/services/shiprocket.py` | Live (fixed 2026-09-22) |
 | Worker heartbeat in /health | `backend/app/api/endpoints/health.py` | Live |
 | Rate limits per shopper, not per proxy | `backend/app/core/client_ip.py` | Live |
 | Admin read-back of every writable field | `backend/app/schemas/catalog.py` (`AdminProductDetail`) | Live |
@@ -124,6 +126,8 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Published personal phone; WhatsApp falling back to it | Founder's request; contact is deliberate config | `git show cdb5023^:frontend/src/lib/legal.ts` |
 | "Dimensions" row when a size chart exists | Apparel wording; chart is the measurement | `git show cdb5023^:frontend/src/components/ProductDeclarations.tsx` |
 | Warm "unbleached cotton" ground | Founder chose ivory | `git show ef0ec53:frontend/tailwind.config.ts` |
+| "24h exchange" in the shopping flow (home promise, product assurances, checkout, footer, size-guide alert) | Founder: a time limit before purchase makes customers panic. The policy pages (refund, terms) keep it in full. | `git show 8c72041:frontend/src/components/ProductAssurances.tsx` (and SizeGuideModal, page.tsx, LegalFooter) |
+| "Free shipping across India" on every order | Free shipping is prepaid only; COD pays ₹99 | `git show 8c72041:frontend/src/app/shipping/page.tsx` |
 
 ## Data lost (not code)
 

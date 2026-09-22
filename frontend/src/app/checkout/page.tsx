@@ -133,6 +133,11 @@ export default function CheckoutPage() {
 
   const totalRupees = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const arrives = arrivalDate(pin?.serviceable ? pin.estimated_days : null);
+  // Free when she pays online; the COD charge otherwise. The server adds the
+  // same charge to the order total (services/pricing.py) - this is the line
+  // she sees before choosing, so the choice is made with the number in view.
+  const codShippingPaise = POLICY_TERMS.codShippingRupees * 100;
+  const shippingPaise = paymentMethod === "COD" ? codShippingPaise : 0;
   const totalPaise = Math.round(totalRupees * 100);
 
   // Serviceability, once the pincode is complete. Fails open by design on the
@@ -282,6 +287,12 @@ export default function CheckoutPage() {
               ? "We will message you on WhatsApp shortly to confirm the order before it is packed."
               : "Your payment is being confirmed. We will message you on WhatsApp once it is packed."}
           </p>
+          {/* The one exchange step that has to happen before it is needed.
+              It used to sit in the size guide as a warning; here it is a tip,
+              after the purchase, when she can act on it. */}
+          <p className="mt-4 text-xs text-muted leading-relaxed">
+            When it arrives, take a quick video as you open the parcel — it makes any size swap quick.
+          </p>
           {orderId && <p className="mt-4 text-xs text-muted">Order reference <span className="font-mono text-ink">{orderId.slice(0, 8).toUpperCase()}</span></p>}
           <button onClick={() => router.push("/shop")} className="mt-8 border border-line text-ink px-6 py-3 rounded-full text-sm font-semibold">
             Keep looking
@@ -338,7 +349,7 @@ export default function CheckoutPage() {
                 </li>
               ))}
             </ul>
-            <Total total={totalPaise} />
+            <Total total={totalPaise} shipping={null} />
             <Primary onClick={() => setStep("details")}>Continue</Primary>
           </section>
         )}
@@ -433,6 +444,7 @@ export default function CheckoutPage() {
                 selected={paymentMethod === "RAZORPAY"}
                 onSelect={() => setPaymentMethod("RAZORPAY")}
                 title="Pay now"
+                badge="Free shipping"
                 subtitle="UPI, card or netbanking — through Razorpay"
                 note="Recommended. It is the fastest to dispatch and costs the shop least, which is how a small label keeps prices where they are."
               />
@@ -443,18 +455,22 @@ export default function CheckoutPage() {
                 title="Cash on delivery"
                 subtitle={codOverLimit
                   ? `For orders up to ${formatPrice(POLICY_TERMS.codMaxRupees * 100)}`
-                  : pin && !pin.cod_available ? "Not available at this pincode" : `Pay the courier when it arrives · orders up to ${formatPrice(POLICY_TERMS.codMaxRupees * 100)}`}
+                  : pin && !pin.cod_available ? "Not available at this pincode" : `+${formatPrice(codShippingPaise)} shipping · pay the courier when it arrives`}
                 note="We will confirm on WhatsApp before packing."
               />
             </div>
-            <Total total={totalPaise} />
+            <Total total={totalPaise + shippingPaise} shipping={shippingPaise} />
+            {paymentMethod === "COD" && (
+              <button type="button" onClick={() => setPaymentMethod("RAZORPAY")} className="mt-2 text-xs text-burgundy underline underline-offset-4">
+                Pay online instead and save {formatPrice(codShippingPaise)}
+              </button>
+            )}
             <ul className="mt-5 space-y-2 border-t border-line pt-4">
               <Assure Icon={ShieldCheck}>Payments handled by Razorpay. We never see your card or UPI details.</Assure>
-              <Assure Icon={Truck}>Free shipping. Dispatched in {POLICY_TERMS.dispatchTimeframe}.</Assure>
-              <Assure Icon={MessageCircle}>{POLICY_TERMS.exchangeRaiseWindowHours}h size exchange — message us and we sort it.</Assure>
+              <Assure Icon={Truck}>Dispatched in {POLICY_TERMS.dispatchTimeframe}.</Assure>
             </ul>
             <Primary disabled={placing} onClick={placeOrder}>
-              {placing ? <><Loader2 className="w-4 h-4 animate-spin" /> Placing…</> : paymentMethod === "COD" ? "Place order" : `Pay ${formatPrice(totalPaise)}`}
+              {placing ? <><Loader2 className="w-4 h-4 animate-spin" /> Placing…</> : paymentMethod === "COD" ? `Place order · ${formatPrice(totalPaise + shippingPaise)}` : `Pay ${formatPrice(totalPaise)}`}
             </Primary>
             {!remembered && <BackLink onClick={() => setStep("details")} />}
             {/* The fallback, kept deliberately quiet. Some customers would
@@ -511,15 +527,19 @@ function Field({ label, children, className = "" }: { label: string; children: R
   );
 }
 
-function Total({ total }: { total: number }) {
+/**
+ * The total, with shipping as its own line. `shipping` is paise, or null
+ * before the payment method is chosen (the bag step), when the honest line
+ * is the condition itself: free when she pays online.
+ */
+function Total({ total, shipping }: { total: number; shipping: number | null }) {
   return (
     <div className="mt-6 border-t border-line pt-4">
-      {/* A zero line she can see. "Free" beside shipping is the one moment
-          in checkout where the total gets no bigger than the price she
-          already accepted, and it is worth showing rather than implying. */}
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-muted">Shipping</span>
-        <span className="text-ink font-medium">Free</span>
+        <span className="text-ink font-medium">
+          {shipping === null ? "Free when you pay online" : shipping === 0 ? "Free" : formatPrice(shipping)}
+        </span>
       </div>
       <div className="mt-2 flex items-baseline justify-between">
         <span className="text-sm text-muted">Total</span>
@@ -546,8 +566,8 @@ function BackLink({ onClick }: { onClick: () => void }) {
   );
 }
 
-function PayOption({ selected, onSelect, title, subtitle, note, disabled }: {
-  selected: boolean; onSelect: () => void; title: string; subtitle: string; note: string; disabled?: boolean;
+function PayOption({ selected, onSelect, title, subtitle, note, disabled, badge }: {
+  selected: boolean; onSelect: () => void; title: string; subtitle: string; note: string; disabled?: boolean; badge?: string;
 }) {
   return (
     <button type="button" onClick={onSelect} disabled={disabled}
@@ -555,7 +575,10 @@ function PayOption({ selected, onSelect, title, subtitle, note, disabled }: {
       <div className="flex items-start gap-3">
         <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 ${selected ? "border-burgundy bg-burgundy" : "border-ink/25"}`} />
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">{title}</p>
+          <p className="text-sm font-semibold text-ink">
+            {title}
+            {badge && <span className="ml-2 align-middle rounded-full bg-burgundy/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-burgundy">{badge}</span>}
+          </p>
           <p className="text-xs text-muted mt-0.5">{subtitle}</p>
           <p className="text-[11px] text-muted mt-1.5 leading-relaxed">{note}</p>
         </div>

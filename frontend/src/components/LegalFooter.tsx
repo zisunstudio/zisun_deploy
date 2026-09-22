@@ -42,7 +42,7 @@ export function LegalFooter() {
               Handloom cotton from South India, in small batches.
             </p>
             <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-porcelain/55">
-              Free shipping across India · {POLICY_TERMS.exchangeRaiseWindowHours}h size exchange
+              Free shipping on prepaid orders · Dispatched in {POLICY_TERMS.dispatchTimeframe}
             </p>
             {WHATSAPP_GROUP_HREF && (
               <a href={WHATSAPP_GROUP_HREF} target="_blank" rel="noopener noreferrer" onClick={() => recordEnquiry({ source: "community" })} className="mt-3 inline-block text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40 hover:decoration-porcelain">

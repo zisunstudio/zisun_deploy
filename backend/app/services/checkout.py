@@ -310,11 +310,20 @@ class CheckoutService:
                 detail=f"Cash on Delivery is not available for orders above ₹{COD_MAX_ORDER_VALUE_PAISE // 100}",
             )
 
+        # Shipping: free when she pays online, a flat charge on Cash on
+        # Delivery. Decided here, on the server, and part of the total - the
+        # page only says what this line will do.
+        from app.core.config import settings as _settings
+        from app.services.pricing import shipping_for
+        shipping_amount = shipping_for(payment_method, _settings.COD_SHIPPING_FEE_PAISE)
+        order_total = net_total + shipping_amount
+
         # Create order
         order = Order(
             user_id=user_id,
             status=OrderStatus.PAYMENT_PENDING,
-            total_amount=net_total,
+            total_amount=order_total,
+            shipping_amount=shipping_amount,
             address_id=address_id,
             payment_method=payment_method,
             discount_amount=discount_amount,
@@ -322,7 +331,7 @@ class CheckoutService:
             idempotency_key=idempotency_key,
         )
         if payment_method == PaymentMethod.COD:
-            order.cod_amount_due = net_total
+            order.cod_amount_due = order_total  # what the courier collects
             # Held until the customer confirms. PENDING is set the moment the
             # order exists rather than when the message goes out, so an order
             # can never sit in a state where dispatch is permitted because the
@@ -378,7 +387,7 @@ class CheckoutService:
             if client:
                 try:
                     rz_order = client.order.create({
-                        "amount": net_total,
+                        "amount": order_total,
                         "currency": "INR",
                         "receipt": str(order.id),
                     })
@@ -410,7 +419,7 @@ class CheckoutService:
                     payload={
                         "order_id": str(order.id),
                         "user_id": str(user_id),
-                        "amount": net_total,
+                        "amount": order_total,
                     },
                 )
             )

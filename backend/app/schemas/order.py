@@ -95,6 +95,8 @@ class OrderResponse(BaseModel):
     user_id: uuid.UUID
     status: OrderStatus
     total_amount: int
+    # Included in total_amount; 0 on prepaid orders.
+    shipping_amount: int = 0
     address_id: uuid.UUID
     created_at: datetime
     

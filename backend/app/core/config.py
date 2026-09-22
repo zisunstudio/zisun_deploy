@@ -151,6 +151,9 @@ class Settings(BaseSettings):
     LM_MANUFACTURER_ADDRESS: str = "Bengaluru, Karnataka, India"
     LM_COUNTRY_OF_ORIGIN: str = "India"
     LM_COMMODITY_NAME: str = "Women's cotton garment"
+    # Shipping: free when paid online; Cash on Delivery carries this charge
+    # (paise). Added to the order total by the server - see services/pricing.
+    COD_SHIPPING_FEE_PAISE: int = 9900
     LM_NET_QUANTITY: str = "1 unit"
     # Consumer-care contact. Rule 6(1)(d) wants a name or designation plus a
     # reachable address, and the e-commerce rules want the same person named as

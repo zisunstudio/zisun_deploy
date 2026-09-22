@@ -10,8 +10,8 @@ import { SITE_URL } from "@/lib/legal";
  * One item per size and colour, grouped by piece, so Shopping can show the
  * sizes she can actually buy. Availability is the variant's real stock at
  * the moment the feed was built (at most five minutes old). Shipping is
- * declared free because it is: the order total has never had a shipping
- * line, and the shipping policy commits to it.
+ * declared at 0: the standard way to buy is paying online, which ships
+ * free. Cash on Delivery adds a charge (shipping policy, services/pricing).
  *
  * Submit https://zisun.in/feeds/google.xml in Merchant Center as a
  * scheduled fetch.

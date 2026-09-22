@@ -32,24 +32,14 @@ type Assurance = {
 };
 
 const ITEMS: Assurance[] = [
+  // The exchange window is no longer listed here. A time limit under the buy
+  // button reads as a warning before she has bought anything; the policy is
+  // one tap away in the footer and on the refund page, unchanged.
   {
-    // The policy is unchanged and one tap away; what changed is which half
-    // of it leads. "24h size exchange · no returns" made the only negative
-    // sentence on the page the first thing under the buy button, on a page
-    // whose job is confidence. The exchange is the promise - it covers the
-    // one thing that actually goes wrong with clothes bought online - and
-    // the refund page states the rest in full, which is where a customer
-    // who wants the limits goes looking.
-    Icon: RefreshCcw,
-    text: `Wrong size? Exchange it within ${POLICY_TERMS.exchangeRaiseWindowHours}h`,
-    href: "/refund",
-  },
-  {
-    // Free was always true - the order total has never carried a shipping
-    // line - and the site never said so. The shipping policy now commits to
-    // it; this is the promise stated where it is decided.
+    // Free when she pays online; Cash on Delivery carries a shipping charge
+    // (added by the server - see services/pricing.py).
     Icon: Truck,
-    text: `Free shipping across India · dispatched in ${POLICY_TERMS.dispatchTimeframe}`,
+    text: `Free shipping when you pay online · dispatched in ${POLICY_TERMS.dispatchTimeframe}`,
     href: "/shipping",
   },
   {
@@ -64,7 +54,7 @@ const ITEMS: Assurance[] = [
   },
   {
     Icon: Banknote,
-    text: "Cash on delivery available on most pincodes",
+    text: `Cash on delivery on most pincodes · ₹${POLICY_TERMS.codShippingRupees} shipping`,
     href: "/shipping",
     checkoutOnly: true,
   },

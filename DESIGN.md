@@ -363,3 +363,24 @@ waist on a 39" chest). The console now asks "What did you measure?", the
 maths infers it for charts saved before, and the size guide's instruction
 follows it - it used to tell customers to match their bust to a kurta's own
 measurement, which picks a size that does not close.
+
+## 14. Prepaid is the way in; COD is there, and costs
+
+Cash on Delivery is refused or returned far more often than a paid order -
+the founder's figures are 40-60% against about 15% - and every one is
+freight paid twice for nothing. So:
+
+- **Free shipping is for orders paid online.** COD carries a ₹99 shipping
+  charge, added by the server to the order total and collected by the
+  courier (`services/pricing.py`, migration 0018). The page never charges
+  anything the server has not decided.
+- **Checkout makes the difference visible, not preachy.** "Pay now" carries
+  a *Free shipping* badge and is selected by default; COD says "+₹99
+  shipping"; the total shows the shipping line; choosing COD offers "Pay
+  online instead and save ₹99". The return figures are never shown to a
+  customer - they are the shop's reason, not her problem.
+- **No time limits before the purchase.** The 24-hour exchange window made
+  customers anxious at the moment of deciding. It is gone from the home
+  page, product page, checkout, footer and size guide; the refund and terms
+  pages keep the full policy. The one step that must happen early - filming
+  the parcel as it is opened - is a friendly tip on the "It's yours" screen.

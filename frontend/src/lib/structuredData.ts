@@ -7,6 +7,9 @@
  * the one place a claim has to be exactly true: price from base price plus
  * the variant delta, availability from real stock, and nothing inferred.
  *
+ * Shipping is stated as 0 to India: paying online ships free, and that is the
+ * standard price. Cash on Delivery adds a charge, shown at checkout.
+ *
  * Deliberately absent: a return-policy block (ZISUN's policy is a 24h size
  * exchange, not a return, and there is no schema term that says that
  * without overstating it) and delivery-time estimates (they depend on the

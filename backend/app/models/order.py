@@ -85,6 +85,9 @@ class Order(BaseModel):
     )
     coupon_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("coupons.id"), nullable=True)
     discount_amount: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Shipping charged on this order, in paise, included in total_amount.
+    # 0 for prepaid; the COD charge otherwise (services/pricing.py).
+    shipping_amount: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="orders")
     items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="order")

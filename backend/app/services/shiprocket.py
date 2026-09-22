@@ -240,6 +240,17 @@ async def create_shipment(db, order) -> Optional[str]:
         )
         return None
 
+    # Who it is going to. These were sent as "Customer" with an empty phone,
+    # which leaves the courier unable to reach the buyer at the door.
+    from sqlalchemy import select as _select
+    from app.models.user import User as _User
+    buyer = (await db.execute(_select(_User).where(_User.id == order.user_id))).scalar_one_or_none()
+    buyer_name = ((buyer.name if buyer else None) or "Customer").strip()
+    first, _, last = buyer_name.partition(" ")
+    phone = "".join(ch for ch in ((buyer.phone if buyer else None) or "") if ch.isdigit())[-10:]
+    is_cod = str(getattr(order.payment_method, "value", order.payment_method)).upper() == "COD"
+    shipping = (getattr(order, "shipping_amount", 0) or 0) / 100
+
     # Build payload with available order data
     payload = {
         "order_id": str(order.id)[:20],
@@ -247,15 +258,15 @@ async def create_shipment(db, order) -> Optional[str]:
         "pickup_location": "Primary",
         "channel_id": "",
         "comment": f"ZISUN order {order.id}",
-        "billing_customer_name": "Customer",
-        "billing_last_name": "",
+        "billing_customer_name": first or "Customer",
+        "billing_last_name": last,
         "billing_address": getattr(order.address, "line1", ""),
         "billing_city": getattr(order.address, "city", ""),
         "billing_pincode": getattr(order.address, "pincode", "110001"),
         "billing_state": getattr(order.address, "state", ""),
         "billing_country": "India",
         "billing_email": "",
-        "billing_phone": "",
+        "billing_phone": phone,
         "shipping_is_billing": True,
         "order_items": [
             {
@@ -266,8 +277,12 @@ async def create_shipment(db, order) -> Optional[str]:
             }
             for item in order.items
         ],
-        "payment_method": "Prepaid",
-        "sub_total": order.total_amount / 100,
+        # This was "Prepaid" for every order, COD included - the courier would
+        # have handed over COD parcels without collecting a rupee. Shiprocket
+        # collects sub_total + shipping_charges on a COD order.
+        "payment_method": "COD" if is_cod else "Prepaid",
+        "shipping_charges": shipping,
+        "sub_total": order.total_amount / 100 - shipping,
         "length": 10,
         "breadth": 10,
         "height": 10,
