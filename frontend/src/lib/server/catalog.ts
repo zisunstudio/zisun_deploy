@@ -10,7 +10,7 @@
  * to its client-rendered self, never take it down.
  */
 import { API_V1 } from "@/lib/apiBase";
-import type { Product, ProductListResponse } from "@/lib/queries/catalog";
+import type { Category, Product, ProductListResponse } from "@/lib/queries/catalog";
 
 /** How long a server-rendered copy may be served before it is rebuilt. */
 export const REVALIDATE_SECONDS = 300;
@@ -42,3 +42,28 @@ export async function fetchAllProducts(): Promise<Product[]> {
   }
   return out.filter((p) => p.is_active);
 }
+
+async function getJson<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_V1}${path}`, { next: { revalidate: REVALIDATE_SECONDS } });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Exactly the request a page's browser query makes, so the data can seed it. */
+export function fetchProductList(params: Record<string, string | number | undefined>): Promise<ProductListResponse | null> {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries({ page: 1, limit: 20, ...params })) if (v !== undefined) q.set(k, String(v));
+  return getJson<ProductListResponse>(`/catalog/products?${q}`);
+}
+
+export const fetchCategories = () => getJson<Category[]>("/catalog/categories");
+
+export function fetchCategory(slug: string) {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return Promise.resolve(null);
+  return getJson<Category & { products: Product[] }>(`/catalog/categories/${slug}`);
+}
+
+export const fetchFeed = (page = 1) => getJson<ProductListResponse>(`/catalog/feed?page=${page}&limit=20`);

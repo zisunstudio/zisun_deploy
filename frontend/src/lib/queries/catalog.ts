@@ -179,18 +179,30 @@ export const catalogKeys = {
 
 // ── Hooks ──────────────────────────────────────────────────────────────────────
 
-export function useCategories() {
+/**
+ * Server-rendered data for a query. The page paints with it at once (and a
+ * crawler reads it); marked stale (updatedAt 0) so the browser still
+ * refetches on mount - stock and price are never older than the visit.
+ * Only pass it for the exact params the server fetched.
+ */
+function seed<T>(initial: T | undefined) {
+  return initial === undefined ? {} : { initialData: initial, initialDataUpdatedAt: 0 };
+}
+
+export function useCategories(initial?: Category[]) {
   return useQuery<Category[]>({
     queryKey: catalogKeys.categories(),
     queryFn: () => api.get("/catalog/categories").then((r) => r.data),
+    ...seed(initial),
   });
 }
 
-export function useCategory(slug: string) {
+export function useCategory(slug: string, initial?: Category & { products: Product[] }) {
   return useQuery<Category & { products: Product[] }>({
     queryKey: catalogKeys.category(slug),
     queryFn: () => api.get(`/catalog/categories/${slug}`).then((r) => r.data),
     enabled: !!slug,
+    ...seed(initial),
   });
 }
 
@@ -199,11 +211,12 @@ export function useProducts(params: {
   limit?: number;
   category_id?: string;
   sort_by?: SortBy;
-} = {}) {
+} = {}, initial?: ProductListResponse) {
   return useQuery<ProductListResponse>({
     queryKey: catalogKeys.products(params),
     queryFn: () =>
       api.get("/catalog/products", { params: { page: 1, limit: 20, ...params } }).then((r) => r.data),
+    ...seed(initial),
   });
 }
 
@@ -229,10 +242,11 @@ export function useSearch(q: string, page = 1) {
   });
 }
 
-export function useFeed(page = 1) {
+export function useFeed(page = 1, initial?: ProductListResponse) {
   return useQuery<ProductListResponse>({
     queryKey: catalogKeys.feed(page),
     queryFn: () => api.get("/catalog/feed", { params: { page, limit: 20 } }).then((r) => r.data),
+    ...seed(initial),
   });
 }
 

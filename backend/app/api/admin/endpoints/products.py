@@ -6,7 +6,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+
+from app.services import indexnow
 from pydantic import BaseModel, Field
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,6 +119,7 @@ async def admin_list_products(
 @router.post("/", response_model=AdminProductDetail, status_code=201)
 async def admin_create_product(
     data: ProductCreate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db),
 ):
     product = Product(
@@ -156,7 +159,10 @@ async def admin_create_product(
         ))
 
     await db.commit()
-    return await _get_product_or_404(product.id, db)
+    created = await _get_product_or_404(product.id, db)
+    # Tell Bing (and so ChatGPT search) now, not at the next crawl.
+    background.add_task(indexnow.ping, indexnow.product_urls(created.id, created.category.slug if created.category else None))
+    return created
 
 
 # ── PUT /{id} — update product ────────────────────────────────────────────────
@@ -165,6 +171,7 @@ async def admin_create_product(
 async def admin_update_product(
     product_id: uuid.UUID,
     data: ProductUpdate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db),
 ):
     product = await _get_product_or_404(product_id, db)
@@ -192,7 +199,9 @@ async def admin_update_product(
             setattr(product, column, value)
     _validate_offer(product)
     await db.commit()
-    return await _get_product_or_404(product_id, db)
+    updated = await _get_product_or_404(product_id, db)
+    background.add_task(indexnow.ping, indexnow.product_urls(updated.id, updated.category.slug if updated.category else None))
+    return updated
 
 
 # ── DELETE /{id} — soft-delete product ───────────────────────────────────────

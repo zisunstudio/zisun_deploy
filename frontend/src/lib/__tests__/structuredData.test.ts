@@ -49,3 +49,13 @@ describe("helpers", () => {
     expect(jsonLdString({ d: "</script><script>x" })).not.toContain("</script>");
   });
 });
+
+describe("collection pages", () => {
+  it("lists every piece, in order, with its page", async () => {
+    const { itemListJsonLd } = await import("@/lib/structuredData");
+    const d = itemListJsonLd([base, { ...base, id: "other", name: "Second" } as Product], "Co-ord Sets", "https://zisun.in/category/co-ord-sets") as any;
+    expect(d.numberOfItems).toBe(2);
+    expect(d.itemListElement.map((i: any) => [i.position, i.name])).toEqual([[1, "Purple Rose Co-ord Set"], [2, "Second"]]);
+    expect(d.itemListElement[0].url).toBe("https://zisun.in/product/774f350f-4fcc-4535-b9ec-c1ffe7d277ab");
+  });
+});

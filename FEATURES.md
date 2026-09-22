@@ -83,6 +83,10 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Google Merchant feed `/feeds/google.xml` | `frontend/src/app/feeds/google.xml/route.ts` | Live — submit in Merchant Center |
 | `/llms.txt` for AI assistants | `frontend/src/app/llms.txt/route.ts` | Live |
 | robots.txt | `frontend/src/app/robots.ts` | Live |
+| Home, collection and category pages rendered on the server — products in the HTML, own title/description/canonical, ItemList + breadcrumb | `frontend/src/app/page.tsx`, `frontend/src/app/shop/page.tsx`, `frontend/src/app/category/[slug]/page.tsx`, `frontend/src/lib/server/catalog.ts` | Live |
+| Category pages in the sitemap | `frontend/src/app/sitemap.ts` | Live |
+| IndexNow — Bing (and ChatGPT search) told on every product save; key at /indexnow.txt | `frontend/src/app/indexnow.txt/route.ts`, `backend/app/services/indexnow.py` | Live |
+| Search Console / Bing verification tags from env | `frontend/src/app/layout.tsx` (`NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`, `NEXT_PUBLIC_BING_SITE_VERIFICATION`) | Needs data |
 
 ## Console (founder)
 

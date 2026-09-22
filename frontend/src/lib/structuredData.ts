@@ -105,3 +105,33 @@ export function breadcrumbJsonLd(p: Product) {
 export function jsonLdString(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
+
+/**
+ * A collection page for machines: the pieces on it, in the order shown.
+ * Google reads this as a list of products and can show them as such; an AI
+ * assistant reads it as "what this shop sells in this category".
+ */
+export function itemListJsonLd(products: Product[], name: string, url: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name,
+    url,
+    numberOfItems: products.length,
+    itemListElement: products.map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: productUrl(p),
+      name: p.name,
+      ...(productImages(p)[0] ? { image: productImages(p)[0] } : {}),
+    })),
+  };
+}
+
+export function trailJsonLd(steps: Array<{ name: string; url: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: steps.map((s, i) => ({ "@type": "ListItem", position: i + 1, name: s.name, item: s.url })),
+  };
+}

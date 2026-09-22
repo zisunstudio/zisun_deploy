@@ -25,8 +25,17 @@ const hand = Caveat({ subsets: ["latin"], variable: "--font-hand" });
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: BRAND_TITLE,
+  // Only what is true today; fabric and "handloom" claims wait for the
+  // founder's confirmation (CLAUDE.md). This is the fallback for pages that
+  // do not set their own.
   description:
-    "Handwoven South Indian cotton, cut for the way you actually live. Kurtis and co-ords in breathable cotton, made for Bengaluru, Chennai and Kochi.",
+    "Kurtas and co-ord sets for women, chosen by founder Sushmita in Bengaluru and photographed on herself at 153 cm. Free shipping on prepaid orders.",
+  // Search Console and Bing Webmaster Tools ownership. Paste each code into
+  // the zisun-web variables; empty means no tag.
+  verification: {
+    ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : {}),
+    ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION ? { other: { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION } } : {}),
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

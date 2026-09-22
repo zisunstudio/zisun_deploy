@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/legal";
-import { fetchAllProducts, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { fetchAllProducts, fetchCategories, REVALIDATE_SECONDS } from "@/lib/server/catalog";
 
 /**
  * The pages a search engine or an AI crawler should find: the shop, every
@@ -15,10 +15,17 @@ export const revalidate = REVALIDATE_SECONDS;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
-  const products = await fetchAllProducts();
+  const [products, categories] = await Promise.all([fetchAllProducts(), fetchCategories()]);
   return [
     { url: SITE_URL, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${SITE_URL}/shop`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    // Categories with something in them - an empty one is a page not worth ranking.
+    ...(categories ?? []).filter((c) => c.is_active && c.product_count > 0).map((c) => ({
+      url: `${SITE_URL}/category/${c.slug}`,
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority: 0.85,
+    })),
     ...products.map((p) => ({
       url: `${SITE_URL}/product/${p.id}`,
       lastModified: new Date(p.updated_at || now),
