@@ -45,3 +45,18 @@ def test_an_empty_catalogue_claims_nothing():
 
 def test_inactive_pieces_do_not_count():
     assert keys(compute([{**SILK, "is_active": False}, MANGALGIRI])).get("fabric") == "Handloom cotton"
+
+
+def test_typed_text_is_audited_against_the_same_facts():
+    from app.services.truth import audit_text
+    t = compute([SILK, DABU])
+    hits = audit_text("Category", "Breathable handloom cotton for the working week.", t)
+    assert [h["says"] for h in hits] == ["handloom"]
+    assert audit_text("Category", "Kurti and palazzo in one weave.", t) == []
+
+
+def test_a_recorded_fact_clears_the_phrase():
+    from app.services.truth import audit_text
+    t = compute([MANGALGIRI])
+    assert audit_text("x", "Handloom cotton from Mangalgiri", t) == []
+    assert [h["says"] for h in audit_text("x", "Kasavu weaves", t)] == ["Kasavu"]

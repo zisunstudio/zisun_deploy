@@ -367,7 +367,7 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
             the label's point of view and her note is the woman behind it -
             one beat, not two. It used to sit last, after the craft facts,
             which put trust before identity. */}
-        <FounderNote />
+        <FounderNote truth={truth} />
 
         {/* Categories, as occasions. The founder's description under each
             name is the mood line; the page asks the question. A category with

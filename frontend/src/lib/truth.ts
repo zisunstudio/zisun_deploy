@@ -23,9 +23,11 @@ export interface Truth {
   max_batch: number | null;
   claims: Claim[];
   missing: string[];
+  /** Phrases she typed that the pieces do not support. */
+  unsupported: Array<{ where: string; says: string; needs: string }>;
 }
 
-export const EMPTY_TRUTH: Truth = { pieces: 0, fabrics: [], crafts: [], origins: [], all_cotton: false, any_handloom: false, all_handloom: false, all_never_rerun: false, max_batch: null, claims: [], missing: [] };
+export const EMPTY_TRUTH: Truth = { pieces: 0, fabrics: [], crafts: [], origins: [], all_cotton: false, any_handloom: false, all_handloom: false, all_never_rerun: false, max_batch: null, claims: [], missing: [], unsupported: [] };
 
 const claim = (t: Truth, key: Claim["key"]) => t.claims.find((c) => c.key === key && c.pieces === c.of) ?? null;
 
@@ -75,4 +77,20 @@ export function shortLine(t: Truth): string {
   const batch = claim(t, "batch");
   const what = fabric ? `${fabric.text} kurtas and co-ord sets` : "Kurtas and co-ord sets";
   return `${what}, chosen by Sushmita in Bengaluru${batch ? ", in small batches" : ""}.`;
+}
+
+/**
+ * Her note, with its one factual clause supplied by the catalogue.
+ *
+ * The sentence read "Handwoven South Indian cotton" over two pieces that
+ * recorded neither handloom nor an origin. The `{cloth}` placeholder is
+ * filled when the pieces earn it and removed when they do not; everything
+ * around it is her own wording and is never touched.
+ */
+export function founderNote(story: string | null, t: Truth): string | null {
+  if (!story) return story;
+  const fabric = claim(t, "fabric");
+  const origin = claim(t, "origin");
+  const cloth = fabric ? `${fabric.text}${origin ? ` from ${origin.text.replace(/ · /g, ", ")}` : ""}. ` : "";
+  return story.replace("{cloth}", cloth);
 }

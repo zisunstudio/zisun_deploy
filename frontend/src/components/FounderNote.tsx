@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { BRAND, FOUNDER } from "@/lib/brand";
+import { founderNote, EMPTY_TRUTH, type Truth } from "@/lib/truth";
 import { ZisunMark } from "@/components/brand/ZisunMark";
 
 /**
@@ -17,9 +18,11 @@ import { ZisunMark } from "@/components/brand/ZisunMark";
  * them. Unwritten copy renders as nothing in production rather than as a
  * placeholder; in development the empty slots show as outlined prompts.
  */
-export function FounderNote() {
+export function FounderNote({ truth }: { truth?: Truth } = {}) {
   const showDevSlots = process.env.NODE_ENV === "development";
-  const hasWords = Boolean(FOUNDER.story || FOUNDER.quote);
+  // Her wording, with its one factual clause supplied by the catalogue.
+  const story = founderNote(FOUNDER.story, truth ?? EMPTY_TRUTH);
+  const hasWords = Boolean(story || FOUNDER.quote);
   if (!hasWords && !showDevSlots) return null;
   return (
     <section className="mt-24 lg:mt-32 bg-rose" aria-labelledby="founder-note-heading">
@@ -34,8 +37,8 @@ export function FounderNote() {
         ) : showDevSlots ? (
           <DevSlot label="FOUNDER.quote" hint="One line she would put her name to." />
         ) : null}
-        {FOUNDER.story ? (
-          <p className="mt-6 max-w-prose text-[15px] lg:text-base leading-relaxed text-ink/80">{FOUNDER.story}</p>
+        {story ? (
+          <p className="mt-6 max-w-prose text-[15px] lg:text-base leading-relaxed text-ink/80">{story}</p>
         ) : showDevSlots ? (
           <DevSlot label="FOUNDER.story" hint="One or two sentences, in her voice." />
         ) : null}

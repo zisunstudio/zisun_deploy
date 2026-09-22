@@ -66,11 +66,15 @@ export const FOUNDER = {
   role: "Founder",
 
   /** One or two sentences, in her voice. Replace with the real story. */
-  // Drafted from her own words in the ZISUN Tales announcement ("a small space
-  // for my close friends and those looking for their next dreamy dress … your
+  // Drafted from her own words in her announcement ("a small space for my
+  // close friends and those looking for their next dreamy dress … your
   // thoughts will help me understand what to bring next"). Hers to edit.
+  //
+  // The sentence said "Handwoven South Indian cotton" over a catalogue that
+  // records neither. `founderNote()` in lib/truth.ts puts the cloth back in
+  // the moment the pieces support it; her voice is untouched either way.
   story:
-    "I started ZISUN as a small space for my close friends, and for anyone looking for their next dreamy dress. Handwoven South Indian cotton, cut for the way we actually live — every piece here is one I would wear myself." as string | null,
+    "I started ZISUN as a small space for my close friends, and for anyone looking for their next dreamy dress. {cloth}Cut for the way we actually live — every piece here is one I would wear myself." as string | null,
 
   /** A single line she would put her name to. */
   quote: "Tell me what you genuinely like. It decides what I make next." as string | null,

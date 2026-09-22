@@ -54,6 +54,17 @@ export default function AdminSystemPage() {
         {tr && tr.claims.filter((c) => c.pieces < c.of).map((c) => (
           <p key={c.key} className="text-xs text-gray-500">Not said: &ldquo;{c.text}&rdquo; &mdash; true of {c.pieces} of {c.of} pieces, so the site stays quiet.</p>
         ))}
+        {tr && tr.unsupported.length > 0 && (
+          <div className="mt-3 rounded-lg bg-red-50 border border-red-100 px-3 py-2.5">
+            <p className="text-xs font-semibold text-red-800 mb-1">Your own text claims things the pieces do not record:</p>
+            <ul className="text-xs text-red-800 space-y-1">
+              {tr.unsupported.map((u, i) => (
+                <li key={i}><span className="font-semibold">{u.where}</span> says &ldquo;{u.says}&rdquo; &mdash; needs {u.needs}.</li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-red-700/80 mt-1.5">Either record the fact on the piece, or change the wording.</p>
+          </div>
+        )}
         {tr && tr.missing.length > 0 && (
           <div className="mt-3 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5">
             <p className="text-xs font-semibold text-amber-800 mb-1">To say more, record on each piece (Edit &rarr; How and where it was made):</p>

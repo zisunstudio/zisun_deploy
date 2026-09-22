@@ -167,4 +167,16 @@ async def catalogue_truth(db: AsyncSession = Depends(get_async_db)):
         {"fabric_composition": r[0], "craft": r[1], "origin": r[2], "will_rerun": r[3], "batch_size": r[4], "is_active": r[5]}
         for r in rows
     ])
+    # The free text she types is audited against the same facts: a category
+    # description saying "handloom" over pieces that record none is the same
+    # untruth as the old hard-coded home page, just entered by hand.
+    from app.models.catalog import Category
+    cats = (await db.execute(select(Category.name, Category.description).where(Category.is_active.is_(True)))).all()
+    for name, desc in cats:
+        t.unsupported += truth_svc.audit_text(f"Category \u201c{name}\u201d", desc, t)
+    descs = (await db.execute(
+        select(Product.name, Product.description).where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+    )).all()
+    for name, desc in descs:
+        t.unsupported += truth_svc.audit_text(name, desc, t)
     return truth_svc.as_dict(t)

@@ -46,6 +46,8 @@ class Truth:
     claims: list[Claim] = field(default_factory=list)
     # Facts that would unlock a stronger claim, for the console.
     missing: list[str] = field(default_factory=list)
+    # Phrases the founder typed that the pieces do not support.
+    unsupported: list[dict] = field(default_factory=list)
 
 
 def _norm(s: Optional[str]) -> str:
@@ -125,6 +127,49 @@ def compute(products: Iterable[dict]) -> Truth:
     return t
 
 
+# ── Claims typed into the console ────────────────────────────────────────────
+#
+# The derived copy above is safe by construction, but the founder also types
+# free text - category descriptions, a piece's description - and that text can
+# claim what the catalogue does not record ("Breathable handloom cotton" over
+# a category whose one piece is a Rajasthani dabu print). Each phrase below is
+# checked against the fact that would have to be true for it to be honest.
+
+_WATCHED: tuple[tuple[str, str, str], ...] = (
+    (r"hand\s*-?\s*loom", "handloom", "craft"),
+    (r"hand\s*-?\s*woven", "handwoven", "craft"),
+    (r"\bmangalgiri\b", "Mangalgiri", "origin"),
+    (r"\bilkal\b", "Ilkal", "origin"),
+    (r"\bkasavu\b", "Kasavu", "origin"),
+    (r"\bchanderi\b", "Chanderi", "origin"),
+    (r"never re-?run", "never re-run", "rerun"),
+    (r"\bkhadi\b", "khadi", "craft"),
+)
+
+
+def audit_text(where: str, text: Optional[str], t: Truth) -> list[dict]:
+    """Phrases in free text that the recorded pieces do not support."""
+    out: list[dict] = []
+    if not text:
+        return out
+    for pattern, word, needs in _WATCHED:
+        if not re.search(pattern, text, re.I):
+            continue
+        if needs == "craft":
+            ok = any(re.search(pattern, c, re.I) for c in t.crafts)
+        elif needs == "origin":
+            ok = any(re.search(pattern, o, re.I) for o in t.origins)
+        else:
+            ok = t.all_never_rerun
+        if not ok:
+            out.append({"where": where, "says": word, "needs": {
+                "craft": f"a piece whose craft records '{word}'",
+                "origin": f"a piece whose origin records '{word}'",
+                "rerun": "every piece marked as not re-run",
+            }[needs]})
+    return out
+
+
 def as_dict(t: Truth) -> dict:
     return {
         "pieces": t.pieces,
@@ -138,4 +183,5 @@ def as_dict(t: Truth) -> dict:
         "max_batch": t.max_batch,
         "claims": [{"key": c.key, "text": c.text, "pieces": c.pieces, "of": c.of} for c in t.claims],
         "missing": t.missing,
+        "unsupported": t.unsupported,
     }
