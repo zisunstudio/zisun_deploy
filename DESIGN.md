@@ -234,3 +234,36 @@ page was bare. "Fill from the description" reads the sentence she has
 already written and fills only the empty boxes, never overwriting hers.
 That is the fix for points 3, 4, 5, 8 and 9 of her review; the schema was
 only the half of it that was visible in code.
+
+## 10. Buy now, and the honest version of urgency
+
+Attention on a phone lasts seconds, so the purchase has to fit inside them.
+The product page leads with **Buy now · ₹1,039** in burgundy; the bag sits
+beside it as an outlined icon. That is still one primary action per screen
+- Buy now is it.
+
+Buy now carries one piece to checkout in its own lane (session storage)
+and never touches the bag. A first-time buyer skips the bag step; a
+returning buyer on this device lands on Pay with the piece, her address as
+a card, the date it should arrive, and one button. Her details are
+remembered only after an order succeeds.
+
+The pull comes from things that are true:
+- **The price inside the button**, so the tap is a decision about a number
+  she can see.
+- **A date, not a duration**: "Usually with you by Sun, 27 Sept" - dispatch
+  plus the courier's estimate for her pincode, quoted at the late end.
+- **Scarcity only when real**: the count appears at three or fewer, for the
+  size she chose.
+- **The reward**: the confirmation is not a receipt. Her piece's own weave
+  weaves itself in front of her - "Weave No. D20A · yours", the same number
+  as on its product page - under "It's yours."
+
+What this page will never do: countdown timers that reset, "12 people are
+viewing this", pre-ticked add-ons, or a size chosen for her. The page shows
+the first variant so a price can render, but a size is only ever one she
+tapped; Buy now without one scrolls to the sizes and asks.
+
+The statutory block is titled **Legal declarations**, collapsed, last and
+muted. Every row in it is required on an online listing, so none can be
+removed; named for what it is, a shopper knows she can skip it.

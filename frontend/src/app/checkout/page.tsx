@@ -14,6 +14,10 @@ import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
 import { recordEnquiry } from "@/lib/enquiry";
 import { INDIAN_STATES } from "@/lib/india";
 import { POLICY_TERMS } from "@/lib/legal";
+import { arrivalDate, clearExpressItem, getExpressItem, recallBuyer, rememberBuyer } from "@/lib/buyNow";
+import type { CartItem } from "@/store/useCartStore";
+import { Weave } from "@/components/Weave";
+import type { WeaveSpec } from "@/lib/weave";
 
 declare global {
   interface Window { Razorpay: any }
@@ -52,9 +56,21 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const user = useAuthStore((s) => s.user);
-  const items = useCartStore((s) => s.items);
-  const getCartTotal = useCartStore((s) => s.getCartTotal);
+  const bagItems = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
+
+  // Buy now arrives with one piece in session storage and ?express=1. Read
+  // after mount: the server cannot see either, and useSearchParams would
+  // force this page out of static rendering for one flag.
+  const [express, setExpress] = useState<CartItem | null>(null);
+  const [ready, setReady] = useState(false);
+  const items = express ? [express] : bagItems;
+  // What she bought, kept for the confirmation after the bag is cleared.
+  const [bought, setBought] = useState<CartItem | null>(null);
+  const [weave, setWeave] = useState<WeaveSpec | null>(null);
+  // True when her details came from a previous order on this device, so the
+  // pay screen can show them as a card rather than a form.
+  const [remembered, setRemembered] = useState(false);
 
   const [step, setStep] = useState<Step>("bag");
   const [placing, setPlacing] = useState(false);
@@ -70,6 +86,22 @@ export default function CheckoutPage() {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  useEffect(() => {
+    const isExpress = new URLSearchParams(window.location.search).get("express") === "1";
+    const item = isExpress ? getExpressItem() : null;
+    if (item) setExpress(item);
+    const buyer = recallBuyer();
+    if (buyer) {
+      setForm({ ...buyer, line2: buyer.line2 ?? "" });
+      setRemembered(true);
+    }
+    // The fastest honest path: a returning buyer on Buy now lands on Pay,
+    // with the piece, her address and one button. A new buyer on Buy now
+    // skips the bag step she has no use for.
+    if (item) setStep(buyer ? "pay" : "details");
+    setReady(true);
+  }, []);
+
   // Prefill from the account when there is one. Never overwrite typing.
   useEffect(() => {
     if (!user) return;
@@ -80,7 +112,8 @@ export default function CheckoutPage() {
     }));
   }, [user]);
 
-  const totalRupees = getCartTotal();
+  const totalRupees = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const arrives = arrivalDate(pin?.serviceable ? pin.estimated_days : null);
   const totalPaise = Math.round(totalRupees * 100);
 
   // Serviceability, once the pincode is complete. Fails open by design on the
@@ -167,10 +200,21 @@ export default function CheckoutPage() {
 
   function finish(id: string) {
     setOrderId(id);
+    setBought(items[0] ?? null);
     setStep("done");
     setPlacing(false);
-    clearCart();
+    // Remembered only once an order has actually been placed, so an abandoned
+    // form leaves nothing behind on her device.
+    rememberBuyer({ ...form, name: form.name.trim(), phone: form.phone.trim() });
+    // Buy now empties its own lane and nothing else; the bag she was
+    // building is still there when she comes back.
+    if (express) clearExpressItem(); else clearCart();
+    try { navigator.vibrate?.([10, 60, 20]); } catch { /* unsupported */ }
   }
+
+  // Nothing is decided until storage has been read, or a Buy now arrival
+  // would flash "Your bag is empty" before its piece loads.
+  if (!ready) return <Shell><div className="py-24" /></Shell>;
 
   // ── Empty bag ─────────────────────────────────────────────────────────────
   if (items.length === 0 && step !== "done") {
@@ -190,11 +234,26 @@ export default function CheckoutPage() {
   if (step === "done") {
     return (
       <Shell>
-        <div className="px-5 py-16 text-center max-w-md mx-auto">
-          <div className="w-14 h-14 rounded-full bg-burgundy/10 flex items-center justify-center mx-auto">
-            <Check className="w-7 h-7 text-burgundy" />
-          </div>
-          <h1 className="mt-5 font-display text-[32px] leading-tight text-ink">Thank you.</h1>
+        <div className="px-5 py-12 text-center max-w-md mx-auto">
+          {/* The reward. Her piece's own cloth weaves itself in front of her -
+              the same weave, with the same number, as on its product page -
+              so the moment of buying ends on something that is hers, not on
+              a receipt. Falls back to the tick when there is no piece. */}
+          {bought?.productId ? (
+            <div className="mx-auto w-full max-w-[280px]">
+              <div className="aspect-[4/3] rounded-lg overflow-hidden bg-rose">
+                <Weave seed={bought.productId} colours={[bought.color]} mode="enter" label="The weave of the piece you just bought" onSpec={setWeave} />
+              </div>
+              {weave && <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-muted tabular-nums">Weave No. {weave.code} · yours</p>}
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-burgundy/10 flex items-center justify-center mx-auto">
+              <Check className="w-7 h-7 text-burgundy" />
+            </div>
+          )}
+          <h1 className="mt-6 font-display text-[34px] leading-tight text-ink">It&rsquo;s yours.</h1>
+          {bought && <p className="mt-2 text-sm text-ink">{bought.name}{bought.size ? ` · ${bought.size}` : ""}</p>}
+          {arrives && <p className="mt-1 text-sm text-ink">Usually with you by <span className="font-semibold">{arrives}</span></p>}
           <p className="mt-3 text-sm text-muted leading-relaxed">
             {paymentMethod === "COD"
               ? "We will message you on WhatsApp shortly to confirm the order before it is packed."
@@ -232,7 +291,7 @@ export default function CheckoutPage() {
   return (
     <Shell>
       <div className="px-5 lg:px-8 max-w-2xl mx-auto pb-32">
-        <Steps current={step} />
+        <Steps current={step} express={Boolean(express)} />
 
         {error && <p className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3.5 py-2.5 text-sm text-red-800">{error}</p>}
 
@@ -296,14 +355,39 @@ export default function CheckoutPage() {
             )}
 
             <Primary disabled={!detailsValid} onClick={() => setStep("pay")}>Continue to payment</Primary>
-            <BackLink onClick={() => setStep("bag")} />
+            <BackLink onClick={() => (express ? router.back() : setStep("bag"))} />
           </section>
         )}
 
         {/* 3. Payment */}
         {step === "pay" && (
           <section>
-            <h1 className="font-display text-[30px] text-ink mb-5">How would you like to pay?</h1>
+            {/* On Buy now this is the first screen she sees, so it has to
+                carry the whole decision: the piece, where it is going, when
+                it arrives, and one button. */}
+            {express && (
+              <div className="mb-5 flex gap-3.5 items-center">
+                <div className="relative w-14 h-[70px] rounded-card overflow-hidden bg-rose shrink-0">
+                  {express.image && <Image src={express.image} alt="" fill sizes="56px" className="object-cover" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-ink leading-snug">{express.name}</p>
+                  <p className="mt-0.5 text-xs text-muted">{[express.size && `Size ${express.size}`, express.color].filter(Boolean).join(" · ")}</p>
+                </div>
+              </div>
+            )}
+            {detailsValid && (
+              <div className="mb-5 rounded-card border border-line px-4 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 text-sm">
+                  <p className="text-xs text-muted">Delivering to</p>
+                  <p className="text-ink mt-0.5">{form.name}, +91 {form.phone}</p>
+                  <p className="text-muted text-xs mt-0.5 leading-relaxed">{[form.line1, form.line2, form.city, form.pincode].filter(Boolean).join(", ")}</p>
+                  {arrives && <p className="text-xs text-ink mt-1.5">Usually with you by <span className="font-semibold">{arrives}</span></p>}
+                </div>
+                <button onClick={() => { setRemembered(false); setStep("details"); }} className="shrink-0 text-xs text-ink underline underline-offset-4 decoration-burgundy/50">Change</button>
+              </div>
+            )}
+            <h1 className="font-display text-[26px] text-ink mb-4">How would you like to pay?</h1>
             <div className="space-y-3">
               <PayOption
                 selected={paymentMethod === "RAZORPAY"}
@@ -330,7 +414,7 @@ export default function CheckoutPage() {
             <Primary disabled={placing} onClick={placeOrder}>
               {placing ? <><Loader2 className="w-4 h-4 animate-spin" /> Placing…</> : paymentMethod === "COD" ? "Place order" : `Pay ${formatPrice(totalPaise)}`}
             </Primary>
-            <BackLink onClick={() => setStep("details")} />
+            {!remembered && <BackLink onClick={() => setStep("details")} />}
             {/* The fallback, kept deliberately quiet. Some customers would
                 rather talk to a person before paying a label they have not
                 bought from; sending them to WhatsApp is better than losing
@@ -360,14 +444,16 @@ function Shell({ children }: { children: React.ReactNode }) {
   return <div className="w-full bg-background min-h-screen pt-6">{children}</div>;
 }
 
-function Steps({ current }: { current: Step }) {
-  const idx = STEPS.findIndex(([s]) => s === current);
+function Steps({ current, express = false }: { current: Step; express?: boolean }) {
+  // Buy now never visits the bag, so it is not shown as a step she skipped.
+  const steps = express ? STEPS.filter(([s]) => s !== "bag") : STEPS;
+  const idx = steps.findIndex(([s]) => s === current);
   return (
     <ol className="flex items-center gap-2 mb-7 text-[11px] uppercase tracking-[0.16em]">
-      {STEPS.map(([s, label], i) => (
+      {steps.map(([s, label], i) => (
         <li key={s} className="flex items-center gap-2">
           <span className={i <= idx ? "text-burgundy font-semibold" : "text-muted"}>{label}</span>
-          {i < STEPS.length - 1 && <span className="text-ink/20">—</span>}
+          {i < steps.length - 1 && <span className="text-ink/20">—</span>}
         </li>
       ))}
     </ol>

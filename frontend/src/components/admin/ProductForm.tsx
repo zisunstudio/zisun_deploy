@@ -656,6 +656,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
                 value={data.commodity_name}
                 onChange={f("commodity_name")}
               />
+              <p className="text-xs text-gray-400 mt-1">What the item <em>is</em> &mdash; &ldquo;Women&rsquo;s cotton co-ord set&rdquo;. What it is <em>for</em> (office, festive) goes under &ldquo;Wear it for&rdquo; in Product details.</p>
             </div>
           </div>
 

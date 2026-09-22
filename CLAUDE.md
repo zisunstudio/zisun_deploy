@@ -186,6 +186,13 @@ button on the site without anyone choosing it. A published contact channel
 is always deliberate configuration; every surface hides the row when it is
 unset.
 
+**A size is chosen, never defaulted.** The PDP falls back to
+`product.variants[0]` so a price can render; that fallback must never reach
+a bag or an order. `sizePicked` gates both Add to bag and Buy now - before
+it existed, tapping Add to bag without a size put an XL in the bag.
+Buy now carries its piece in session storage (`lib/buyNow.ts`), never the
+URL and never the bag.
+
 ## Traps found the hard way
 
 Each of these produced a green build or a healthy-looking deploy:

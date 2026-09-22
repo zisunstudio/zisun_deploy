@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { ChevronLeft, Heart, ShoppingBag, Share2, Ruler } from "lucide-react";
+import { ChevronLeft, Heart, ShoppingBag, Share2, Ruler, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProduct, formatPrice, productImageUrl } from "@/lib/queries/catalog";
 import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from "@/lib/queries/wishlist";
@@ -29,6 +29,7 @@ import { useActiveCoupons } from "@/lib/queries/coupons";
 import { PieceWeave } from "@/components/PieceWeave";
 import { WaysToWear } from "@/components/WaysToWear";
 import { AVAILABILITY, INCLUDED } from "@/lib/brand";
+import { setExpressItem } from "@/lib/buyNow";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -42,6 +43,15 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  // Whether she has actually chosen a size. The page shows the first variant
+  // by default so a price and colour can render, and that default used to be
+  // what went in the bag: tap "Add to bag" without touching a size and an XL
+  // arrived. With Buy now that would be a paid order for a size nobody
+  // picked, so a size is now a choice she makes, never one made for her.
+  const [sizePicked, setSizePicked] = useState(false);
+  const [sizeNudge, setSizeNudge] = useState(0);
+  const [buying, setBuying] = useState(false);
+  const sizeRef = useRef<HTMLDivElement>(null);
   const [imageIdx, setImageIdx] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
   function scrollGalleryTo(i: number) {
@@ -104,11 +114,57 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     const first = product!.variants.find((v) => v.color === colour && v.stock > 0)
       ?? product!.variants.find((v) => v.color === colour);
     if (same ?? first) { setSelectedVariantId((same ?? first)!.id); setImageIdx(0); galleryRef.current?.scrollTo({ left: 0 }); }
+    // Her size carried across the colour change; otherwise she chooses again.
+    if (!same) setSizePicked(false);
   }
   const price = selectedVariant
     ? product.base_price + selectedVariant.price_delta
     : product.base_price;
   const isOutOfStock = !BROWSE_ONLY && (!selectedVariant || selectedVariant.stock === 0);
+  // One size is not a choice. More than one is, and it has to be hers.
+  const needsSize = variantsInColour.filter((v) => v.is_active).length > 1;
+  const sizeReady = !needsSize || sizePicked;
+
+  /** Bring the size row into view and make it ask, once, without a modal. */
+  function askForSize() {
+    sizeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setSizeNudge((n) => n + 1);
+    try { navigator.vibrate?.([8, 40, 8]); } catch { /* unsupported */ }
+  }
+
+  function lineItem() {
+    return {
+      id: selectedVariant?.id ?? product!.id,
+      name: product!.name,
+      price: price / 100,
+      quantity: 1,
+      image: images[0],
+      size: selectedVariant?.size ?? undefined,
+      color: selectedVariant?.color ?? selectedColour ?? undefined,
+      productId: product!.id,
+    };
+  }
+
+  /**
+   * Straight to paying for this one piece.
+   *
+   * The whole purchase happens while the wanting is still warm: one tap here,
+   * and checkout opens on this piece alone with her details already filled
+   * if she has bought before. The bag is left exactly as it was.
+   */
+  function handleBuyNow() {
+    if (!product || isOutOfStock) return;
+    if (!sizeReady) { askForSize(); return; }
+    setBuying(true);
+    try { navigator.vibrate?.(12); } catch { /* unsupported */ }
+    // Counted in the same funnel step as the bag - it is the same intent,
+    // and the board should not show buy-now shoppers as having dropped off.
+    trackEvent("add_to_cart", { product_id: product.id, variant_id: selectedVariant?.id ?? null, price, via: "buy_now" });
+    setExpressItem(lineItem());
+    router.push("/checkout?express=1");
+    // If she comes straight back, the button must not still say "Opening".
+    setTimeout(() => setBuying(false), 4000);
+  }
   const inWishlist = wishlist?.items.some((i) => i.variant?.product?.id === product.id);
 
   function handleWishlistToggle() {
@@ -148,17 +204,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   function handleAddToCart() {
     if (!product) return;
     if (!selectedVariant && !BROWSE_ONLY) { showToast("Please select a size", "warning"); return; }
+    if (!sizeReady) { askForSize(); return; }
     trackEvent("add_to_cart", { product_id: product.id, variant_id: selectedVariant?.id ?? null, price });
-    addItem({
-      id: selectedVariant?.id ?? product.id,
-      name: product.name,
-      price: price / 100,
-      quantity: 1,
-      image: images[0],
-      size: selectedVariant?.size ?? undefined,
-      color: selectedVariant?.color ?? selectedColour ?? undefined,
-      productId: product.id,
-    });
+    addItem(lineItem());
     toggleCart();
     showToast("Added to your bag", "success");
   }
@@ -332,9 +380,14 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           )}
           {/* Variant selector */}
           {variantsInColour.length > 1 && (
-            <div className="mb-4">
+            <div ref={sizeRef} className="mb-4 scroll-mt-24">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-ink text-sm font-semibold">Select size</p>
+                {/* Keyed on the nudge count so the rise replays each time she
+                    tries to buy without a size - the page answers the tap
+                    instead of ignoring it. */}
+                <p key={sizeNudge} className={`text-sm font-semibold ${sizeNudge > 0 && !sizeReady ? "text-burgundy animate-fade-up" : "text-ink"}`}>
+                  {sizeNudge > 0 && !sizeReady ? "Choose your size first" : "Select size"}
+                </p>
                 <button
                   onClick={() => {
                     // Which pieces send people to the chart, and which size they
@@ -355,8 +408,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               </div>
               <VariantSelector
                 variants={variantsInColour}
-                selected={selectedVariantId ?? selectedVariant?.id ?? null}
-                onSelect={setSelectedVariantId}
+                selected={sizeReady ? (selectedVariantId ?? selectedVariant?.id ?? null) : null}
+                onSelect={(id) => { setSelectedVariantId(id); setSizePicked(true); }}
                 groupBy="size"
                 honourStock={!BROWSE_ONLY}
               />
@@ -370,7 +423,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               size is well stocked, the exact count when it is nearly gone,
               and the batch fact underneath - which is not a countdown
               clock, it is how the label actually works. */}
-          {selectedVariant && !BROWSE_ONLY && selectedVariant.stock <= AVAILABILITY.lowStockAt && (
+          {/* Only for a size she has chosen: "Only 1 left in XL" about a
+              size she never picked is noise, and reads as pressure. */}
+          {selectedVariant && sizeReady && !BROWSE_ONLY && selectedVariant.stock <= AVAILABILITY.lowStockAt && (
             <div className="mb-4">
               <p className={`text-xs font-medium ${selectedVariant.stock === 0 ? "text-muted" : "text-rani"}`}>
                 {selectedVariant.stock === 0
@@ -453,15 +508,35 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               </a>
             )}
           </div>
-        ) : (
-          <button
-            onClick={handleAddToCart}
-            disabled={isOutOfStock}
-            className="w-full bg-burgundy text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-burgundy-deep transition-all active:scale-[0.99]"
-          >
-            <ShoppingBag className="w-5 h-5" />
-            {isOutOfStock ? "Sold out" : "Add to bag"}
+        ) : isOutOfStock ? (
+          <button disabled className="w-full bg-burgundy text-white py-4 rounded-full font-semibold opacity-40 cursor-not-allowed">
+            Sold out in this size
           </button>
+        ) : (
+          /* Buy now leads; the bag is the quieter second choice.
+             One primary action per screen still holds - it is Buy now, and
+             the bag is outlined beside it rather than competing in burgundy.
+             The price is inside the button so the tap is a decision about a
+             number she can see, not a step towards one she cannot. The bar
+             stays one row tall: a taller sticky bar once hid the price on a
+             Pixel 7. */
+          <div className="flex gap-2.5">
+            <button
+              onClick={handleAddToCart}
+              aria-label="Add to bag"
+              className="shrink-0 h-14 w-14 sm:w-auto sm:px-5 rounded-full border border-ink/20 text-ink flex items-center justify-center gap-2 font-semibold text-sm hover:border-ink/50 transition-colors active:scale-[0.97]"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              <span className="hidden sm:inline">Add to bag</span>
+            </button>
+            <button
+              onClick={handleBuyNow}
+              disabled={buying}
+              className="flex-1 h-14 bg-burgundy text-white rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-burgundy-deep transition-all active:scale-[0.98] disabled:opacity-80"
+            >
+              {buying ? "Opening checkout…" : <>Buy now · {formatPrice(price)} <ArrowRight className="w-4 h-4" /></>}
+            </button>
+          </div>
         )}
       </div>
 

@@ -346,6 +346,23 @@ class ProductUpdate(LegalMetrologyFields, FabricSpecFields, GarmentAttributeFiel
     category_id: Optional[uuid.UUID] = None
 
 
+def _usable_net_quantity(stored) -> Optional[str]:
+    """A stored net quantity, unless it is a bare number.
+
+    Writes already refuse "5", but rows saved before that check still hold
+    it, and one of them was on the live product page reading as five
+    kurtas in one pack. Ignoring it at read time retires every such row at
+    once, without a data migration guessing what each one meant: the
+    declaration falls through to the pieces in the set, or the brand
+    default. The stored value is untouched and the console still shows it,
+    with a note saying why it is not being used.
+    """
+    if not stored:
+        return None
+    s = str(stored).strip()
+    return None if not s or s.isdigit() else s
+
+
 def _net_quantity_from_pieces(pieces) -> Optional[str]:
     """The statutory net quantity, derived from what is in the set.
 
@@ -390,7 +407,7 @@ class LegalMetrology(BaseModel):
         return cls(
             commodity_name=getattr(product, "commodity_name", None) or settings.LM_COMMODITY_NAME,
             net_quantity=(
-                getattr(product, "net_quantity", None)
+                _usable_net_quantity(getattr(product, "net_quantity", None))
                 or _net_quantity_from_pieces(getattr(product, "set_pieces", None))
                 or settings.LM_NET_QUANTITY
             ),

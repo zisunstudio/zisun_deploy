@@ -49,11 +49,11 @@ export function ProductDeclarations({ declarations, price, hasSizeChart = false 
     // which a customer reads as five kurtas. What is in the set is said in
     // the customer's own words further up the page.
     ["Net quantity", declarations.net_quantity],
-    // "Dimensions" is warehouse language for a garment, and the row was
-    // printing a bare "42, 44" that meant nothing next to it. The size chart
-    // is the measurement for apparel, so the row says so under a word a
-    // customer shopping for clothes would use.
-    ["Size", hasSizeChart ? "See the size guide" : declarations.dimensions],
+    // Only when there is no size chart. With one, the chart *is* the
+    // garment's measurement declaration and it is already on the page, a
+    // tap from the size buttons; a row here pointing back at it was the
+    // one line in this block that told a customer nothing.
+    ["Size", hasSizeChart ? null : declarations.dimensions],
     // Stated as "inclusive of all taxes" because that is the declaration the
     // rules ask for, and because the price shown on this page is the price
     // charged — GST is inside it, not added at checkout.
@@ -79,7 +79,14 @@ export function ProductDeclarations({ declarations, price, hasSizeChart = false 
         aria-controls="product-declarations"
         className="w-full flex items-center justify-between text-left"
       >
-        <span className="text-sm font-semibold text-foreground">Product information</span>
+        {/* Named for what it is. Every row here is a declaration the Legal
+            Metrology rules require on an online listing, so none can be
+            removed - but a customer who reads "Product information" expects
+            product information, finds "Net quantity" and "Marketed and
+            packed by", and decides the page is confusing. Called what it is,
+            she knows she can skip it, and the few who need it know where
+            it is. Collapsed, last, and quiet. */}
+        <span className="text-xs font-medium text-muted">Legal declarations</span>
         <ChevronDown
           className={`w-4 h-4 text-muted transition-transform ${open ? "rotate-180" : ""}`}
         />
