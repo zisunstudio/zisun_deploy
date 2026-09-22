@@ -368,7 +368,22 @@ export function FitStylist({ productId, isOpen, onClose, onChoose, initialAnswer
                 </>
               ) : (
                 <>
-                  <div className="flex items-center justify-between"><p className="text-sm font-semibold text-ink">Your measurements</p>{unitToggle()}</div>
+                  {/* How to measure, for someone who does not know her numbers
+                      and is doing it now. Drawn, two lines, and what to use
+                      when there is no tape in the house. */}
+                  <div className="flex items-start gap-4">
+                    <svg viewBox="0 0 80 110" className="h-28 w-20 shrink-0 text-ink/70" aria-hidden>
+                      <path d="M30 8 Q40 2 50 8 L54 20 Q66 26 64 40 L60 58 Q70 76 62 104 L18 104 Q10 76 20 58 L16 40 Q14 26 26 20 Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                      <ellipse cx="40" cy="38" rx="25" ry="4.5" fill="none" className="text-burgundy" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" />
+                      <ellipse cx="40" cy="74" rx="24" ry="4.5" fill="none" className="text-burgundy" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" />
+                    </svg>
+                    <div className="text-[13px] leading-relaxed text-muted space-y-1.5">
+                      <p><span className="text-ink font-medium">Bust:</span> round the fullest part, tape level all the way round.</p>
+                      <p><span className="text-ink font-medium">Hip:</span> round the widest part, lower down.</p>
+                      <p>Snug, not tight, over light clothing. No tape? A dupatta or a phone cable works — mark it, then lay it along a ruler.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between"><p className="text-sm font-semibold text-ink">Your measurements</p>{unitToggle()}</div>
                   <div className="mt-2 grid grid-cols-2 gap-3">
                     <label className="block text-xs text-muted">Bust<input className={num} inputMode="decimal" value={p.bust ?? ""} onChange={setNum("bust")} placeholder={unit === "in" ? "36" : "91"} /></label>
                     <label className="block text-xs text-muted">Hip <span className="text-muted/70">(optional)</span><input className={num} inputMode="decimal" value={p.hip ?? ""} onChange={setNum("hip")} placeholder={unit === "in" ? "40" : "102"} /></label>
