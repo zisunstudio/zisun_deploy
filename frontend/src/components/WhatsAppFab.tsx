@@ -2,13 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import { MessageCircle } from "lucide-react";
-import { HAS_ANY_WHATSAPP, HAS_WHATSAPP, whatsappContactUrl } from "@/lib/launchMode";
+import { HAS_ANY_WHATSAPP, whatsappContactUrl } from "@/lib/launchMode";
 import { recordEnquiry } from "@/lib/enquiry";
 
 /**
  * One tap to WhatsApp, from every storefront page.
  *
- * The founder sells through WhatsApp today — the group is where drops land
+ * The founder sells through WhatsApp today, on ZISUN's official number.
  * and questions get answered — and the survey's biggest objection was "who is
  * behind this". A persistent, obviously-human way to reach her answers that
  * on every page, not only at the buy button.
@@ -24,7 +24,7 @@ export function WhatsAppFab() {
   if (pathname.startsWith("/admin") || pathname.startsWith("/login")) return null;
   const href = whatsappContactUrl();
   if (!href) return null;
-  const label = HAS_WHATSAPP ? "Chat with ZISUN on WhatsApp" : "Join ZISUN Tales on WhatsApp";
+  const label = "Chat with ZISUN on WhatsApp";
   return (
     <a
       href={href}

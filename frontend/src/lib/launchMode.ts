@@ -14,29 +14,23 @@ export const BROWSE_ONLY =
   (process.env.NEXT_PUBLIC_LAUNCH_MODE ?? "").trim().toLowerCase() === "browse";
 
 /** Digits only, with country code, e.g. 919876543210. */
-// Set NEXT_PUBLIC_WHATSAPP_NUMBER explicitly, or there is no 1:1 chat.
+// Set NEXT_PUBLIC_WHATSAPP_NUMBER explicitly, or there is no chat at all.
 //
 // This used to fall back to COMPANY.phone, which is how the founder's
 // personal mobile ended up behind every WhatsApp button on the site without
-// anyone choosing it. A published contact channel is now always a deliberate
-// configuration, never inherited: when neither this nor the group URL is
-// set, the button does not render at all.
+// anyone choosing it. A published contact channel is always a deliberate
+// configuration, never inherited.
 const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
 
 export const HAS_WHATSAPP = WHATSAPP_NUMBER.length > 0;
 
 /**
- * The "ZISUN Tales" community group the founder already runs on WhatsApp.
- * Used as the destination when no 1:1 number is configured, and offered on
- * its own as "join the community" — it is where she posts drops, fabric
- * details and asks what to make next, so it is a real place to send people.
+ * There is no community-group link anywhere on the site, on purpose. A
+ * public WhatsApp group exposes every member's number to every other member,
+ * strangers included; the founder took it down on 2026-09-22. The only
+ * WhatsApp destination is ZISUN's official business number, 1:1.
  */
-const WHATSAPP_GROUP_URL = (process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL ?? "").trim();
-export const HAS_WHATSAPP_GROUP = /^https:\/\/chat\.whatsapp\.com\//.test(WHATSAPP_GROUP_URL);
-export const WHATSAPP_GROUP_HREF = HAS_WHATSAPP_GROUP ? WHATSAPP_GROUP_URL : null;
-
-/** Somewhere on WhatsApp a visitor can actually reach ZISUN. */
-export const HAS_ANY_WHATSAPP = HAS_WHATSAPP || HAS_WHATSAPP_GROUP;
+export const HAS_ANY_WHATSAPP = HAS_WHATSAPP;
 
 /**
  * A private 1:1 chat with a message already written, or null.
@@ -49,9 +43,9 @@ export function whatsappPrivateUrl(text: string): string | null {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }
 
-/** Best available WhatsApp destination: 1:1 chat if configured, else the group. */
+/** The WhatsApp destination: the official number, 1:1, or nothing. */
 export function whatsappContactUrl(productName?: string): string | null {
-  return whatsappOrderUrl(productName) ?? WHATSAPP_GROUP_HREF;
+  return whatsappOrderUrl(productName);
 }
 
 /**

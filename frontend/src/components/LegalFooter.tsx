@@ -3,7 +3,7 @@ import Link from "next/link";
 import { COMPANY } from "@/lib/legal";
 import { BRAND } from "@/lib/brand";
 import { ZisunMark } from "@/components/brand/ZisunMark";
-import { HAS_ANY_WHATSAPP, WHATSAPP_GROUP_HREF, whatsappContactUrl } from "@/lib/launchMode";
+import { HAS_ANY_WHATSAPP, whatsappContactUrl } from "@/lib/launchMode";
 import { POLICY_TERMS } from "@/lib/legal";
 import { recordEnquiry } from "@/lib/enquiry";
 
@@ -29,7 +29,7 @@ const LINKS = [
  * links stay, and stay on the home page: Google's app verification and
  * Razorpay's onboarding both look for them here.
  */
-export function LegalFooter() {
+export function LegalFooter({ line }: { line?: string } = {}) {
   const wa = whatsappContactUrl();
   return (
     <footer className="mt-16 bg-burgundy text-porcelain overflow-hidden">
@@ -38,17 +38,15 @@ export function LegalFooter() {
           <div>
             <ZisunMark className="h-10 w-auto text-porcelain" />
             <p className="mt-4 font-hand text-2xl text-porcelain/90 leading-none">{BRAND.signature}</p>
+            {/* From the catalogue (lib/truth.ts shortLine) where the page has
+                it; otherwise only what is always true. */}
             <p className="mt-2 text-[13px] text-porcelain/60 max-w-xs leading-relaxed">
-              Handloom cotton from South India, in small batches.
+              {line ?? "Kurtas and co-ord sets, chosen by Sushmita in Bengaluru."}
             </p>
             <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-porcelain/55">
               Free shipping on prepaid orders · Dispatched in {POLICY_TERMS.dispatchTimeframe}
             </p>
-            {WHATSAPP_GROUP_HREF && (
-              <a href={WHATSAPP_GROUP_HREF} target="_blank" rel="noopener noreferrer" onClick={() => recordEnquiry({ source: "community" })} className="mt-3 inline-block text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40 hover:decoration-porcelain">
-                ZISUN Tales — where drops land first →
-              </a>
-            )}
+
           </div>
           <nav className="grid grid-cols-2 gap-x-10 gap-y-2.5 text-sm" aria-label="Footer">
             {LINKS.map(({ href, label }) => (
