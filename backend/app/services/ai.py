@@ -25,7 +25,7 @@ class AIUnavailable(Exception):
     """The feature cannot run right now; the caller turns this into a 503."""
 
 
-async def _post(payload: dict[str, Any]) -> dict[str, Any]:
+async def _post(payload: dict[str, Any], timeout: float = 60.0) -> dict[str, Any]:
     if not settings.has_ai:
         raise AIUnavailable("ANTHROPIC_API_KEY is not set")
     headers = {
@@ -34,7 +34,7 @@ async def _post(payload: dict[str, Any]) -> dict[str, Any]:
         "content-type": "application/json",
     }
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=min(10.0, timeout))) as client:
             response = await client.post(ANTHROPIC_URL, headers=headers, json=payload)
     except httpx.HTTPError as exc:
         logger.warning("Claude request failed: %s", exc)
@@ -67,20 +67,21 @@ async def write(system: str, user: str, max_tokens: int = 800) -> str:
 
 
 async def extract(system: str, user: str, schema: dict[str, Any], name: str = "result",
-                  description: str = "Return the structured result.", max_tokens: int = 1500) -> dict[str, Any]:
+                  description: str = "Return the structured result.", max_tokens: int = 1500,
+                  model: str | None = None, timeout: float | None = None) -> dict[str, Any]:
     """Structured output: a dict validated against `schema` by the model itself.
 
     Forcing the tool means the reply is always the tool's input and never a
     paragraph that starts "Sure! Here is..." followed by JSON in a code fence.
     """
     data = await _post({
-        "model": settings.AI_MODEL,
+        "model": model or settings.AI_MODEL,
         "max_tokens": max_tokens,
         "system": system,
         "tools": [{"name": name, "description": description, "input_schema": schema}],
         "tool_choice": {"type": "tool", "name": name},
         "messages": [{"role": "user", "content": user}],
-    })
+    }, timeout=timeout or 60.0)
     for block in data.get("content", []):
         if block.get("type") == "tool_use" and block.get("name") == name:
             return dict(block.get("input") or {})

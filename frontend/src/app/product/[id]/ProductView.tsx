@@ -31,6 +31,7 @@ import { WaysToWear } from "@/components/WaysToWear";
 import { AVAILABILITY, FOUNDER, INCLUDED } from "@/lib/brand";
 import { setExpressItem } from "@/lib/buyNow";
 import { HERO_NAME, navigate } from "@/lib/viewTransition";
+import { FitStylist, askFit, readFitProfile, type FitAnswer } from "@/components/FitStylist";
 
 /**
  * The interactive product page. Rendered inside the server shell in
@@ -60,6 +61,17 @@ export default function ProductView({ params, initial }: { params: { id: string 
   const [sizeNudge, setSizeNudge] = useState(0);
   const [buying, setBuying] = useState(false);
   const sizeRef = useRef<HTMLDivElement>(null);
+  const [fitOpen, setFitOpen] = useState(false);
+  // A returning visitor who has answered once gets her size on every piece
+  // without asking again. Silent on failure: the prompt is still there.
+  const [fitAnswer, setFitAnswer] = useState<FitAnswer | null>(null);
+  useEffect(() => {
+    const profile = readFitProfile();
+    if (!profile) return;
+    let live = true;
+    askFit(params.id, profile).then((a) => { if (live) setFitAnswer(a); }).catch(() => {});
+    return () => { live = false; };
+  }, [params.id]);
   const [imageIdx, setImageIdx] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
   function scrollGalleryTo(i: number) {
@@ -429,6 +441,17 @@ export default function ProductView({ params, initial }: { params: { id: string 
                 groupBy="size"
                 honourStock={!BROWSE_ONLY}
               />
+              {/* The stylist, where the doubt is. */}
+              {!BROWSE_ONLY && (fitAnswer ? (
+                <button onClick={() => setFitOpen(true)} className="mt-2.5 text-xs text-ink">
+                  For you: <span className="font-semibold">take {fitAnswer.size}</span>
+                  <span className="text-muted underline underline-offset-4 ml-1.5">why?</span>
+                </button>
+              ) : (
+                <button onClick={() => { setFitOpen(true); trackEvent("fit_opened", { product_id: product.id }); }} className="mt-2.5 text-xs text-muted underline underline-offset-4 decoration-burgundy/40 hover:text-ink">
+                  Not sure? Find my size in three taps
+                </button>
+              ))}
             </div>
           )}
 
@@ -577,6 +600,17 @@ export default function ProductView({ params, initial }: { params: { id: string 
         )}
       </div>
 
+      <FitStylist
+        productId={product.id}
+        isOpen={fitOpen}
+        onClose={() => setFitOpen(false)}
+        initialAnswer={fitAnswer}
+        onChoose={(size) => {
+          const v = variantsInColour.find((x) => x.is_active && x.size?.trim().toUpperCase() === size.toUpperCase())
+            ?? product.variants.find((x) => x.is_active && x.size?.trim().toUpperCase() === size.toUpperCase() && x.stock > 0);
+          if (v) { setSelectedVariantId(v.id); setSizePicked(true); }
+        }}
+      />
       <SizeGuideModal
         isOpen={sizeGuideOpen}
         onClose={() => setSizeGuideOpen(false)}

@@ -5,6 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from app.core.client_ip import client_ip
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         except AttributeError:
             return await call_next(request)
 
-        ip = request.client.host if request.client else "unknown"
+        # The shopper, not Railway's proxy - see app/core/client_ip.py.
+        ip = client_ip(request)
         path = request.url.path
         now = int(time.time())
 

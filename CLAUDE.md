@@ -147,12 +147,20 @@ Anthropic bill is bounded by the founder's own use. Every feature degrades
 to a plain message when `ANTHROPIC_API_KEY` is unset or the account has no
 credits; the brief falls back to rule-written sentences.
 
-**The storefront never calls a model.** "Ways to wear it" is
-`products.styling_notes` (migration 0014): drafted by Claude at
-`/admin/ai/styling`, edited and saved by the founder, served as stored text.
-Any future "AI" on a customer-facing page follows the same shape - generate
-behind the admin role, store, serve - or it breaks the rule above and puts
-the Anthropic bill in strangers' hands.
+**The storefront calls a model in exactly one place, and it is fenced.**
+"Ways to wear it" is stored text (drafted in the console, saved by the
+founder). The one live customer-facing call is the fit stylist,
+`POST /stylist/fit` (`app/api/endpoints/stylist.py`), approved by the owner
+on 2026-09-22 with these fences, which are the rule now: the size is
+decided by rules in `app/services/fit.py` and Claude may only phrase it (a
+sentence naming another size is discarded); nothing the customer types
+reaches a prompt (height, usual size, preference - all bounded); every
+answer is cached in Redis for 7 days; a daily call ceiling
+(`STYLIST_DAILY_CAP`) and a per-visitor hourly limit
+(`STYLIST_PER_IP_HOURLY`); `STYLIST_MODEL` is a small model; after any
+failure it stops asking for ten minutes. Without a key or credits it
+answers from rules alone. Any further customer-facing AI needs the same
+fences or the Anthropic bill is in strangers' hands.
 
 **A piece's weave is its id.** `designWeave(product.id, colours)` in
 `frontend/src/lib/weave.ts` is deterministic and its number ("No. D20A") is
@@ -192,6 +200,13 @@ a bag or an order. `sizePicked` gates both Add to bag and Buy now - before
 it existed, tapping Add to bag without a size put an XL in the bag.
 Buy now carries its piece in session storage (`lib/buyNow.ts`), never the
 URL and never the bag.
+
+**Rate limits key on the shopper, not the proxy.** uvicorn runs without
+`--proxy-headers`, so `request.client.host` is Railway's edge - one address
+for every visitor. `app/core/client_ip.py` reads `X-Real-IP` (then the last
+`X-Forwarded-For` hop). Until 2026-09-22 the global limiter keyed on the
+proxy, so its "per IP" limits were site-wide: 100 API calls a minute and 10
+sign-ins a minute for all customers together.
 
 ## Traps found the hard way
 

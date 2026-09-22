@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     # changes.
     ANTHROPIC_API_KEY: str = ""
     AI_MODEL: str = "claude-sonnet-5"
+    # The one customer-facing use of Claude: the fit stylist rephrasing a
+    # size the rules engine has already decided. Small, fast model; a hard
+    # daily ceiling on calls (every answer is also cached); and a per-visitor
+    # hourly limit. Past the ceiling the rules answer is served unchanged.
+    STYLIST_MODEL: str = "claude-haiku-4-5-20251001"
+    STYLIST_DAILY_CAP: int = 300
+    STYLIST_PER_IP_HOURLY: int = 30
 
     # ── Razorpay ─────────────────────────────────────────────────────────────
     RAZORPAY_KEY_ID: str = ""
