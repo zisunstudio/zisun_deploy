@@ -7,8 +7,8 @@ import { api } from "@/lib/api";
 import { trackEvent } from "@/lib/queries/analytics";
 import { FOUNDER } from "@/lib/brand";
 import {
-  BAND_WORD, BAND_WORD_VS_KURTA, fitsFor, fromCm, normSize, toCm,
-  type Band, type Chart, type FitResult, type Input, type Preference, type Unit,
+  BAND_WORD, BAND_WORD_VS_KURTA, fitsFor, fromCm, kurtaRound, normSize, toCm,
+  type Band, type Chart, type FitResult, type Input, type KurtaMode, type Preference, type Unit,
 } from "@/lib/fitMath";
 
 /**
@@ -48,8 +48,10 @@ export interface FitProfile {
   /** Stored in `unit`, only on this device. */
   bust?: number | null;
   hip?: number | null;
-  kurtaChest?: number | null; // across, laid flat
-  kurtaHip?: number | null;   // across, laid flat
+  kurtaChest?: number | null; // as she measured it - see kurtaMode
+  kurtaHip?: number | null;
+  /** Measured across a flat kurta (doubled) or all the way round. */
+  kurtaMode?: KurtaMode;
 }
 
 export interface FitAnswer {
@@ -100,7 +102,12 @@ export function answerLocally(p: FitProfile, chart: Chart | null, inStock: strin
   const unit = p.unit ?? "in";
   let input: Input | null = null;
   if (p.method === "body" && p.bust) input = { method: "body", bust: toCm(p.bust, unit), hip: p.hip ? toCm(p.hip, unit) : null };
-  if (p.method === "kurta" && p.kurtaChest) input = { method: "garment", chest: toCm(p.kurtaChest * 2, unit), hip: p.kurtaHip ? toCm(p.kurtaHip * 2, unit) : null };
+  if (p.method === "kurta" && p.kurtaChest) {
+    // Read as a tailor would: a number too big to be a flat width is a
+    // round measurement, whatever the toggle says (lib/fitMath kurtaRound).
+    const mode = p.kurtaMode ?? "across";
+    input = { method: "garment", chest: kurtaRound(p.kurtaChest, unit, mode).roundCm, hip: p.kurtaHip ? kurtaRound(p.kurtaHip, unit, mode).roundCm : null };
+  }
   if (!input) return null;
   const r = fitsFor(chart, input, p.pref, inStock);
   if (!r.recommended) return null;
@@ -357,11 +364,38 @@ export function FitStylist({ productId, isOpen, onClose, onChoose, initialAnswer
                     </svg>
                     <p className="text-[13px] leading-relaxed text-muted">Lay a kurta that fits you well flat on a bed. Measure straight across, just under the arms. Then across the widest part below the waist, if you like.</p>
                   </div>
-                  <div className="mt-4 flex items-center justify-between"><p className="text-sm font-semibold text-ink">Across, laid flat</p>{unitToggle()}</div>
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    <label className="block text-xs text-muted">Under the arms<input className={num} inputMode="decimal" value={p.kurtaChest ?? ""} onChange={setNum("kurtaChest")} placeholder={unit === "in" ? "19" : "48"} /></label>
-                    <label className="block text-xs text-muted">Widest, lower down <span className="text-muted/70">(optional)</span><input className={num} inputMode="decimal" value={p.kurtaHip ?? ""} onChange={setNum("kurtaHip")} placeholder={unit === "in" ? "23" : "58"} /></label>
-                  </div>
+                  {(() => {
+                    const mode: KurtaMode = p.kurtaMode ?? "across";
+                    const chest = p.kurtaChest ? kurtaRound(p.kurtaChest, unit, mode) : null;
+                    const hip = p.kurtaHip ? kurtaRound(p.kurtaHip, unit, mode) : null;
+                    const shown = (r: ReturnType<typeof kurtaRound>) => `${Math.round(fromCm(r.roundCm, unit) * 2) / 2}${unit === "in" ? "″" : " cm"}`;
+                    return (
+                      <>
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          {/* How she measured - asked, not assumed. */}
+                          <div className="inline-flex rounded-full border border-line p-0.5 text-[12px]" role="radiogroup" aria-label="How you measured">
+                            {([["across", "Across, laid flat"], ["round", "All the way round"]] as Array<[KurtaMode, string]>).map(([m, label]) => (
+                              <button key={m} role="radio" aria-checked={mode === m} onClick={() => setP({ ...p, kurtaMode: m })} className={`rounded-full px-3 py-1 ${mode === m ? "bg-ink text-porcelain" : "text-ink"}`}>{label}</button>
+                            ))}
+                          </div>
+                          {unitToggle()}
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <label className="block text-xs text-muted">Under the arms<input className={num} inputMode="decimal" value={p.kurtaChest ?? ""} onChange={setNum("kurtaChest")} placeholder={mode === "across" ? (unit === "in" ? "19" : "48") : (unit === "in" ? "38" : "96")} /></label>
+                          <label className="block text-xs text-muted">Widest, lower down <span className="text-muted/70">(optional)</span><input className={num} inputMode="decimal" value={p.kurtaHip ?? ""} onChange={setNum("kurtaHip")} placeholder={mode === "across" ? (unit === "in" ? "23" : "58") : (unit === "in" ? "46" : "116")} /></label>
+                        </div>
+                        {/* Read back, so a slip is visible before she taps. */}
+                        {chest && (
+                          <p className="mt-2 text-[12px] text-muted">
+                            That is {shown(chest)}{hip ? ` and ${shown(hip)}` : ""} all the way round.
+                            {(chest.corrected || hip?.corrected) && (
+                              <span className="block text-ink mt-0.5">A kurta is never that wide laid flat, so we have read it as all the way round.</span>
+                            )}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                   {privacy()}
                   {prefs(true)}
                   {height(true)}

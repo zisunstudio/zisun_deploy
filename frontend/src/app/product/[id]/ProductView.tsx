@@ -669,6 +669,8 @@ export default function ProductView({ params, initial }: { params: { id: string 
         categoryName={product.category?.name}
         selectedSize={selectedVariant?.size ?? null}
         chart={product.size_chart}
+        pieceFit={product.garment_attributes?.fit}
+        pieceFabric={product.fabric_specs?.fabric_composition}
       />
     </div>
   );

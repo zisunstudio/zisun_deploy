@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chartKind, fitsFor, normSize, type Chart } from "@/lib/fitMath";
+import { chartKind, fitsFor, kurtaRound, normSize, type Chart } from "@/lib/fitMath";
 
 // The live Purple Rose chart, exactly as she entered it: inches, and a
 // kurta's measurements (38" waist on a 39" chest), labelled "XXL".
@@ -73,5 +73,27 @@ describe("fitsFor - a kurta she loves", () => {
 describe("fitsFor - body chart, body measurements", () => {
   it("fits the size cut for her bust", () => {
     expect(fitsFor(BODY, { method: "body", bust: 90, hip: 98 }, "as_designed").recommended).toBe("M");
+  });
+});
+
+describe("kurtaRound - how she measured", () => {
+  it("doubles a flat width", () => {
+    expect(kurtaRound(19, "in", "across")).toEqual({ roundCm: 38 * 2.54, readAs: "across", corrected: false });
+  });
+  it("reads a number too big to be a flat width as all the way round", () => {
+    const r = kurtaRound(36, "in", "across");
+    expect(r.corrected).toBe(true);
+    expect(r.readAs).toBe("round");
+    expect(r.roundCm).toBeCloseTo(36 * 2.54);
+  });
+  it("the founder's own test: a 36/40 kurta, read as round, is M on the live chart", () => {
+    const chest = kurtaRound(36, "in", "across").roundCm;
+    const hip = kurtaRound(40, "in", "across").roundCm;
+    const r = fitsFor(LIVE, { method: "garment", chest, hip }, "as_designed");
+    expect(r.recommended).toBe("M");
+    expect(r.nothingComfortable).toBe(false);
+  });
+  it("respects an explicit round measurement in cm", () => {
+    expect(kurtaRound(92, "cm", "round").roundCm).toBe(92);
   });
 });

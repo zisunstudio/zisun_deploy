@@ -45,9 +45,9 @@ string, and every component, from `9a0585c` to `HEAD`).
 | A size is chosen, never defaulted (guards bag + Buy now) | `ProductView.tsx` (`sizePicked`) | Live |
 | Scarcity — colour-level before a size is chosen, size-level after, batch line | `ProductView.tsx`, `frontend/src/lib/brand.ts` (`AVAILABILITY`) | Live |
 | Worn by Sushmita · 153 cm / model line | `ProductView.tsx` (`worn_by_founder`, `model_size`) | Needs data |
-| Size guide (chart-kind aware instructions) | `frontend/src/components/SizeGuideModal.tsx` | Live |
+| Size guide (chart-kind aware instructions and footnote; this piece's own fit and fabric, never the category's) | `frontend/src/components/SizeGuideModal.tsx`, `frontend/src/lib/sizeGuide.ts` | Live |
 | Find my size — usual size (server rules + Claude phrasing) | `backend/app/services/fit.py`, `backend/app/api/endpoints/stylist.py` | Live |
-| Find my size — kurta / measurements, private on-device | `frontend/src/components/FitStylist.tsx`, `frontend/src/lib/fitMath.ts` | Live |
+| Find my size — kurta / measurements, private on-device; asks "across or all the way round", reads an impossible flat width as round, reads it back | `frontend/src/components/FitStylist.tsx`, `frontend/src/lib/fitMath.ts` | Live |
 | Description, Ways to wear it | `frontend/src/components/WaysToWear.tsx` | Needs data |
 | Assurances (free shipping online, Razorpay, COD + ₹99, help) | `frontend/src/components/ProductAssurances.tsx` | Live |
 | The weave as cloth (WebGL), No. + interlace | `frontend/src/components/PieceWeave.tsx`, `frontend/src/components/ClothWeave.tsx` | Live |

@@ -167,3 +167,21 @@ export function fitsFor(chart: Chart, input: Input, preference: Preference, inSt
   }
   return { fits, recommended, nothingComfortable, vsKurta: input.method === "garment" && kind === "garment", confidence };
 }
+
+/**
+ * A kurta measurement, read the way a tailor would read it.
+ *
+ * Laid flat, a kurta measures well under 30" (76 cm) across; all the way
+ * round it measures twice that. Customers type either, whatever the label
+ * says - the founder typed "36" meaning round, the page doubled it to 72",
+ * and every size came back "much closer than yours". So a value too big to
+ * be a flat width is read as round, and the page says it has done so.
+ */
+export type KurtaMode = "across" | "round";
+export const MAX_ACROSS: Record<Unit, number> = { in: 30, cm: 76 };
+
+export function kurtaRound(value: number, unit: Unit, mode: KurtaMode): { roundCm: number; readAs: KurtaMode; corrected: boolean } {
+  const corrected = mode === "across" && value > MAX_ACROSS[unit];
+  const readAs: KurtaMode = corrected ? "round" : mode;
+  return { roundCm: toCm(readAs === "across" ? value * 2 : value, unit), readAs, corrected };
+}

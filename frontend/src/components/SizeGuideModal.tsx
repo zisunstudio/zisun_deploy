@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { chartForCategory, HOW_TO_MEASURE, SIZE_CHART_NOTES } from "@/lib/sizeGuide";
+import { chartForCategory, GARMENT_CHART_NOTE, HOW_TO_MEASURE, SIZE_CHART_NOTES } from "@/lib/sizeGuide";
 import type { SizeChart, SizeChartRow, SizeUnit } from "@/lib/queries/catalog";
 import { chartInUnit, formatMeasure, readPreferredUnit, writePreferredUnit } from "@/lib/sizeUnits";
 
@@ -22,6 +22,13 @@ interface SizeGuideModalProps {
    * fabric notes still apply and are kept.
    */
   chart?: SizeChart | null;
+  /**
+   * This piece's own facts. With its own chart, the guide states these - not
+   * the category's copy, which said "100% handloom cotton" and "a drawstring
+   * waist" above a silk piece nobody had described that way.
+   */
+  pieceFit?: string | null;
+  pieceFabric?: string | null;
 }
 
 /**
@@ -31,7 +38,7 @@ interface SizeGuideModalProps {
  * and their place in the page — on a phone that is a bounce, not a
  * consultation. The chart has to appear over the thing being measured.
  */
-export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, chart: productChart }: SizeGuideModalProps) {
+export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, chart: productChart, pieceFit, pieceFabric }: SizeGuideModalProps) {
   // Portals need a DOM, and the server render has none. Gating on a mounted
   // flag rather than a typeof-window check keeps the first client render
   // identical to the server's, which is what React actually diffs against.
@@ -79,6 +86,11 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, ch
         }
       : null;
   const fromProduct = Boolean(productChart?.rows?.length);
+  const isGarmentChart = fromProduct && chartKind(productChart as Chart) === "garment";
+  // With its own chart, a piece speaks for itself: its fit and fabric, or
+  // nothing - never the category's words about a different cloth.
+  const fitLines = fromProduct ? (pieceFit?.trim() ? [pieceFit.trim()] : []) : (chart?.fit ?? []);
+  const fabricLine = fromProduct ? (pieceFabric?.trim() || null) : (chart?.fabric ?? null);
   const shown: SizeChart | null = source ? chartInUnit(source, unit) : null;
   const rows: SizeChartRow[] = shown?.rows ?? [];
   // Only render the bottom-length column when this chart actually measures one.
@@ -209,7 +221,7 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, ch
                   </tbody>
                 </table>
                 <ul className="mt-3 space-y-1.5">
-                  {SIZE_CHART_NOTES.map((note) => (
+                  {(isGarmentChart ? [GARMENT_CHART_NOTE, ...SIZE_CHART_NOTES.slice(1)] : SIZE_CHART_NOTES).map((note) => (
                     <li key={note} className="text-[11px] text-muted leading-relaxed flex gap-1.5">
                       <span className="text-primary flex-shrink-0">·</span>
                       <span>{note}</span>
@@ -218,11 +230,11 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, ch
                 </ul>
               </div>
 
-              {chart && (
+              {fitLines.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2">How this one fits</h3>
                 <ul className="space-y-1.5">
-                  {chart.fit.map((line) => (
+                  {fitLines.map((line) => (
                     <li key={line} className="text-sm text-muted leading-relaxed flex gap-2">
                       <span className="text-primary flex-shrink-0">·</span>
                       <span>{line}</span>
@@ -232,10 +244,10 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, ch
               </div>
               )}
 
-              {chart && (
+              {fabricLine && (
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-1.5">Fabric</h3>
-                <p className="text-sm text-muted leading-relaxed">{chart.fabric}</p>
+                <p className="text-sm text-muted leading-relaxed">{fabricLine}</p>
               </div>
               )}
 

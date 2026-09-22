@@ -136,6 +136,14 @@ export const HOW_TO_MEASURE = [
  * sale is also what stops a 1cm difference becoming an exchange request, given
  * that size is the only reason we accept one.
  */
+/**
+ * The first note for a chart of the kurta's own measurements. The body-chart
+ * note above told customers to "match yourself against" numbers that were
+ * the garment's - which picks a size that does not close.
+ */
+export const GARMENT_CHART_NOTE =
+  "Chest, waist and hip are the kurta's own measurements, all the way round — choose one a little bigger than you. Length is shoulder to hem.";
+
 export const SIZE_CHART_NOTES = [
   "Bust, waist and hip are body measurements — match yourself against them. Length is the finished garment, measured flat.",
   "Every piece is measured by hand, so allow a variation of 1–2.5 cm (about half an inch to an inch). Cut and fall also vary by design.",
