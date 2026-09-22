@@ -150,30 +150,55 @@ export default function AdminInventoryPage() {
         <div className="space-y-4">
           {shown.map((p) => {
             const total = p.variants.reduce((s, v) => s + v.stock, 0);
+            // Rows that repeat a size and colour. A save that failed and was
+            // retried used to create a whole second set under a new SKU
+            // prefix, so one piece carried thirteen rows and 28 units where
+            // six existed. The API refuses new duplicates now; these are the
+            // ones already in the table, and only she can decide which to
+            // keep, because one of them may hold the real count.
+            const seen = new Map<string, number>();
+            for (const v of p.variants) {
+              const k = `${(v.size ?? "").trim().toUpperCase()}|${(v.color ?? "").trim().toLowerCase()}`;
+              seen.set(k, (seen.get(k) ?? 0) + 1);
+            }
+            const dupKey = (v: Variant) => `${(v.size ?? "").trim().toUpperCase()}|${(v.color ?? "").trim().toLowerCase()}`;
+            const isDup = (v: Variant) => (seen.get(dupKey(v)) ?? 0) > 1;
+            const dupCount = p.variants.filter(isDup).length;
             const isEditing = (id: string | null) => editing?.productId === p.id && editing.variantId === id;
             return (
               <Card key={p.id} padded={false}>
                 <CardHeader
                   title={p.name}
                   href={`/admin/products/${p.id}/edit`}
-                  meta={`${rupees(p.base_price)} · ${p.variants.length} ${p.variants.length === 1 ? "variant" : "variants"} · ${total} units`}
+                  meta={`${rupees(p.base_price)} · ${p.variants.length} ${p.variants.length === 1 ? "size row" : "size rows"} · ${total} in stock`}
                   actions={<>
                     <LinkButton href={`/admin/products/${p.id}/edit`} size="sm"><Pencil className="w-3.5 h-3.5" /> Edit product</LinkButton>
                     <Button size="sm" variant="primary" onClick={() => startAdd(p.id)}><Plus className="w-3.5 h-3.5" /> Add size/colour</Button>
                   </>}
                 />
 
+                {dupCount > 0 && (
+                  <div className="mx-4 mt-3 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5">
+                    <p className="text-xs font-semibold text-amber-900">{dupCount} rows repeat a size that already exists.</p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      A failed save that was tried again created a second set under a new SKU. That is why the total above looks too high.
+                      Keep the row with the right count and delete the others &mdash; check each one before deleting.
+                    </p>
+                  </div>
+                )}
+
                 {/* Phone: one stacked row per variant. */}
                 <ul className="sm:hidden divide-y divide-gray-100">
                   {p.variants.map((v) => isEditing(v.id) ? (
                     <li key={v.id}><EditForm productId={p.id} variantId={v.id} basePrice={p.base_price} /></li>
                   ) : (
-                    <li key={v.id} className={`px-4 py-3 ${!v.is_active ? "opacity-50" : ""}`}>
+                    <li key={v.id} className={`px-4 py-3 ${!v.is_active ? "opacity-50" : ""} ${isDup(v) ? "bg-amber-50/60" : ""}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 text-sm text-gray-900">
                             <span className="font-semibold">{v.size || "One size"}</span>
                             <Swatch colour={v.color} className="text-gray-700" />
+                            {isDup(v) && <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 rounded px-1.5 py-0.5">repeat</span>}
                           </div>
                           <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
                             <Sku>{v.sku}</Sku><span>·</span><span className="tabular-nums text-gray-700">{rupees(p.base_price + (v.price_delta ?? 0))}</span>{!v.is_active && <><span>·</span><span>off sale</span></>}
@@ -202,9 +227,9 @@ export default function AdminInventoryPage() {
                         {p.variants.map((v) => isEditing(v.id) ? (
                           <tr key={v.id}><td colSpan={7} className="p-0"><EditForm productId={p.id} variantId={v.id} basePrice={p.base_price} /></td></tr>
                         ) : (
-                          <tr key={v.id} className={`hover:bg-gray-50 ${!v.is_active ? "opacity-50" : ""}`}>
+                          <tr key={v.id} className={`hover:bg-gray-50 ${!v.is_active ? "opacity-50" : ""} ${isDup(v) ? "bg-amber-50/60" : ""}`}>
                             <td className={td}><Sku>{v.sku}</Sku></td>
-                            <td className={td}>{v.size || "—"}</td>
+                            <td className={td}>{v.size || "—"}{isDup(v) && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 rounded px-1.5 py-0.5">repeat</span>}</td>
                             <td className={td}><Swatch colour={v.color} /></td>
                             <td className={`${td} tabular-nums`}>{rupees(p.base_price + (v.price_delta ?? 0))}</td>
                             <td className={td}><StockBadge n={v.stock} /></td>

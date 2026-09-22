@@ -33,6 +33,11 @@ string, and every component, from `9a0585c` to `HEAD`).
 | The Journal: articles, Article JSON-LD, sitemap, llms.txt | `frontend/src/app/journal/page.tsx`, `backend/app/api/endpoints/journal.py` | Needs data |
 | Journal pipeline: ideas, Claude draft from facts only, approve, publish | `backend/app/api/admin/endpoints/journal.py`, `frontend/src/app/admin/journal/page.tsx` | Live |
 | Markdown rendered without any raw-HTML path | `frontend/src/lib/markdown.tsx` | Live |
+| Per-product journey: shown → opened → bag/buy → checkout → asked → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |
+| Console session refreshes like the storefront's (no more "token expired" mid-form) | `frontend/src/lib/api.ts`, `frontend/src/lib/adminApi.ts` | Live |
+| One variant row per size and colour; repeats flagged in inventory | `backend/app/api/admin/endpoints/products.py`, `frontend/src/app/admin/inventory/page.tsx` | Live |
+| Read-back invariant enforced by test | `backend/tests/unit/test_admin_readback.py` | Live |
+| Console phone-width harness (fails on overflow, page error or error boundary) | `scripts/review/console.js` | Live |
 | Manifesto, occasions, craft facts | `frontend/src/lib/brand.ts` | Live |
 | Category tiles show a piece on Sushmita (stock art only for an empty category) | `frontend/src/components/CategoryCard.tsx` | Live |
 | Small collection presented as a drop (no chrome, count in words, no redundant "Everything"/"NEW") | `frontend/src/app/shop/ShopView.tsx`, `frontend/src/lib/words.ts` | Live |

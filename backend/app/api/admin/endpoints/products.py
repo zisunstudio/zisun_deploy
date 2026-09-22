@@ -142,12 +142,17 @@ async def admin_create_product(
     db.add(product)
     await db.flush()
 
+    seen_keys: set[tuple[str, str]] = set()
     for v in data.variants:
         existing = (
             await db.execute(select(ProductVariant).where(ProductVariant.sku == v.sku))
         ).scalar_one_or_none()
         if existing:
             raise HTTPException(422, f"SKU already exists: {v.sku}")
+        key = _norm_variant_key(v.size, v.color)
+        if key in seen_keys:
+            raise HTTPException(422, f"Two rows for the same size and colour: {v.size or '-'}")
+        seen_keys.add(key)
         db.add(ProductVariant(
             product_id=product.id,
             sku=v.sku,
@@ -235,6 +240,39 @@ async def admin_soft_delete_product(
     await db.commit()
 
 
+
+def _norm_variant_key(size, color) -> tuple[str, str]:
+    """A shop has one row per size and colour, whatever the SKU says."""
+    return ((size or "").strip().upper(), (color or "").strip().lower())
+
+
+async def _reject_duplicate_size_colour(
+    db: AsyncSession, product_id: uuid.UUID, size, color, *, exclude: uuid.UUID | None = None
+) -> None:
+    """Refuse a second row for a size/colour that already exists.
+
+    Uniqueness used to be checked on SKU alone, which is not the rule a shop
+    actually has. The console generates a SKU prefix from the piece's name, so
+    a save that failed and was retried produced ZS-WIN-M, then ZS-M, then
+    RICH-WINE-WIN-M - three rows for one medium. One piece reached thirteen
+    variants and an inventory total of 28 units when six existed. (The retries
+    came from the console's missing token refresh; that is fixed too.)
+    """
+    want = _norm_variant_key(size, color)
+    rows = (await db.execute(
+        select(ProductVariant).where(
+            ProductVariant.product_id == product_id,
+            ProductVariant.is_active.is_(True),
+        )
+    )).scalars().all()
+    for r in rows:
+        if exclude and r.id == exclude:
+            continue
+        if _norm_variant_key(r.size, r.color) == want:
+            label = f"{size or '-'}{' / ' + color if color else ''}"
+            raise HTTPException(422, f"This piece already has a {label} row (SKU {r.sku}). Edit that one instead of adding another.")
+
+
 # ── POST /{id}/variants/ — add variant ───────────────────────────────────────
 
 @router.post("/{product_id}/variants/", response_model=ProductVariantResponse, status_code=201)
@@ -250,6 +288,7 @@ async def admin_add_variant(
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(422, f"SKU already exists: {data.sku}")
+    await _reject_duplicate_size_colour(db, product_id, data.size, data.color)
 
     variant = ProductVariant(
         product_id=product_id,

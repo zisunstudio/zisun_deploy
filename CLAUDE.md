@@ -215,6 +215,23 @@ shown to customers. Changing the hash, the RNG, or the order in which
 ever shown; add new seeded choices *after* the existing ones. The canvas
 redraws only while weaving or rippling - do not add a free-running loop.
 
+**Both API clients refresh; the console's one did not.** The access token
+lasts 15 minutes and `lib/api.ts` has always refreshed it silently on a 401.
+`lib/adminApi.ts` had no response interceptor at all, so a save made more
+than 15 minutes after sign-in failed with "token expired" and everything
+typed into the form was unrecoverable. She retyped and saved again, which is
+how one piece ended up with thirteen variant rows under three SKU prefixes.
+`attachRefresh(instance)` is exported from `lib/api.ts` and attached to
+both; a new axios instance that talks to the API must call it.
+
+**One variant row per size and colour, whatever the SKU says.** Uniqueness
+was checked on SKU alone, which is not the rule a shop has: the console
+derives a SKU prefix from the piece's name, so a retried save produced
+`ZS-WIN-M`, then `ZS-M`, then `RICH-WINE-WIN-M` for one medium.
+`_reject_duplicate_size_colour` in `admin/endpoints/products.py` now refuses
+the second row, and the inventory page marks existing repeats so they can be
+deleted by hand - only the founder knows which row holds the real count.
+
 **Anything an admin can write must be readable back.** `AdminProductDetail`
 re-declares every column `ProductResponse` hides, because the editor seeds
 its inputs from those fields. The seven garment attributes were left out of
@@ -223,7 +240,10 @@ rendered the inputs blank, and wrote the blanks back on the next save. The
 founder entered a piece's colour, neck and sleeve, saved twice, and
 concluded the storefront ignored her. Add a column to the model and you
 add it in three places - the input schema, `AdminProductDetail`, and the
-console form.
+console form. It happened a second time with `compare_at_price` and
+`offer_ends_at` (editing a piece with a live offer cleared the offer), so
+`tests/unit/test_admin_readback.py` now reads the model and the schemas and
+fails the build when a writable column is missing from the read-back.
 
 **Net quantity is derived, never typed.** `set_pieces` (["Kurta",
 "Palazzo"]) produces the Legal Metrology declaration "1 set - 2 pieces".
@@ -350,6 +370,11 @@ Each of these produced a green build or a healthy-looking deploy:
   that is the argument that makes Railway fetch the branch first. The
   scratchpad's `deploy-web.sh` does. Always check the deployment's
   `meta.commitHash` matches `git rev-parse HEAD` before believing a deploy.
+- **A React error boundary makes a crash look like a tidy page.** The
+  boundary catches the throw, so Playwright's `pageerror` never fires and
+  the screenshot shows a neat "Something went wrong" panel. The console
+  harness checks the rendered text for it and treats a console error as a
+  failure; without that check it reported "fits" on a board that was dead.
 - **A fixture harness proves the page, not the endpoint.** The analytics
   board 500'd for a day (`NameError: by_size`) while every screenshot of it
   looked perfect, because the console review harness answered the admin API

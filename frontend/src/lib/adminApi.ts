@@ -1,5 +1,5 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
-import { getAccessToken } from "@/lib/api";
+import { attachRefresh, getAccessToken } from "@/lib/api";
 
 import { API_ADMIN_V1 } from "@/lib/apiBase";
 
@@ -17,3 +17,8 @@ adminApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   }
   return config;
 });
+
+// The console gets the same silent refresh as the storefront. Without it a
+// 15-minute access token expired while she filled a long form, and the save
+// came back "token expired" with her work unrecoverable on the screen.
+attachRefresh(adminApi);

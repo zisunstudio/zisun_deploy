@@ -151,6 +151,37 @@ def product_id_matches(column):
     return AnalyticsEvent.properties.op("->>")("product_id") == sa.cast(column, sa.Text)
 
 
+def _worst_step(journey: list[dict]) -> dict | None:
+    """Where this piece loses the most people.
+
+    Only steps that had someone to lose are considered, and a step that
+    nobody has reached yet is not a "100% drop" - it is no evidence. The
+    result names the step and the two counts, so the console can say
+    "12 opened it, 1 reached the bag" instead of printing a percentage.
+    """
+    worst = None
+    worst_key = (-1, -1.0)
+    for before, after in zip(journey, journey[1:]):
+        if before["count"] <= 0:
+            continue
+        lost = before["count"] - after["count"]
+        if lost <= 0:
+            continue
+        rate = lost / before["count"]
+        # Ranked by people lost, then by rate. Ranking by rate alone made
+        # "one shopper did not check out" (100%) outrank "twenty-eight saw it
+        # and did not open it" (70%), which is the opposite of useful. Compare
+        # the raw fraction, never the rounded percentage in the payload.
+        if (lost, rate) > worst_key:
+            worst_key = (lost, rate)
+            worst = {
+                "from": before["label"], "to": after["label"],
+                "from_count": before["count"], "to_count": after["count"],
+                "lost": lost, "rate": round(rate * 100), "step": after["key"],
+            }
+    return worst
+
+
 def _count_of(event_type: str):
     return sa.func.count(sa.case((AnalyticsEvent.event_type == event_type, AnalyticsEvent.id)))
 
@@ -247,11 +278,16 @@ async def compute_dashboard(days: int = 30) -> dict:
                 _count_of("product_viewed").label("views"),
                 _views_from_cards().label("views_from_cards"),
                 _count_of("add_to_cart").label("add_to_cart"),
+                # The rest of the journey. Without these the per-product view
+                # stopped at the bag and could not say whether anyone went on
+                # to check out - which is exactly where the money is lost.
+                _count_of("buy_now").label("buy_now"),
+                _count_of("checkout_initiated").label("checkout_initiated"),
                 sa.func.coalesce(attention_sq.c.score, 0.0).label("attention"),
             )
             .select_from(Product)
             .outerjoin(AnalyticsEvent, sa.and_(
-                AnalyticsEvent.event_type.in_(["product_impression", "product_viewed", "add_to_cart"]),
+                AnalyticsEvent.event_type.in_(["product_impression", "product_viewed", "add_to_cart", "buy_now", "checkout_initiated"]),
                 AnalyticsEvent.created_at >= since, product_id_matches(Product.id)))
             .outerjoin(attention_sq, attention_sq.c.product_id == sa.cast(Product.id, sa.Text))
             .where(live_products)
@@ -311,7 +347,24 @@ async def compute_dashboard(days: int = 30) -> dict:
         enq, enq_ordered = enq_by_product.get(pid, (0, 0))
         st = stock_by_product.get(pid, {"left": 0, "lowest": None})
         impressions, views, from_cards, bags = int(p.impressions or 0), int(p.views or 0), int(p.views_from_cards or 0), int(p.add_to_cart or 0)
+        buy_now, checkout = int(p.buy_now or 0), int(p.checkout_initiated or 0)
+        # The whole journey for this piece, and the single place it leaks
+        # most. "Shown 40, opened 12, bag 1" is the sentence she needs; a
+        # column of numbers is not. Intent is bag OR buy now - buy now skips
+        # the bag entirely, so counting only the bag lost those shoppers.
+        intent = bags + buy_now
+        journey = [
+            {"key": "impressions", "label": "Shown", "count": impressions},
+            {"key": "views", "label": "Opened", "count": views},
+            {"key": "intent", "label": "Bag or buy now", "count": intent},
+            {"key": "checkout", "label": "Checkout started", "count": checkout},
+            {"key": "enquiries", "label": "Asked on WhatsApp", "count": enq},
+            {"key": "ordered", "label": "Ordered", "count": enq_ordered},
+        ]
+        gap = _worst_step(journey)
         products_attention.append({
+            "journey": journey, "gap": gap,
+            "buy_now": buy_now, "checkout_initiated": checkout, "intent": intent,
             "id": pid, "name": p.name, "shelf_rank": p.shelf_rank,
             "impressions": impressions, "views": views, "views_from_cards": from_cards,
             "add_to_cart": bags, "enquiries": enq, "ordered": enq_ordered,

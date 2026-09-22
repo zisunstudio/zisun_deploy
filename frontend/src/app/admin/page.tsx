@@ -23,6 +23,11 @@ type Funnel = { key: string; label: string; count: number };
 type ProductRow = {
   id: string; name: string; shelf_rank: number | null; impressions: number; views: number; views_from_cards: number;
   add_to_cart: number; enquiries: number; ordered: number; ctr: number | null; cart_rate: number | null; attention: number;
+  buy_now?: number; checkout_initiated?: number; intent?: number;
+  /** The whole path for this piece, in order, so the drop-off is visible. */
+  journey?: Array<{ key: string; label: string; count: number }>;
+  /** Where this piece loses the most people, by people lost. */
+  gap?: { from: string; to: string; from_count: number; to_count: number; lost: number; rate: number; step: string } | null;
   stock_left: number; lowest_variant: { size: string; colour: string; stock: number } | null;
 };
 type Dash = {
@@ -35,7 +40,7 @@ type Dash = {
   attention: { sessions: number; sessions_previous?: number; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
   inventory: { units: number; variants: number; by_size: { size: string; variants: number; units: number }[]; low_stock: { product: string; size: string; colour?: string; sku: string; stock: number }[]; low_stock_threshold: number };
 };
-type BriefPayload = { brief: { headline: string; bullets: string[]; critical: string[]; source: string }; facts: { as_of: string } };
+type BriefPayload = { brief: { headline: string; bullets: string[]; critical: string[]; source: string }; facts?: { as_of?: string } };
 
 const rupees = (paise: number) => "₹" + Math.round(paise / 100).toLocaleString("en-IN");
 const pct = (r: number | null | undefined) => (r == null ? "—" : `${Math.round(r * 100)}%`);
@@ -82,9 +87,16 @@ function Brief() {
     queryKey: ["admin", "dashboard", "brief"], queryFn: async () => (await adminApi.get("/dashboard/brief")).data, staleTime: 15 * 60_000, retry: 1,
   });
   if (isLoading) return <div className="mb-5 h-28 rounded-xl bg-rose/60 animate-pulse" />;
-  if (error || !data) return null;
+  if (error || !data?.brief) return null;
   const { brief, facts } = data;
-  const when = new Date(facts.as_of).toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
+  // A panel that comes back short must not take the board down with it - the
+  // whole dashboard is one endpoint, and `meta.errors` is how a failing panel
+  // is meant to report itself. An absent as_of once threw here and the error
+  // boundary replaced the entire Analytics page with "Something went wrong".
+  const asOf = facts?.as_of ? new Date(facts.as_of) : null;
+  const when = asOf && !Number.isNaN(asOf.getTime())
+    ? asOf.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })
+    : "just now";
   return (
     <section className="mb-5 rounded-xl border border-ink/10 bg-gradient-to-br from-rose via-white to-white p-4 sm:p-5" aria-labelledby="brief-heading">
       <div className="flex items-start justify-between gap-3">
@@ -100,6 +112,42 @@ function Brief() {
       <ul className="mt-3 space-y-1.5">{brief.bullets.map((b, i) => <li key={i} className="flex items-start gap-2 text-sm text-gray-800"><span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-burgundy shrink-0" /> {b}</li>)}</ul>
       <p className="mt-3 text-[11px] text-gray-500">As of {when}{brief.source === "rules" ? "" : ` · written by ${brief.source}`}</p>
     </section>
+  );
+}
+
+/**
+ * One piece's whole path, as a sentence and a bar per step.
+ *
+ * The board used to stop at "bagged", so it could say a piece was popular
+ * but never where it stopped being popular. Buy now skips the bag entirely,
+ * so intent counts both. The last line names the one step that loses the
+ * most people - by people, not by rate, because "one shopper did not check
+ * out" is not bigger news than "twenty-eight never opened it".
+ */
+function Journey({ p }: { p: ProductRow }) {
+  const steps = p.journey ?? [];
+  if (steps.length === 0) {
+    return <p className="mt-1 text-xs text-gray-500 tabular-nums">{p.impressions} shown · {p.views} opened · {p.add_to_cart} bagged · {p.enquiries} asked</p>;
+  }
+  const top = steps[0]?.count ?? 0;
+  const anyone = steps.some((s) => s.count > 0);
+  return (
+    <div className="mt-2">
+      {steps.map((s) => (
+        <div key={s.key} className="flex items-center gap-2 py-[3px]">
+          <span className="w-[104px] shrink-0 text-[11px] text-gray-500">{s.label}</span>
+          <span className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <span className={`block h-full rounded-full ${p.gap?.step === s.key ? "bg-amber-400" : "bg-burgundy"}`} style={{ width: `${top > 0 ? Math.round((s.count / top) * 100) : 0}%` }} />
+          </span>
+          <span className="w-7 shrink-0 text-right text-[11px] tabular-nums text-gray-700">{s.count}</span>
+        </div>
+      ))}
+      <p className="mt-1.5 text-[11px] text-gray-600">
+        {p.gap
+          ? <>Biggest drop: <span className="font-medium text-gray-900">{p.gap.from.toLowerCase()} → {p.gap.to.toLowerCase()}</span>, {p.gap.lost} of {p.gap.from_count} lost.</>
+          : anyone ? "No drop-off yet." : "Nobody has seen this piece yet."}
+      </p>
+    </div>
   );
 }
 
@@ -240,7 +288,7 @@ export default function AdminAnalytics() {
                 <li key={p.id}>
                   <Card>
                     <p className="text-sm font-semibold text-gray-900 leading-snug"><span className="text-gray-400 tabular-nums mr-1.5">{i + 1}</span><Link href={`/admin/products/${p.id}/edit`} className="hover:underline underline-offset-2">{p.name}</Link></p>
-                    <p className="mt-1 text-xs text-gray-500 tabular-nums">{p.impressions} shown · {p.views} opened · {p.add_to_cart} bagged · {p.enquiries} asked</p>
+                    <Journey p={p} />
                     <div className="mt-2.5 grid grid-cols-3 gap-2 text-center">
                       <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Open rate</p><p className="text-sm font-semibold tabular-nums">{pct(p.ctr)}</p></div>
                       <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Bag rate</p><p className="text-sm font-semibold tabular-nums">{pct(p.cart_rate)}</p></div>
@@ -254,7 +302,7 @@ export default function AdminAnalytics() {
             <Card padded={false} className="hidden sm:block">
               <TableScroll minWidth={760}>
                 <table className="w-full">
-                  <thead className="border-b border-gray-100"><tr>{["#", "Product", "Shown", "Opened", "Bagged", "Asked", "Open rate", "Bag rate", "Score"].map((h, i) => <th key={i} className={`${th} ${i >= 2 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+                  <thead className="border-b border-gray-100"><tr>{["#", "Product", "Shown", "Opened", "Bag / buy", "Checkout", "Asked", "Ordered", "Biggest drop"].map((h, i) => <th key={i} className={`${th} ${i >= 2 && i < 8 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((p, i) => (
                       <tr key={p.id} className="hover:bg-gray-50">
@@ -262,11 +310,15 @@ export default function AdminAnalytics() {
                         <td className={`${td} font-medium text-gray-900`}><Link href={`/admin/products/${p.id}/edit`} className="hover:underline underline-offset-2">{p.name}</Link>{p.shelf_rank != null && <span className="ml-2 text-[10px] text-gray-500">pinned</span>}</td>
                         <td className={`${td} text-right tabular-nums`}>{p.impressions}</td>
                         <td className={`${td} text-right tabular-nums`}>{p.views}</td>
-                        <td className={`${td} text-right tabular-nums`}>{p.add_to_cart}</td>
+                        <td className={`${td} text-right tabular-nums`}>{p.intent ?? p.add_to_cart}</td>
+                        <td className={`${td} text-right tabular-nums`}>{p.checkout_initiated ?? 0}</td>
                         <td className={`${td} text-right tabular-nums`}>{p.enquiries}</td>
-                        <td className={`${td} text-right tabular-nums`}>{pct(p.ctr)}</td>
-                        <td className={`${td} text-right tabular-nums`}>{pct(p.cart_rate)}</td>
-                        <td className={`${td} text-right tabular-nums font-semibold`}>{p.attention}</td>
+                        <td className={`${td} text-right tabular-nums`}>{p.ordered}</td>
+                        <td className={`${td} text-xs text-gray-600`}>
+                          {p.gap
+                            ? <>{p.gap.lost} lost at <span className="font-medium text-gray-900">{p.gap.to.toLowerCase()}</span> <span className="text-gray-400 tabular-nums">({p.gap.from_count}→{p.gap.to_count})</span></>
+                            : <span className="text-gray-400">no traffic yet</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

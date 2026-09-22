@@ -668,6 +668,15 @@ class AdminProductDetail(ProductResponse):
     transparency: Optional[str] = None
     batch_size: Optional[int] = None
     will_rerun: Optional[bool] = None
+    # The same omission, found again on 2026-09-22 and destroying the same
+    # way: the storefront reads the resolved `offer` block, so ProductResponse
+    # never sends the raw columns - but the editor seeds its price inputs from
+    # `product.compare_at_price` and `product.offer_ends_at`. They arrived
+    # undefined, rendered blank, and the next save wrote null over a live
+    # offer. test_admin_detail_reads_back_every_writable_column fails the
+    # build if a writable column is left out of this class.
+    compare_at_price: Optional[int] = None
+    offer_ends_at: Optional[datetime] = None
 
 
 class ProductListResponse(BaseModel):
