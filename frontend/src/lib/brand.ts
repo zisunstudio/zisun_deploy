@@ -100,11 +100,12 @@ export const FOUNDER = {
  * word before the featured piece's name, set like a magazine credit line
  * ("Worn: Purple Rose co-ord") so the product is a credit, not the subject.
  */
+// The eyebrow and sub-line are computed from the catalogue (lib/truth.ts):
+// they name a fabric, craft or region only when every live piece records
+// it. The headline is position, not fact, and stays.
 export const HERO = {
-  eyebrow: "Handloom cotton · South India",
   headline: "Not made for",
   headlineItalic: "everyone.",
-  sub: "Handwoven cotton, cut for women who dress for themselves.",
   cta: "See the drop",
   credit: "Worn",
 } as const;
@@ -114,10 +115,9 @@ export const HERO = {
  * are expressions of, and it sits between the drop and the categories so a
  * visitor meets the point of view before the taxonomy. Hers to rewrite.
  */
+// The body sentence is computed from the catalogue (lib/truth.ts).
 export const MANIFESTO = {
   lines: ["Clothes for the days that matter.", "Which, it turns out, is all of them."],
-  body:
-    "Handloom cotton from Mangalgiri, Ilkal and Kasavu, cut to move and made in small batches. No re-runs: when a colour goes, it goes.",
 } as const;
 
 /** The category section's question. Categories answer it as occasions. */
@@ -126,15 +126,10 @@ export const OCCASIONS = {
   heading: "What are you dressing for?",
 } as const;
 
-/**
- * Three facts about the cloth, set as type. No icons: a label states things;
- * a store reassures you.
- */
-export const CRAFT = [
-  { title: "Mangalgiri · Ilkal · Kasavu", body: "Woven by hand in South India, on looms that have made cotton this way for generations." },
-  { title: "Small batches", body: "Never re-run. A colour that sells out is a dye lot that will not come back." },
-  { title: "Made for the heat", body: "Open, breathable weaves for Indian summers and long days." },
-] as const;
+// The "made of" facts are computed from the catalogue (lib/truth.ts,
+// craftFacts). They once said Mangalgiri, Ilkal, Kasavu, woven by hand and
+// never re-run over a silk piece and a Rajasthani print; no constant may
+// state a fact about the cloth again.
 
 /**
  * The site knows what time it is.

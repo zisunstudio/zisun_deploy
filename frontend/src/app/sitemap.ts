@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/legal";
-import { fetchAllProducts, fetchCategories, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { fetchAllProducts, fetchArticles, fetchCategories, REVALIDATE_SECONDS } from "@/lib/server/catalog";
 
 /**
  * The pages a search engine or an AI crawler should find: the shop, every
@@ -15,10 +15,18 @@ export const revalidate = REVALIDATE_SECONDS;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
-  const [products, categories] = await Promise.all([fetchAllProducts(), fetchCategories()]);
+  const [products, categories, articles] = await Promise.all([fetchAllProducts(), fetchCategories(), fetchArticles()]);
   return [
     { url: SITE_URL, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${SITE_URL}/shop`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    // The journal: the pages a stranger finds first, before she knows us.
+    { url: `${SITE_URL}/journal`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    ...(articles ?? []).map((a) => ({
+      url: `${SITE_URL}/journal/${a.slug}`,
+      lastModified: a.published_at ? new Date(a.published_at) : now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     // Categories with something in them - an empty one is a page not worth ranking.
     ...(categories ?? []).filter((c) => c.is_active && c.product_count > 0).map((c) => ({
       url: `${SITE_URL}/category/${c.slug}`,

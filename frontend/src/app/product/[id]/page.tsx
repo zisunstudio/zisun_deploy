@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import ProductView from "./ProductView";
-import { fetchProduct, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { fetchArticlesForProduct, fetchProduct, REVALIDATE_SECONDS } from "@/lib/server/catalog";
 import { breadcrumbJsonLd, jsonLdString, plainDescription, productImages, productJsonLd, productUrl } from "@/lib/structuredData";
 import { BRAND } from "@/lib/brand";
 
@@ -42,7 +42,12 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function ProductPage({ params }: { params: { id: string } }) {
-  const product = await fetchProduct(params.id);
+  // Both at once: the database is a continent away and these are independent.
+  const [product, articles] = await Promise.all([
+    fetchProduct(params.id),
+    // Published articles that name this piece - the link back into the journal.
+    fetchArticlesForProduct(params.id),
+  ]);
   return (
     <>
       {product && (
@@ -51,7 +56,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(product)) }} />
         </>
       )}
-      <ProductView params={params} initial={product} />
+      <ProductView params={params} initial={product} articles={articles ?? undefined} />
     </>
   );
 }

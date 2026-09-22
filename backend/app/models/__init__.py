@@ -43,3 +43,4 @@ __all__ = [
     "AnalyticsEvent",
 ]
 from .enquiry import WhatsAppEnquiry, EnquiryStatus, EnquirySource
+from .journal import JournalArticle

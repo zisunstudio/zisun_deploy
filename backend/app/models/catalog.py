@@ -152,6 +152,17 @@ class Product(BaseModel):
     # photograph. Also derives the Legal Metrology net quantity.
     set_pieces: Mapped[Optional[list]] = mapped_column(JSONB)
 
+    # ── Provenance ────────────────────────────────────────────────────────────
+    # How and where it was made, and how many. The site's brand claims are
+    # computed from these (services/truth.py): nothing is claimed that the
+    # pieces do not record. Null means "not stated" and produces no claim.
+    craft: Mapped[Optional[str]] = mapped_column(String(120))
+    origin: Mapped[Optional[str]] = mapped_column(String(120))
+    lining: Mapped[Optional[str]] = mapped_column(String(60))
+    transparency: Mapped[Optional[str]] = mapped_column(String(40))
+    batch_size: Mapped[Optional[int]] = mapped_column(Integer)
+    will_rerun: Mapped[Optional[bool]] = mapped_column(Boolean)
+
     # Who is wearing it in the photographs: "M", "5'4\"". The fit cue a size
     # chart cannot give - a real person to compare herself with.
     model_size: Mapped[Optional[str]] = mapped_column(String(12))

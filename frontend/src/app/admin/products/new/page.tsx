@@ -115,6 +115,12 @@ export default function NewProductPage() {
         // Cleaned here as well as server-side: a blank chip would make
         // "1 set - 3 pieces" out of two garments.
         set_pieces: form.set_pieces.map((p) => p.trim()).filter(Boolean),
+        craft: form.craft.trim(),
+        origin: form.origin.trim(),
+        lining: form.lining,
+        transparency: form.transparency,
+        batch_size: form.batch_size.trim() ? Number(form.batch_size) : null,
+        will_rerun: form.will_rerun === "" ? null : form.will_rerun === "yes",
         styling_notes: form.styling_notes.map((n) => ({ occasion: n.occasion.trim(), note: n.note.trim() })).filter((n) => n.occasion && n.note),
         variants: allVariants.map((v) => ({
           sku: v.sku,

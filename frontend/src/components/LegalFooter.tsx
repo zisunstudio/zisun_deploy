@@ -9,6 +9,7 @@ import { recordEnquiry } from "@/lib/enquiry";
 
 const LINKS = [
   { href: "/shop", label: "Shop" },
+  { href: "/journal", label: "Journal" },
   // "Privacy Policy" in full: an automated reviewer looks for the phrase,
   // and "Privacy" alone was one of the things Google could not find.
   { href: "/privacy", label: "Privacy Policy" },

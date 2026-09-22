@@ -61,6 +61,13 @@ export interface ProductFormData {
   occasion: string;
   /** The garments in the set, in order. Drives "what you get" and net quantity. */
   set_pieces: string[];
+  /** Provenance: the site's brand claims are computed from these. */
+  craft: string;
+  origin: string;
+  lining: string;
+  transparency: string;
+  batch_size: string;
+  will_rerun: "" | "yes" | "no";
   /** The model in the photographs. */
   model_size: string;
   model_height: string;
@@ -108,6 +115,7 @@ export function emptyProductForm(): ProductFormData {
     colour: "", print_type: "", pattern: "", neck_type: "",
     sleeve_type: "", sleeve_attached: "", dupatta_included: "",
     fit: "", garment_length: "", embroidery: "", bottom_type: "", occasion: "", set_pieces: [],
+    craft: "", origin: "", lining: "", transparency: "", batch_size: "", will_rerun: "",
     model_size: "", model_height: "", worn_by_founder: false, named_for: "",
     compare_at_rupees: "", offer_ends_at: "", size_chart: null, styling_notes: [],
   };
@@ -542,6 +550,64 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               product page can finally say a co-ord set is two garments. */}
           <SetPiecesEditor value={data.set_pieces} onChange={(pieces) => onChange({ ...data, set_pieces: pieces })} />
         </div>
+        </div>
+      </details>
+
+      {/* Provenance. This is where the site's brand claims come from: it says
+          "handloom cotton", names a region, or promises "never re-run" only
+          when every live piece records it here. Leave a box empty and the
+          site says nothing about it - never a guess. */}
+      <details open={!compact} className="group bg-white rounded-xl border border-gray-200">
+        <summary className="cursor-pointer select-none list-none px-5 py-4 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold text-gray-900">How and where it was made</span>
+          <span className="text-xs text-gray-400">{[data.craft, data.origin, data.will_rerun].filter(Boolean).length}/3 recorded</span>
+        </summary>
+        <div className="px-5 pb-5">
+          <p className="text-xs text-gray-400 mt-1 mb-4">
+            The home page only says &ldquo;handloom&rdquo;, names a place, or promises &ldquo;never re-run&rdquo; when <em>every</em> piece records it here. Empty means the site says nothing.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Made by</label>
+              <input list="craft-options" className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Handloom" value={data.craft} onChange={f("craft")} />
+              <datalist id="craft-options">
+                {["Handloom", "Powerloom", "Mill-made", "Hand block print", "Hand block print (dabu)", "Hand embroidered", "Bandhani (tie-dye)", "Screen print"].map((o) => <option key={o} value={o} />)}
+              </datalist>
+              <p className="text-[11px] text-gray-500 mt-1">Only if you know it. &ldquo;Handloom&rdquo; here is what lets the site say handloom.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+              <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Mangalgiri, Andhra Pradesh" value={data.origin} onChange={f("origin")} />
+              <p className="text-[11px] text-gray-500 mt-1">Town, state &mdash; where the cloth or the piece was made.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lining</label>
+              <select className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30" value={data.lining} onChange={f("lining")}>
+                <option value="">&mdash; not recorded &mdash;</option>
+                {["Unlined", "Lined", "Lined bodice only", "Slip included"].map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sheerness</label>
+              <select className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30" value={data.transparency} onChange={f("transparency")}>
+                <option value="">&mdash; not recorded &mdash;</option>
+                {["Opaque", "Slightly sheer", "Sheer - wear a slip"].map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">How many were made</label>
+              <input type="number" min={1} className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="12" value={data.batch_size} onChange={f("batch_size")} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Will you make it again?</label>
+              <select className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30" value={data.will_rerun} onChange={f("will_rerun")}>
+                <option value="">&mdash; not decided &mdash;</option>
+                <option value="no">No &mdash; when it goes, it goes</option>
+                <option value="yes">Yes, it may come back</option>
+              </select>
+              <p className="text-[11px] text-gray-500 mt-1">&ldquo;Never re-run&rdquo; appears on the site only when every piece says No.</p>
+            </div>
+          </div>
         </div>
       </details>
 

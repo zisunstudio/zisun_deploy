@@ -110,6 +110,32 @@ in `src/lib/brand.ts` so the founder can change a line without touching JSX.
 One primary action per screen; product cards carry no buttons. See
 `DESIGN.md` for why.
 
+**A brand claim is computed, never written.** The home page once said
+"handloom cotton from Mangalgiri, Ilkal and Kasavu, woven by hand, never
+re-run" over a catalogue of one silk piece and one Rajasthani dabu print,
+neither recorded as any of it. `app/services/truth.py` now derives every
+factual line from what the live pieces record (`products.craft`, `origin`,
+`fabric_composition`, `batch_size`, `will_rerun`), serves it at
+`GET /catalog/truth`, and `frontend/src/lib/truth.ts` turns it into the
+hero eyebrow, the manifesto sentence, the craft facts, the footer line, the
+meta description and llms.txt. A claim needs *every* live piece to support
+it; one silk piece removes "cotton", one undecided re-run removes "never
+re-run", and a partial claim is simply not said. No constant in `brand.ts`
+may state a fact about the cloth again. Positioning ("Not made for
+everyone") is not a fact and stays written. The console's System page shows
+what the site is allowed to say and which single field would unlock more.
+
+**The Journal is the discovery layer, and it publishes by hand.**
+`/journal` and `/journal/[slug]` are server-rendered with Article JSON-LD,
+in the sitemap and in llms.txt; an article names the pieces it may
+recommend and their price, stock and facts are read live from those pieces,
+never copied into its text. Status runs draft -> approved -> published and
+only `published` is served - `POST /admin/journal/draft` writes with Claude
+from the brief plus *only* the recorded facts, and returns `unknowns`
+rather than inventing. Article bodies render through
+`frontend/src/lib/markdown.tsx`, which has no `dangerouslySetInnerHTML` and
+accepts no raw HTML: model-drafted text is never trusted as markup.
+
 **Coupons are advertised, not just accepted.** `GET /coupons/active` is public
 and returns active, unexpired, non-referral codes; the storefront renders them
 as tickets on the home page and under the price on every product. A coupon
@@ -204,6 +230,12 @@ A bare number in that box is rejected at the schema: it once read "5" on a
 single co-ord set, which a customer reads as five kurtas. The customer-
 facing wording lives beside the price as "What you get"; the statutory
 block keeps the statutory term.
+
+**There is no community group link, and the code has no path for one.**
+A public WhatsApp group shows every member's number to every other member,
+strangers included; the founder took it down on 2026-09-22. `launchMode.ts`
+no longer has a `WHATSAPP_GROUP_URL`, so no variable can bring it back. The
+only WhatsApp destination is ZISUN's official business number, 1:1.
 
 **The site never publishes a personal number.** `COMPANY.phone` is
 `NEXT_PUBLIC_SUPPORT_PHONE` and `LM_CONSUMER_CARE_PHONE` is empty by

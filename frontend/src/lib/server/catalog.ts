@@ -11,6 +11,8 @@
  */
 import { API_V1 } from "@/lib/apiBase";
 import type { Category, Product, ProductListResponse } from "@/lib/queries/catalog";
+import type { Truth } from "@/lib/truth";
+import type { Article, ArticleCard } from "@/lib/journal";
 
 /** How long a server-rendered copy may be served before it is rebuilt. */
 export const REVALIDATE_SECONDS = 300;
@@ -65,5 +67,13 @@ export function fetchCategory(slug: string) {
   if (!/^[a-z0-9-]{1,80}$/.test(slug)) return Promise.resolve(null);
   return getJson<Category & { products: Product[] }>(`/catalog/categories/${slug}`);
 }
+
+export const fetchTruth = () => getJson<Truth>("/catalog/truth");
+
+// ── The Journal ──────────────────────────────────────────────────────────────
+// Published articles only; the API serves nothing else on these paths.
+export const fetchArticles = (kind?: string) => getJson<ArticleCard[]>(`/journal${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`);
+export const fetchArticle = (slug: string) => getJson<Article>(`/journal/${encodeURIComponent(slug)}`);
+export const fetchArticlesForProduct = (id: string) => getJson<ArticleCard[]>(`/journal/for-product/${id}`);
 
 export const fetchFeed = (page = 1) => getJson<ProductListResponse>(`/catalog/feed?page=${page}&limit=20`);

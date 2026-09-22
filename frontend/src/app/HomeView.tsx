@@ -14,7 +14,8 @@ import { POLICY_TERMS } from "@/lib/legal";
 import { DealsRail } from "@/components/DealsRail";
 import { FeedItem, feedItemImage } from "@/components/FeedCard";
 import { Reveal } from "@/components/Reveal";
-import { CRAFT, HERO, LOOM, MANIFESTO, OCCASIONS, daypartAt } from "@/lib/brand";
+import { HERO, LOOM, MANIFESTO, OCCASIONS, daypartAt } from "@/lib/brand";
+import { craftFacts, heroEyebrow, heroSub, manifestoBody, shortLine, EMPTY_TRUTH, type Truth } from "@/lib/truth";
 import { Weave } from "@/components/Weave";
 import { Stories } from "@/components/Stories";
 import { navigate } from "@/lib/viewTransition";
@@ -56,6 +57,8 @@ export interface HomeInitial {
   drop?: ProductListResponse;
   feed?: ProductListResponse;
   categories?: Category[];
+  /** What the catalogue lets the page claim about the cloth. */
+  truth?: Truth;
 }
 
 export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
@@ -70,6 +73,8 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
   const toggleCart = useCartStore((state) => state.toggleCart);
   const cartItemsCount = useCartStore((state) => state.items.length);
   const { data: categories, isLoading: loadingCategories } = useCategories(initial.categories);
+  const truth = initial.truth ?? EMPTY_TRUTH;
+  const facts = craftFacts(truth);
   const { data: feedData, isLoading: loadingFeed } = useFeed(feedPage, feedPage === 1 ? initial.feed : undefined);
   // The drop: six pieces in shelf order. The feed decides the hero; the
   // shelf decides what is shown beneath it, so a pinned piece leads the grid.
@@ -238,12 +243,12 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
           )}
           <div className="absolute inset-x-0 bottom-0 z-10 px-5 lg:px-8 pb-12 lg:pb-16 pointer-events-none">
             <div className="max-w-6xl mx-auto w-full">
-              <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.24em] animate-fade-up">{HERO.eyebrow}</p>
+              <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.24em] animate-fade-up">{heroEyebrow(truth)}</p>
               <h1 className="mt-3 font-display text-white text-[52px] leading-[0.95] lg:text-[104px] text-balance animate-fade-up [animation-delay:90ms]">
                 {HERO.headline}<br />
                 <em className="italic">{HERO.headlineItalic}</em>
               </h1>
-              <p className="mt-4 text-white/85 text-[15px] leading-snug max-w-[20rem] lg:max-w-md lg:text-[17px] animate-fade-up [animation-delay:180ms]">{HERO.sub}</p>
+              <p className="mt-4 text-white/85 text-[15px] leading-snug max-w-[20rem] lg:max-w-md lg:text-[17px] animate-fade-up [animation-delay:180ms]">{heroSub(truth)}</p>
               <div className="mt-7 flex flex-col items-start gap-4 pointer-events-auto animate-fade-up [animation-delay:270ms]">
                 <button
                   onClick={() => router.push("/shop")}
@@ -354,7 +359,7 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
                 <span key={i} className={i === 1 ? "italic" : ""}>{line}{i < MANIFESTO.lines.length - 1 ? " " : ""}</span>
               ))}
             </p>
-            <p className="mt-6 text-[15px] lg:text-base leading-relaxed text-muted max-w-xl mx-auto">{MANIFESTO.body}</p>
+            <p className="mt-6 text-[15px] lg:text-base leading-relaxed text-muted max-w-xl mx-auto">{manifestoBody(truth)}</p>
           </div>
         </Reveal>
 
@@ -391,10 +396,12 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
         </Reveal>
         )}
 
-        {/* Made of. Three facts about the cloth, as type. */}
+        {/* Made of. Facts about the cloth, as type - only the ones every
+            live piece supports, and the section only when there are two. */}
+        {facts.length >= 2 && (
         <Reveal className="mt-24 lg:mt-36 px-5 lg:px-8">
           <div className="max-w-6xl mx-auto border-t border-ink/10 pt-10 lg:pt-14 grid gap-10 lg:grid-cols-3 lg:gap-12">
-            {CRAFT.map((c) => (
+            {facts.map((c) => (
               <div key={c.title}>
                 <p className="font-display text-[24px] lg:text-[28px] leading-tight text-ink">{c.title}</p>
                 <p className="mt-2.5 text-[14px] leading-relaxed text-muted max-w-xs">{c.body}</p>
@@ -402,12 +409,13 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
             ))}
           </div>
         </Reveal>
+        )}
 
 
         {/* The policy links have to be reachable from the home page itself:
             Google's app verification and Razorpay's onboarding both look
             for them here. */}
-        <LegalFooter />
+        <LegalFooter line={shortLine(truth)} />
 
         {/* Clears the fixed tab bar, which only exists below lg. */}
         <div className="h-20 lg:h-0 bg-burgundy" />

@@ -27,6 +27,12 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Deals rail (offers, coupons) | `frontend/src/components/DealsRail.tsx` | Live |
 | The drop grid, quiet cards, "Only N left" at ≤3 | `frontend/src/components/ProductCard.tsx` | Live |
 | Today's pattern — drawn from the week's colours, woven by scroll, new each day (a pattern, not a claim about the fabric) | `frontend/src/components/Weave.tsx`, `frontend/src/lib/weave.ts` | Live |
+| Brand claims computed from the catalogue, never written | `backend/app/services/truth.py`, `frontend/src/lib/truth.ts` | Live |
+| Provenance on a piece: craft, origin, lining, sheerness, batch, re-run | `backend/app/models/catalog.py`, `frontend/src/components/admin/ProductForm.tsx` | Needs data |
+| "What the site is allowed to say" in the console | `frontend/src/app/admin/system/page.tsx` | Live |
+| The Journal: articles, Article JSON-LD, sitemap, llms.txt | `frontend/src/app/journal/page.tsx`, `backend/app/api/endpoints/journal.py` | Needs data |
+| Journal pipeline: ideas, Claude draft from facts only, approve, publish | `backend/app/api/admin/endpoints/journal.py`, `frontend/src/app/admin/journal/page.tsx` | Live |
+| Markdown rendered without any raw-HTML path | `frontend/src/lib/markdown.tsx` | Live |
 | Manifesto, occasions, craft facts | `frontend/src/lib/brand.ts` | Live |
 | Category tiles show a piece on Sushmita (stock art only for an empty category) | `frontend/src/components/CategoryCard.tsx` | Live |
 | Small collection presented as a drop (no chrome, count in words, no redundant "Everything"/"NEW") | `frontend/src/app/shop/ShopView.tsx`, `frontend/src/lib/words.ts` | Live |

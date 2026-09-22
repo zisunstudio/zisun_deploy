@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import HomeView from "./HomeView";
-import { fetchCategories, fetchFeed, fetchProductList, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { fetchCategories, fetchFeed, fetchProductList, fetchTruth, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { shortLine, EMPTY_TRUTH } from "@/lib/truth";
 import { itemListJsonLd, jsonLdString } from "@/lib/structuredData";
 import { SITE_URL } from "@/lib/legal";
 import { BRAND } from "@/lib/brand";
@@ -19,25 +20,29 @@ export const revalidate = REVALIDATE_SECONDS;
 
 // Only what is true of the shop today. Fabric and "handloom" claims wait for
 // the founder's confirmation (see CLAUDE.md).
-export const metadata: Metadata = {
-  title: `${BRAND.name} | Kurtas & co-ord sets for women, Bengaluru`,
-  description:
-    "Kurtas and co-ord sets for women, chosen by founder Sushmita in Bengaluru and photographed on herself at 153 cm. Find your size privately; free shipping on prepaid orders.",
-  alternates: { canonical: SITE_URL },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const truth = (await fetchTruth()) ?? EMPTY_TRUTH;
+  return {
+    title: `${BRAND.name} | Kurtas & co-ord sets for women, Bengaluru`,
+    // The fabric words come from the catalogue; the rest is always true.
+    description: `${shortLine(truth)} Photographed on her at 153 cm. Find your size privately; free shipping on prepaid orders.`,
+    alternates: { canonical: SITE_URL },
+  };
+}
 
 export default async function HomePage() {
-  const [drop, feed, categories] = await Promise.all([
+  const [drop, feed, categories, truth] = await Promise.all([
     fetchProductList({ limit: 6, sort_by: "shelf" }),
     fetchFeed(1),
     fetchCategories(),
+    fetchTruth(),
   ]);
   return (
     <>
       {drop?.items?.length ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(itemListJsonLd(drop.items, "The drop", SITE_URL)) }} />
       ) : null}
-      <HomeView initial={{ drop: drop ?? undefined, feed: feed ?? undefined, categories: categories ?? undefined }} />
+      <HomeView initial={{ drop: drop ?? undefined, feed: feed ?? undefined, categories: categories ?? undefined, truth: truth ?? undefined }} />
     </>
   );
 }

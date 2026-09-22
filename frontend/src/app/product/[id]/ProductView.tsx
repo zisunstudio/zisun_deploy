@@ -20,7 +20,9 @@ import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";
 import { SizeGuideModal } from "@/components/SizeGuideModal";
 import { ProductDeclarations } from "@/components/ProductDeclarations";
 import { FabricSpecs } from "@/components/FabricSpecs";
+import Link from "next/link";
 import { GarmentDetails } from "@/components/GarmentDetails";
+import { KIND_LABEL, type ArticleCard } from "@/lib/journal";
 import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
 import { CouponTicket } from "@/components/CouponTicket";
 import { swatchStyle } from "@/lib/colours";
@@ -44,7 +46,7 @@ import { normSize, type Chart } from "@/lib/fitMath";
  * client refetches straight away so stock and price are never older than
  * the visit.
  */
-export default function ProductView({ params, initial }: { params: { id: string }; initial?: Product | null }) {
+export default function ProductView({ params, initial, articles }: { params: { id: string }; initial?: Product | null; articles?: ArticleCard[] }) {
   const router = useRouter();
   const { showToast } = useToast();
   const { data: product, isLoading } = useProduct(params.id, initial ?? undefined);
@@ -558,8 +560,7 @@ export default function ProductView({ params, initial }: { params: { id: string 
               reason, so the buyer has to have seen it while deciding. */}
           <p className="text-muted text-xs leading-relaxed mt-3">
             Colour will vary slightly from the photographs — lighting, your screen and
-            the dye lot all shift it. Small irregularities in handwoven cotton are part
-            of the cloth. Neither is a defect, and neither is grounds for an exchange.
+            the dye lot all shift it.{/^hand\s*-?\s*(loom|woven)/i.test(product.garment_attributes?.craft ?? "") ? " Small irregularities in handwoven cloth are part of it." : " Small irregularities in a hand-finished piece are part of it."} Neither is a defect, and neither is grounds for an exchange.
           </p>
 
           {/* Open rather than behind a toggle: this is the argument for
@@ -571,6 +572,26 @@ export default function ProductView({ params, initial }: { params: { id: string 
               hasPockets={product.fabric_specs?.has_pockets}
               selectedColour={selectedColour}
             />
+          )}
+
+          {/* Into the journal, from the piece. A reader who wants to know
+              how to wash this cloth or what to wear it with gets the long
+              answer, and a crawler gets the link that ties the shop to the
+              knowledge layer. Only articles that actually name this piece. */}
+          {articles && articles.length > 0 && (
+            <section className="mt-6 border-t border-gray-100 pt-4">
+              <h2 className="text-sm font-semibold text-foreground mb-3">From the journal</h2>
+              <ul className="flex flex-col gap-2.5">
+                {articles.map((a) => (
+                  <li key={a.id}>
+                    <Link href={`/journal/${a.slug}`} className="group block">
+                      <span className="text-[10px] uppercase tracking-[0.18em] text-burgundy">{KIND_LABEL[a.kind] ?? "Journal"}</span>
+                      <span className="block text-sm text-foreground leading-snug group-hover:underline underline-offset-4">{a.title}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {/* The mark comes after the facts, not before them. On a fashion

@@ -107,6 +107,13 @@ export interface GarmentAttributes {
   occasion: string | null;
   /** Ordered, e.g. ["Kurta", "Palazzo"]. Drives "what you get" and net quantity. */
   set_pieces: string[] | null;
+  /** Provenance. Null = not stated; the site claims nothing from a null. */
+  craft: string | null;
+  origin: string | null;
+  lining: string | null;
+  transparency: string | null;
+  batch_size: number | null;
+  will_rerun: boolean | null;
 }
 
 export interface Product {

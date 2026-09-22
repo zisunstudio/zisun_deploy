@@ -165,6 +165,13 @@ class GarmentAttributeFields(BaseModel):
     occasion: Optional[str] = Field(None, max_length=120)
     # Ordered: the order she lists them is the order the page prints them.
     set_pieces: Optional[List[str]] = Field(None, max_length=6)
+    # Provenance - see services/truth.py for what the site derives from these.
+    craft: Optional[str] = Field(None, max_length=120)
+    origin: Optional[str] = Field(None, max_length=120)
+    lining: Optional[str] = Field(None, max_length=60)
+    transparency: Optional[str] = Field(None, max_length=40)
+    batch_size: Optional[int] = Field(None, ge=1, le=100000)
+    will_rerun: Optional[bool] = None
 
     @field_validator("set_pieces")
     @classmethod
@@ -491,6 +498,12 @@ class GarmentAttributes(BaseModel):
     bottom_type: Optional[str] = None
     occasion: Optional[str] = None
     set_pieces: Optional[List[str]] = None
+    craft: Optional[str] = None
+    origin: Optional[str] = None
+    lining: Optional[str] = None
+    transparency: Optional[str] = None
+    batch_size: Optional[int] = None
+    will_rerun: Optional[bool] = None
 
     @property
     def is_empty(self) -> bool:
@@ -649,6 +662,12 @@ class AdminProductDetail(ProductResponse):
     bottom_type: Optional[str] = None
     occasion: Optional[str] = None
     set_pieces: Optional[List[str]] = None
+    craft: Optional[str] = None
+    origin: Optional[str] = None
+    lining: Optional[str] = None
+    transparency: Optional[str] = None
+    batch_size: Optional[int] = None
+    will_rerun: Optional[bool] = None
 
 
 class ProductListResponse(BaseModel):

@@ -1,4 +1,5 @@
-import { fetchAllProducts, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { fetchAllProducts, fetchArticles, fetchTruth, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { shortLine, EMPTY_TRUTH } from "@/lib/truth";
 import { plainDescription, productUrl, rupees, activeVariants, inStock } from "@/lib/structuredData";
 import { BRAND, FOUNDER } from "@/lib/brand";
 import { COMPANY, POLICY_TERMS, SITE_URL } from "@/lib/legal";
@@ -17,11 +18,13 @@ import { sortSizes } from "@/lib/colours";
 export const revalidate = REVALIDATE_SECONDS;
 
 export async function GET() {
-  const products = await fetchAllProducts();
+  const [products, truth, articles] = await Promise.all([fetchAllProducts(), fetchTruth(), fetchArticles()]);
+  const t = truth ?? EMPTY_TRUTH;
   const lines: string[] = [
     `# ${BRAND.name}`,
     "",
-    `> ${BRAND.tagline} A small Indian women's clothing label from Bengaluru, founded and run by ${FOUNDER.name}. Kurtas and co-ord sets, stocked in small numbers.`,
+    `> ${BRAND.tagline} A small Indian women's clothing label from Bengaluru, founded and run by ${FOUNDER.name}. ${shortLine(t)}`,
+    ...(t.claims.filter((c) => c.pieces === c.of).length ? ["", "## About the cloth (from the pieces themselves)", ...t.claims.filter((c) => c.pieces === c.of).map((c) => `- ${c.text}`)] : []),
     "",
     "## Buying",
     `- Order online at ${SITE_URL}: pay by UPI, card or netbanking (Razorpay), or cash on delivery on most pincodes.`,
@@ -44,5 +47,13 @@ export async function GET() {
     lines.push(`- [${p.name}](${productUrl(p)}): ${bits.join("; ")}. ${plainDescription(p).slice(0, 240)}`);
   }
   lines.push("", "## More", `- Product feed: ${SITE_URL}/feeds/google.xml`, `- Sitemap: ${SITE_URL}/sitemap.xml`, `- Shipping: ${SITE_URL}/shipping`, `- Privacy: ${SITE_URL}/privacy`, "");
+  // The knowledge layer, named so an answer engine can cite it.
+  if (articles && articles.length) {
+    lines.push("", "## Journal", "What we know about cloth, fit and care, written by the founder. Every factual statement about a piece comes from that piece's own record.");
+    for (const a of articles) {
+      lines.push(`- [${a.title}](${SITE_URL}/journal/${a.slug})${a.dek ? `: ${a.dek}` : ""}`);
+    }
+  }
+
   return new Response(lines.join("\n"), { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": `public, max-age=${REVALIDATE_SECONDS}` } });
 }

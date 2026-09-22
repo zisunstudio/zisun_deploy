@@ -3,7 +3,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings } from "lucide-react";
+import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings, BookOpen } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Analytics", Icon: Gauge },
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/inventory", label: "Inventory", Icon: BarChart3 },
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
   { href: "/admin/reviews", label: "Reviews", Icon: Star },
+  { href: "/admin/journal", label: "Journal", Icon: BookOpen },
   { href: "/admin/content", label: "Content", Icon: Image },
   { href: "/admin/reconciliation", label: "Reconciliation", Icon: Scale },
   { href: "/admin/system", label: "System", Icon: Settings },

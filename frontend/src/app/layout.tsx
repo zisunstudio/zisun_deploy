@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   // founder's confirmation (CLAUDE.md). This is the fallback for pages that
   // do not set their own.
   description:
-    "Kurtas and co-ord sets for women, chosen by founder Sushmita in Bengaluru and photographed on herself at 153 cm. Free shipping on prepaid orders.",
+    "Kurtas and co-ord sets for women, chosen by Sushmita in Bengaluru and photographed on her at 153 cm. Free shipping on prepaid orders.",
   // Search Console and Bing Webmaster Tools ownership. Paste each code into
   // the zisun-web variables; empty means no tag.
   verification: {

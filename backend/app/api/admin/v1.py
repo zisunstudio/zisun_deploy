@@ -20,6 +20,7 @@ from app.api.admin.endpoints import categories as admin_categories
 from app.api.admin.endpoints import coupons as admin_coupons
 from app.api.admin.endpoints import reviews as admin_reviews
 from app.api.admin.endpoints import ai as admin_ai
+from app.api.admin.endpoints import journal as admin_journal
 from app.api.admin.endpoints import enquiries as admin_enquiries
 
 # Read-only overview. Finance sees it too: the payment-method split is the
@@ -69,6 +70,12 @@ admin_router.include_router(
     admin_ai.router,
     prefix="/ai",
     tags=["Admin — AI"],
+    dependencies=[Depends(require_role("admin", "operations"))],
+)
+admin_router.include_router(
+    admin_journal.router,
+    prefix="/journal",
+    tags=["Admin — Journal"],
     dependencies=[Depends(require_role("admin", "operations"))],
 )
 admin_router.include_router(

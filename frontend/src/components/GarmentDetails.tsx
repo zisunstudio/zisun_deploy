@@ -97,6 +97,22 @@ export function GarmentDetails({ attributes: a, hasPockets, selectedColour }: Pr
 
   if (a.occasion) rows.push({ Icon: Sparkles, label: "Wear it for", value: a.occasion });
 
+  // Two questions Indian cotton always raises, answered only when recorded.
+  if (a.lining) rows.push({ Icon: Layers, label: "Lining", value: a.lining });
+  if (a.transparency) rows.push({ Icon: Layers, label: "Sheerness", value: a.transparency });
+
+  // Provenance is the trust evidence: how it was made, where, and how many.
+  // Each only when recorded - the site never says "handloom" on its own.
+  if (a.craft) rows.push({ Icon: Sparkles, label: "Made by", value: a.craft });
+  if (a.origin) rows.push({ Icon: Package, label: "From", value: a.origin });
+  if (a.batch_size || a.will_rerun === false) {
+    const bits: string[] = [];
+    if (a.batch_size) bits.push(`${a.batch_size} made`);
+    if (a.will_rerun === false) bits.push("not re-run");
+    if (a.will_rerun === true) bits.push("will be re-run");
+    rows.push({ Icon: Package, label: "Batch", value: bits.join(" · ") });
+  }
+
   if (rows.length === 0) return null;
 
   return (

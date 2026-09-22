@@ -18,6 +18,7 @@ from app.schemas.catalog import (
     SortBy,
 )
 from app.services.catalog import CatalogService
+from app.services import truth as truth_svc
 
 router = APIRouter()
 
@@ -147,3 +148,23 @@ async def create_product(
     """Create a new product with variants (admin only)."""
     svc = CatalogService(db)
     return await svc.create_product(product_in)
+
+
+# ── GET /truth — what the catalogue lets the site claim ───────────────────────
+
+@router.get("/truth", tags=["Catalog"])
+async def catalogue_truth(db: AsyncSession = Depends(get_async_db)):
+    """The brand claims the live pieces support, and the facts that would
+    unlock more. The storefront's home page, footer, meta descriptions and
+    llms.txt are written from this - see services/truth.py."""
+    from sqlalchemy import select
+    from app.models.catalog import Product
+    rows = (await db.execute(
+        select(Product.fabric_composition, Product.craft, Product.origin, Product.will_rerun, Product.batch_size, Product.is_active)
+        .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+    )).all()
+    t = truth_svc.compute([
+        {"fabric_composition": r[0], "craft": r[1], "origin": r[2], "will_rerun": r[3], "batch_size": r[4], "is_active": r[5]}
+        for r in rows
+    ])
+    return truth_svc.as_dict(t)
