@@ -163,9 +163,10 @@ to lay out a console page: headers stack, actions wrap, every table either
 scrolls inside its own frame or gives way to stacked rows below `sm`, and
 no list is a CSS grid (an implicit grid track's minimum is its row's
 min-content width, which is how the Shelf's pin buttons ended up off the
-right edge). `scratchpad/admin-review.js` renders every console page at
-phone width with a faked session — run it before calling a console change
-done.
+right edge). `scripts/review/console.js` renders console pages at phone
+width with a faked session and exits non-zero on any horizontal overflow —
+run it before calling a console change done. It lived in `scratchpad/` and
+was lost three times to a wipe; it is in the repo now.
 
 **The analytics board is one endpoint, computed concurrently and kept warm.**
 `compute_dashboard()` runs every panel's query at once on its own session
