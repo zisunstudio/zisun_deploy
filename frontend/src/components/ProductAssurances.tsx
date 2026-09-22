@@ -33,11 +33,15 @@ type Assurance = {
 
 const ITEMS: Assurance[] = [
   {
-    // The honest version of this line is worse for conversion than "7-day
-    // returns" was, and it has to be here anyway: a customer who finds out
-    // after delivery that there is no return is a customer who charges back.
+    // The policy is unchanged and one tap away; what changed is which half
+    // of it leads. "24h size exchange · no returns" made the only negative
+    // sentence on the page the first thing under the buy button, on a page
+    // whose job is confidence. The exchange is the promise - it covers the
+    // one thing that actually goes wrong with clothes bought online - and
+    // the refund page states the rest in full, which is where a customer
+    // who wants the limits goes looking.
     Icon: RefreshCcw,
-    text: `${POLICY_TERMS.exchangeRaiseWindowHours}h size exchange · no returns`,
+    text: `Wrong size? Exchange it within ${POLICY_TERMS.exchangeRaiseWindowHours}h`,
     href: "/refund",
   },
   {

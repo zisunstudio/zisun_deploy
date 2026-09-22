@@ -173,3 +173,23 @@ export const WAYS_TO_WEAR = {
   eyebrow: "Ways to wear it",
   credit: "Drafted with AI, edited and approved by Sushmita.",
 } as const;
+
+/**
+ * What the product page says about availability.
+ *
+ * Only ever shown when it is true. `lowStockAt` is the count at or below
+ * which the page names the number; above it the page says nothing at all,
+ * because "In stock" on a healthy size is noise and a number on a healthy
+ * size is theatre. The scarcity here is real and it is already the label's
+ * position: small batches, no re-runs, stated in MANIFESTO on the home page.
+ */
+export const AVAILABILITY = {
+  lowStockAt: 3,
+  soldOut: "Sold out in this size",
+  batch: "Woven in one small batch. When this colour goes, it does not come back.",
+} as const;
+
+/** The pieces in a set, said the way she would say it. */
+export const INCLUDED = {
+  label: "What you get",
+} as const;

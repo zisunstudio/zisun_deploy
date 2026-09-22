@@ -43,9 +43,17 @@ export function ProductDeclarations({ declarations, price, hasSizeChart = false 
 
   const rows: Array<[string, string | null]> = [
     ["Commodity", declarations.commodity_name],
+    // Still the statutory term, because this block is the statutory block -
+    // but the value is now derived from the pieces in the set ("1 set - 2
+    // pieces") rather than typed. It once read "5" on a single co-ord set,
+    // which a customer reads as five kurtas. What is in the set is said in
+    // the customer's own words further up the page.
     ["Net quantity", declarations.net_quantity],
-    // The size chart is the measurement now; a stray "42, 44" beside it is noise.
-    ["Dimensions", hasSizeChart ? "See the size guide" : declarations.dimensions],
+    // "Dimensions" is warehouse language for a garment, and the row was
+    // printing a bare "42, 44" that meant nothing next to it. The size chart
+    // is the measurement for apparel, so the row says so under a word a
+    // customer shopping for clothes would use.
+    ["Size", hasSizeChart ? "See the size guide" : declarations.dimensions],
     // Stated as "inclusive of all taxes" because that is the declaration the
     // rules ask for, and because the price shown on this page is the price
     // charged — GST is inside it, not added at checkout.
@@ -55,7 +63,11 @@ export function ProductDeclarations({ declarations, price, hasSizeChart = false 
     ["Address", declarations.manufacturer_address],
     [
       "Consumer care",
-      `${declarations.consumer_care_name} · ${declarations.consumer_care_email} · ${declarations.consumer_care_phone}`,
+      // The phone is optional and omitted while ZISUN has no business line -
+      // it must never fall back to the founder's personal mobile.
+      [declarations.consumer_care_name, declarations.consumer_care_email, declarations.consumer_care_phone]
+        .filter(Boolean)
+        .join(" · "),
     ],
   ];
 
@@ -80,8 +92,9 @@ export function ProductDeclarations({ declarations, price, hasSizeChart = false 
       >
         {rows.map(([label, value]) =>
           // A blank statutory row is worse than an absent one — it reads as a
-          // declaration we failed to make. Dimensions is the only row that can
-          // legitimately be missing; everything else has a brand-level default.
+          // declaration we failed to make. Size and the support phone are the
+          // only rows that can legitimately be missing; the rest have a
+          // brand-level default.
           value ? (
             <div key={label} className="flex flex-col sm:flex-row sm:gap-3">
               <dt className="text-muted sm:w-44 sm:flex-shrink-0">{label}</dt>

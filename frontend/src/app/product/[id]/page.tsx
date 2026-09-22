@@ -28,6 +28,7 @@ import { recordEnquiry, takeOpenSource } from "@/lib/enquiry";
 import { useActiveCoupons } from "@/lib/queries/coupons";
 import { PieceWeave } from "@/components/PieceWeave";
 import { WaysToWear } from "@/components/WaysToWear";
+import { AVAILABILITY, INCLUDED } from "@/lib/brand";
 
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -78,6 +79,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   // list is the distinct colours, and the size list is the sizes that exist
   // in the chosen colour — otherwise a size that only comes in Indigo would
   // be offered under Red and fail at the bag.
+  // What is in the set, cleaned once and used in two places: the line under
+  // the price and the garment panel.
+  const setPieces = (product.garment_attributes?.set_pieces ?? []).filter((p) => p && p.trim());
   const colours = Array.from(new Set(product.variants.filter((v) => v.is_active && v.color).map((v) => v.color as string)));
   const selectedColour = selectedVariant?.color ?? colours[0] ?? null;
   const variantsInColour = selectedColour
@@ -284,6 +288,19 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               ) : null}
             </div>
             <OfferCountdown offer={product.offer} className="mt-1" />
+            {/* What you are actually buying, next to what it costs.
+                A co-ord set is two garments and the page never said so - the
+                only place it appeared was the statutory "net quantity" row,
+                which had been typed as "5" and read as five kurtas. Said
+                here, in her words, it is also the honest argument for the
+                price: two pieces, not one. */}
+            {setPieces.length > 1 && (
+              <p className="mt-2 text-[13px] text-ink">
+                <span className="text-muted">{INCLUDED.label}:</span>{" "}
+                {setPieces.join(" + ")}
+                <span className="text-muted"> · {setPieces.length} pieces</span>
+              </p>
+            )}
             {/* The first live coupon, as a ticket under the price. It is the one
                 thing on the page that is allowed to look like a sticker, and the
                 code copies on tap so it is not something to memorise. */}
@@ -346,11 +363,24 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             </div>
           )}
 
-          {/* Stock status */}
-          {selectedVariant && !BROWSE_ONLY && (
-            <p className={`text-xs font-medium mb-4 ${selectedVariant.stock > 5 ? "text-moss" : selectedVariant.stock > 0 ? "text-rani" : "text-muted"}`}>
-              {selectedVariant.stock === 0 ? "Sold out in this size" : selectedVariant.stock <= 5 ? `Only ${selectedVariant.stock} left in this size` : "In stock"}
-            </p>
+          {/* Availability, and only when there is something true to say.
+              It used to print "In stock" on every healthy size, which is
+              noise, and the founder's own note was that a number must never
+              be confused with what is inside the pack. So: silence when the
+              size is well stocked, the exact count when it is nearly gone,
+              and the batch fact underneath - which is not a countdown
+              clock, it is how the label actually works. */}
+          {selectedVariant && !BROWSE_ONLY && selectedVariant.stock <= AVAILABILITY.lowStockAt && (
+            <div className="mb-4">
+              <p className={`text-xs font-medium ${selectedVariant.stock === 0 ? "text-muted" : "text-rani"}`}>
+                {selectedVariant.stock === 0
+                  ? AVAILABILITY.soldOut
+                  : `Only ${selectedVariant.stock} left in ${selectedVariant.size ?? "this size"}`}
+              </p>
+              {selectedVariant.stock > 0 && (
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">{AVAILABILITY.batch}</p>
+              )}
+            </div>
           )}
 
           {/* The description is the reasons to want it, so it comes straight
@@ -380,7 +410,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <PieceWeave productId={product.id} colours={selectedColour ? [selectedColour, ...colours.filter((c) => c !== selectedColour)] : colours} />
           {product.fabric_specs && <FabricSpecs specs={product.fabric_specs} />}
           {product.garment_attributes && (
-            <GarmentDetails attributes={product.garment_attributes} />
+            <GarmentDetails
+              attributes={product.garment_attributes}
+              hasPockets={product.fabric_specs?.has_pockets}
+              selectedColour={selectedColour}
+            />
           )}
 
           {product.legal_metrology && (

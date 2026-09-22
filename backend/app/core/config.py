@@ -150,7 +150,14 @@ class Settings(BaseSettings):
     # grievance officer, which the legal pages already do.
     LM_CONSUMER_CARE_NAME: str = "Customer Care"
     LM_CONSUMER_CARE_EMAIL: str = "zisunstudio@gmail.com"
-    LM_CONSUMER_CARE_PHONE: str = "+91 93636 08792"
+    # Empty by default, and it must stay that way until ZISUN has a business
+    # line. This was the founder's personal mobile, published on every
+    # product page, both policy pages and the Legal Metrology block. She
+    # asked for it to come down: her home address was already reduced to the
+    # city for the same reason. Set LM_CONSUMER_CARE_PHONE on the api when a
+    # business number exists; until then the declaration carries the support
+    # email, and the phone row is omitted rather than left blank.
+    LM_CONSUMER_CARE_PHONE: str = ""
 
     # ── Sentry ────────────────────────────────────────────────────────────────
     SENTRY_DSN: str = ""

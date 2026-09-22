@@ -103,6 +103,14 @@ export default function NewProductPage() {
         compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
         offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
         size_chart: form.size_chart,
+        fit: form.fit.trim() || null,
+        garment_length: form.garment_length.trim() || null,
+        embroidery: form.embroidery.trim() || null,
+        bottom_type: form.bottom_type.trim() || null,
+        occasion: form.occasion.trim() || null,
+        // Cleaned here as well as server-side: a blank chip would make
+        // "1 set - 3 pieces" out of two garments.
+        set_pieces: form.set_pieces.map((p) => p.trim()).filter(Boolean),
         styling_notes: form.styling_notes.map((n) => ({ occasion: n.occasion.trim(), note: n.note.trim() })).filter((n) => n.occasion && n.note),
         variants: allVariants.map((v) => ({
           sku: v.sku,

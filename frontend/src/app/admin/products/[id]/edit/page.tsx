@@ -45,6 +45,12 @@ export default function EditProductPage() {
     compare_at_rupees: "",
     offer_ends_at: "",
     size_chart: null,
+    fit: "",
+    garment_length: "",
+    embroidery: "",
+    bottom_type: "",
+    occasion: "",
+    set_pieces: [],
     styling_notes: [],
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
@@ -108,6 +114,12 @@ export default function EditProductPage() {
         ? new Date(new Date(product.offer_ends_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
         : "",
       size_chart: product.size_chart ?? null,
+      fit: product.fit ?? "",
+      garment_length: product.garment_length ?? "",
+      embroidery: product.embroidery ?? "",
+      bottom_type: product.bottom_type ?? "",
+      occasion: product.occasion ?? "",
+      set_pieces: product.set_pieces ?? [],
       styling_notes: product.styling_notes ?? [],
     });
     setVariants(
@@ -158,6 +170,14 @@ export default function EditProductPage() {
         compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
         offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
         size_chart: form.size_chart,
+        fit: form.fit.trim() || null,
+        garment_length: form.garment_length.trim() || null,
+        embroidery: form.embroidery.trim() || null,
+        bottom_type: form.bottom_type.trim() || null,
+        occasion: form.occasion.trim() || null,
+        // Cleaned here as well as server-side: a blank chip would make
+        // "1 set - 3 pieces" out of two garments.
+        set_pieces: form.set_pieces.map((p) => p.trim()).filter(Boolean),
         styling_notes: form.styling_notes.map((n) => ({ occasion: n.occasion.trim(), note: n.note.trim() })).filter((n) => n.occasion && n.note),
       });
     },

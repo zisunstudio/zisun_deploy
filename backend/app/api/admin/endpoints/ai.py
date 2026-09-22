@@ -181,3 +181,89 @@ async def ai_styling(body: StylingRequest):
         if n.get("occasion") and n.get("note")
     ]
     return {"notes": notes[:4], "model": settings.AI_MODEL}
+
+
+class AttributesRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=4000)
+    facts: dict[str, Any] = Field(default_factory=dict)
+
+
+def _text(desc: str) -> dict[str, Any]:
+    return {"type": ["string", "null"], "description": desc, "maxLength": 120}
+
+
+ATTRIBUTES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "set_pieces": {
+            "type": ["array", "null"],
+            "maxItems": 6,
+            "items": {"type": "string"},
+            "description": "Each garment in the set, in order, singular and capitalised: [\"Kurta\", \"Palazzo\"]. A single garment is a one-item list.",
+        },
+        "fit": _text("Relaxed, Regular, Straight, A-line, Fitted."),
+        "garment_length": _text("Knee length, Calf length, Ankle length, Cropped."),
+        "neck_type": _text("Round neck, V-neck, Collared, Boat neck."),
+        "sleeve_type": _text("Sleeveless, Short, Three-quarter, Full."),
+        "print_type": _text("Block print, Screen print, Plain, Ajrakh."),
+        "pattern": _text("Solid, Floral, Striped, Checked."),
+        "embroidery": _text("What is embroidered and how, e.g. 'Hand-embroidered rose motif with sequins'."),
+        "bottom_type": _text("Only for a set: Palazzo, Straight pants, Sharara."),
+        "occasion": _text("Two or three words: 'Everyday and work', 'Festive'."),
+        "colour": _text("The garment's described colour, only when richer than one word, e.g. 'Indigo with off-white border'."),
+        "has_pockets": {"type": ["boolean", "null"]},
+        "dupatta_included": {"type": ["boolean", "null"]},
+        "sleeve_attached": {"type": ["boolean", "null"]},
+    },
+    "required": [],
+    "additionalProperties": False,
+}
+
+
+@router.post("/attributes")
+async def ai_attributes(body: AttributesRequest):
+    """Read the founder's own words and fill in the detail sheet.
+
+    The gap this closes is not that the storefront hides what she enters -
+    it is that entering fourteen fields by hand, per product, on a phone,
+    does not happen, so the product page had nothing to show. She has
+    already described the piece in a sentence; this turns that sentence
+    into the structured facts the page renders, for her to correct.
+
+    Null is a real answer here and the prompt insists on it: an invented
+    neckline on a live listing is an exchange request.
+    """
+    facts = "\n".join(f"- {k}: {v}" for k, v in body.facts.items() if v not in (None, "", [], {}))
+    user = (
+        f"Product: {body.name}\n"
+        f"Description: {body.description or '(none written yet)'}\n"
+        f"Already recorded:\n{facts or '- (nothing)'}\n\n"
+        "Fill in only the attributes that the name, the description or the recorded facts "
+        "actually state or unambiguously imply. Return null for anything else - a guessed "
+        "neckline or sleeve on a real listing becomes an exchange request. Do not contradict "
+        "an already recorded fact. Use the customer's plain words, not marketing adjectives."
+    )
+    try:
+        result = await ai.extract(BRAND_VOICE, user, ATTRIBUTES_SCHEMA, name="attributes")
+    except ai.AIUnavailable as exc:
+        raise HTTPException(503, str(exc))
+
+    out: dict[str, Any] = {}
+    for key, value in result.items():
+        if key not in ATTRIBUTES_SCHEMA["properties"] or value in (None, "", []):
+            continue
+        if key == "set_pieces":
+            pieces, seen = [], set()
+            for piece in value if isinstance(value, list) else []:
+                nm = str(piece).strip()[:60]
+                if nm and nm.lower() not in seen:
+                    seen.add(nm.lower())
+                    pieces.append(nm)
+            if pieces:
+                out[key] = pieces
+        elif isinstance(value, bool):
+            out[key] = value
+        else:
+            out[key] = str(value).strip()[:120]
+    return {"attributes": out, "model": settings.AI_MODEL}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Droplets, Ruler, Scissors, Shirt, WashingMachine, Wind } from "lucide-react";
+import { Droplets, Ruler, Shirt, WashingMachine, Wind } from "lucide-react";
 import type { FabricSpecs as Specs } from "@/lib/queries/catalog";
 
 interface Props {
@@ -45,15 +45,9 @@ export function FabricSpecs({ specs }: Props) {
   if (specs.weave) {
     rows.push({ Icon: Wind, label: "Weave", value: specs.weave });
   }
-  if (specs.has_pockets !== null && specs.has_pockets !== undefined) {
-    rows.push({
-      Icon: Scissors,
-      label: "Pockets",
-      // Stated either way. Seven people named missing pockets unprompted, which
-      // makes "no" worth saying honestly rather than leaving them to discover it.
-      value: specs.has_pockets ? "Yes" : "No pockets on this piece",
-    });
-  }
+  // Pockets used to be printed here as well as under the garment's details.
+  // It is a fact about the cut, not the cloth, so it lives in one place now -
+  // beside neck and sleeve, where a customer is already looking for it.
   if (specs.colourfastness) {
     rows.push({ Icon: Droplets, label: "Colour", value: specs.colourfastness });
   }

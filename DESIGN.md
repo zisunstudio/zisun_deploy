@@ -189,3 +189,48 @@ Review additions to §7: scroll the home page on a mid-range Android and
 watch the loom - if it stutters, lower `cols`/`rows` before shipping; and
 check every new section with reduced motion on, where the cloth must
 simply be there, finished.
+
+## 9. What the page says about the garment
+
+The founder reviewed the live product page and the gap she found was not
+visual - it was that the facts she enters when she lists a piece were not
+reaching the customer. Three causes, only one of which was cosmetic:
+
+1. **A read-back bug** in the admin API silently wiped the seven garment
+   attributes on every second save (see CLAUDE.md). She was right that the
+   page ignored what she typed; it had been deleting it.
+2. **Half the fields did not exist.** Fit, length, embroidery, bottom,
+   occasion and the contents of a set had nowhere to go, so they went in
+   the description or nowhere.
+3. **Warehouse words.** "Net quantity: 5" on a single co-ord set, and
+   "Dimensions: 42, 44" on a garment.
+
+The principles for this part of the page:
+
+**One fact, one place.** Pockets was printed on both the fabric panel and
+the garment panel; it is a fact about the cut, so it lives with neck and
+sleeve. The garment's described colour is suppressed when it only repeats
+the swatch the customer has already tapped.
+
+**Availability is silence until it is news.** No "In stock" on a healthy
+size - that is noise dressed as information. At or below three, the exact
+count in the selected size, with the label's real position underneath:
+small batches, no re-runs. The scarcity is true or it is not shown, and
+nothing counts down.
+
+**What you get, beside what it costs.** A co-ord set is two garments and
+the page could not say so; the only place it appeared was the statutory
+net-quantity row. Said plainly under the price it is also the honest
+argument for the number next to it.
+
+**The promise leads, the limit follows.** "24h size exchange · no returns"
+put the page's only negative sentence directly under the buy button. The
+exchange covers the thing that actually goes wrong with clothes bought
+online; the refund page states the limits in full, one tap away.
+
+**Entering a fact must be cheaper than skipping it.** Fourteen fields per
+product, typed on a phone, do not get filled - which is the real reason the
+page was bare. "Fill from the description" reads the sentence she has
+already written and fills only the empty boxes, never overwriting hers.
+That is the fix for points 3, 4, 5, 8 and 9 of her review; the schema was
+only the half of it that was visible in code.

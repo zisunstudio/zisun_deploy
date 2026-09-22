@@ -161,6 +161,31 @@ shown to customers. Changing the hash, the RNG, or the order in which
 ever shown; add new seeded choices *after* the existing ones. The canvas
 redraws only while weaving or rippling - do not add a free-running loop.
 
+**Anything an admin can write must be readable back.** `AdminProductDetail`
+re-declares every column `ProductResponse` hides, because the editor seeds
+its inputs from those fields. The seven garment attributes were left out of
+that list and the omission *destroyed data*: the form read `undefined`,
+rendered the inputs blank, and wrote the blanks back on the next save. The
+founder entered a piece's colour, neck and sleeve, saved twice, and
+concluded the storefront ignored her. Add a column to the model and you
+add it in three places - the input schema, `AdminProductDetail`, and the
+console form.
+
+**Net quantity is derived, never typed.** `set_pieces` (["Kurta",
+"Palazzo"]) produces the Legal Metrology declaration "1 set - 2 pieces".
+A bare number in that box is rejected at the schema: it once read "5" on a
+single co-ord set, which a customer reads as five kurtas. The customer-
+facing wording lives beside the price as "What you get"; the statutory
+block keeps the statutory term.
+
+**The site never publishes a personal number.** `COMPANY.phone` is
+`NEXT_PUBLIC_SUPPORT_PHONE` and `LM_CONSUMER_CARE_PHONE` is empty by
+default, and `launchMode`'s WhatsApp number no longer falls back to either
+- that fallback is how the founder's mobile ended up behind every WhatsApp
+button on the site without anyone choosing it. A published contact channel
+is always deliberate configuration; every surface hides the row when it is
+unset.
+
 ## Traps found the hard way
 
 Each of these produced a green build or a healthy-looking deploy:

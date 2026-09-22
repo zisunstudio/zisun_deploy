@@ -158,6 +158,28 @@ class GarmentAttributeFields(BaseModel):
     sleeve_type: Optional[str] = Field(None, max_length=120)
     sleeve_attached: Optional[bool] = None
     dupatta_included: Optional[bool] = None
+    fit: Optional[str] = Field(None, max_length=120)
+    garment_length: Optional[str] = Field(None, max_length=120)
+    embroidery: Optional[str] = Field(None, max_length=120)
+    bottom_type: Optional[str] = Field(None, max_length=120)
+    occasion: Optional[str] = Field(None, max_length=120)
+    # Ordered: the order she lists them is the order the page prints them.
+    set_pieces: Optional[List[str]] = Field(None, max_length=6)
+
+    @field_validator("set_pieces")
+    @classmethod
+    def clean_pieces(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        if v is None:
+            return None
+        out: List[str] = []
+        for piece in v:
+            name = (piece or "").strip()[:60]
+            # Case-insensitive de-dupe: "Kurta" and "kurta" are one garment,
+            # and "1 set - 3 pieces" derived from a duplicate is a wrong
+            # statutory declaration, not just an untidy list.
+            if name and name.lower() not in {o.lower() for o in out}:
+                out.append(name)
+        return out or None
 
     def attribute_values(self) -> dict:
         """Only this class's own supplied keys — see LegalMetrologyFields."""
@@ -258,6 +280,29 @@ class LegalMetrologyFields(BaseModel):
 
     commodity_name: Optional[str] = Field(None, max_length=255)
     net_quantity: Optional[str] = Field(None, max_length=120)
+
+    @field_validator("net_quantity")
+    @classmethod
+    def not_a_bare_count(cls, v: Optional[str]) -> Optional[str]:
+        """Reject "5".
+
+        Net quantity is what is inside one pack. Typed as a bare number on a
+        garment it reads to a customer as five kurtas, and it was: the field
+        said "5" on a single co-ord set. A quantity needs its unit, and for
+        apparel the unit is the garment - "1 set", "2 pieces". Leaving it
+        empty is better than guessing, because set_pieces derives it.
+        """
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None
+        if v.isdigit():
+            raise ValueError(
+                f"net quantity {v!r} needs its unit - write \"1 set\" or "
+                f"\"{v} pieces\", or list the pieces and leave this blank"
+            )
+        return v
     dimensions: Optional[str] = Field(None, max_length=255)
     country_of_origin: Optional[str] = Field(None, max_length=120)
     manufacturer_name: Optional[str] = Field(None, max_length=255)
@@ -294,6 +339,21 @@ class ProductUpdate(LegalMetrologyFields, FabricSpecFields, GarmentAttributeFiel
     category_id: Optional[uuid.UUID] = None
 
 
+def _net_quantity_from_pieces(pieces) -> Optional[str]:
+    """The statutory net quantity, derived from what is in the set.
+
+    Derived rather than typed so the declaration cannot drift from the
+    "what's included" line the customer reads higher up the page, and so
+    nobody has to translate a co-ord set into Legal Metrology wording.
+    """
+    if not pieces or not isinstance(pieces, list):
+        return None
+    n = len([p for p in pieces if str(p).strip()])
+    if n <= 0:
+        return None
+    return "1 piece" if n == 1 else f"1 set - {n} pieces"
+
+
 class LegalMetrology(BaseModel):
     """
     The pre-purchase declarations the Packaged Commodities Rules require.
@@ -312,14 +372,21 @@ class LegalMetrology(BaseModel):
     manufacturer_address: str
     consumer_care_name: str
     consumer_care_email: str
-    consumer_care_phone: str
+    # Optional: ZISUN publishes an email and, when one exists, a business
+    # phone. It must never fall back to the founder's personal number - see
+    # settings.LM_CONSUMER_CARE_PHONE.
+    consumer_care_phone: Optional[str] = None
 
     @classmethod
     def resolve(cls, product) -> "LegalMetrology":
         """Per-product value where one is set, brand-level default otherwise."""
         return cls(
             commodity_name=getattr(product, "commodity_name", None) or settings.LM_COMMODITY_NAME,
-            net_quantity=getattr(product, "net_quantity", None) or settings.LM_NET_QUANTITY,
+            net_quantity=(
+                getattr(product, "net_quantity", None)
+                or _net_quantity_from_pieces(getattr(product, "set_pieces", None))
+                or settings.LM_NET_QUANTITY
+            ),
             # Dimensions have no sensible brand-wide default — a kurti and a
             # co-ord set do not share measurements — so this one stays absent
             # until the product carries it, and the PDP omits the row.
@@ -332,7 +399,7 @@ class LegalMetrology(BaseModel):
             manufacturer_address=settings.LM_MANUFACTURER_ADDRESS,
             consumer_care_name=settings.LM_CONSUMER_CARE_NAME,
             consumer_care_email=settings.LM_CONSUMER_CARE_EMAIL,
-            consumer_care_phone=settings.LM_CONSUMER_CARE_PHONE,
+            consumer_care_phone=settings.LM_CONSUMER_CARE_PHONE or None,
         )
 
 
@@ -379,6 +446,12 @@ class GarmentAttributes(BaseModel):
     sleeve_type: Optional[str] = None
     sleeve_attached: Optional[bool] = None
     dupatta_included: Optional[bool] = None
+    fit: Optional[str] = None
+    garment_length: Optional[str] = None
+    embroidery: Optional[str] = None
+    bottom_type: Optional[str] = None
+    occasion: Optional[str] = None
+    set_pieces: Optional[List[str]] = None
 
     @property
     def is_empty(self) -> bool:
@@ -511,6 +584,26 @@ class AdminProductDetail(ProductResponse):
     has_pockets: Optional[bool] = None
     colourfastness: Optional[str] = None
     wash_care: Optional[str] = None
+    # The garment attributes were missing from this list, and the omission
+    # silently destroyed data: the editor reads `product.colour` to seed its
+    # inputs, got undefined, rendered them blank, and wrote those blanks back
+    # over real values on the next save. The founder entered a piece's
+    # colour, print, neck and sleeve, saved twice, and the product page
+    # showed nothing - which read as "the storefront ignores what I type".
+    # Anything an admin can write has to be readable back here.
+    colour: Optional[str] = None
+    print_type: Optional[str] = None
+    pattern: Optional[str] = None
+    neck_type: Optional[str] = None
+    sleeve_type: Optional[str] = None
+    sleeve_attached: Optional[bool] = None
+    dupatta_included: Optional[bool] = None
+    fit: Optional[str] = None
+    garment_length: Optional[str] = None
+    embroidery: Optional[str] = None
+    bottom_type: Optional[str] = None
+    occasion: Optional[str] = None
+    set_pieces: Optional[List[str]] = None
 
 
 class ProductListResponse(BaseModel):

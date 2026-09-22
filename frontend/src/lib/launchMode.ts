@@ -10,17 +10,18 @@
  * moment later, which is a worse experience than not offering it at all.
  * Changing it therefore needs a frontend REBUILD, not a restart.
  */
-import { COMPANY } from "@/lib/legal";
-
 export const BROWSE_ONLY =
   (process.env.NEXT_PUBLIC_LAUNCH_MODE ?? "").trim().toLowerCase() === "browse";
 
 /** Digits only, with country code, e.g. 919876543210. */
-// The founder asked for a direct chat, not the group. NEXT_PUBLIC_WHATSAPP_NUMBER
-// wins when set; otherwise the support number from the contact page, which
-// is the same phone. The group link is only a fallback when neither exists.
-const WHATSAPP_NUMBER = ((process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "")
-  || COMPANY.phone.replace(/\D/g, ""));
+// Set NEXT_PUBLIC_WHATSAPP_NUMBER explicitly, or there is no 1:1 chat.
+//
+// This used to fall back to COMPANY.phone, which is how the founder's
+// personal mobile ended up behind every WhatsApp button on the site without
+// anyone choosing it. A published contact channel is now always a deliberate
+// configuration, never inherited: when neither this nor the group URL is
+// set, the button does not render at all.
+const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
 
 export const HAS_WHATSAPP = WHATSAPP_NUMBER.length > 0;
 

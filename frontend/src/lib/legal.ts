@@ -53,7 +53,15 @@ export const COMPANY: CompanyDetails = {
   // privately; customers reach her by phone, email and WhatsApp.
   address: "Bengaluru, Karnataka, India",
   email: "zisunstudio@gmail.com",
-  phone: "+91 93636 08792",
+  // Env-driven and empty by default. This was the founder's personal
+  // mobile, published on both policy pages, the contact page, the Legal
+  // Metrology block on every product and - through launchMode's fallback -
+  // every WhatsApp button on the site. She asked for it to come down; her
+  // home address had already been reduced to the city for the same reason.
+  // Set NEXT_PUBLIC_SUPPORT_PHONE on zisun-web when a business line exists.
+  // Every surface hides the row while it is empty rather than printing a
+  // placeholder, and the support email carries consumer care until then.
+  phone: (process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? "").trim(),
   gstin: "29BAYPT2026A1ZH",
   supportHours: "Monday–Saturday, 10:00–18:00 IST",
   websiteUrl: "https://zisun.in",

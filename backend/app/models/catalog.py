@@ -140,6 +140,18 @@ class Product(BaseModel):
     sleeve_attached: Mapped[Optional[bool]] = mapped_column(Boolean)
     dupatta_included: Mapped[Optional[bool]] = mapped_column(Boolean)
 
+    # The rest of what she names when she describes a piece. Same rule: all
+    # nullable, no brand-level default, omitted from the page when unfilled.
+    fit: Mapped[Optional[str]] = mapped_column(String(120))
+    garment_length: Mapped[Optional[str]] = mapped_column(String(120))
+    embroidery: Mapped[Optional[str]] = mapped_column(String(120))
+    bottom_type: Mapped[Optional[str]] = mapped_column(String(120))
+    occasion: Mapped[Optional[str]] = mapped_column(String(120))
+    # What is in the box, in order: ["Kurta", "Palazzo"]. A co-ord set is two
+    # garments and a customer should never have to infer that from a
+    # photograph. Also derives the Legal Metrology net quantity.
+    set_pieces: Mapped[Optional[list]] = mapped_column(JSONB)
+
     variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"
     )

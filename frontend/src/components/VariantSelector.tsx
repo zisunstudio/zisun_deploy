@@ -15,14 +15,34 @@ interface Props {
   honourStock?: boolean;
 }
 
+/**
+ * Sizes read in the order a rail hangs them, not the order the rows were
+ * typed. The live page showed "XL · L · 3XL · 2XL · M", which makes a
+ * customer hunt for her own size and makes the shop look unkept. Anything
+ * the list does not know (a numeric size, "Free") keeps its entered order
+ * and follows the ones it does.
+ */
+const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "FREE"];
+
+function sizeRank(label: string | null): number {
+  const i = SIZE_ORDER.indexOf((label ?? "").trim().toUpperCase());
+  return i === -1 ? SIZE_ORDER.length : i;
+}
+
 export function VariantSelector({ variants, selected, onSelect, groupBy = "size", honourStock = true }: Props) {
   const options = Array.from(
     new Map(
       variants
         .filter((v) => v.is_active)
-        .map((v) => [groupBy === "size" ? v.size : v.color, v])
+        // Trimmed: "Purple " and "Purple" were two chips for one colour, and
+        // "XL " and "XL" two sizes. The API trims on write now; this keeps
+        // rows entered before it did from splitting the selector.
+        .map((v) => [(groupBy === "size" ? v.size : v.color)?.trim() ?? null, v])
     ).values()
   );
+  if (groupBy === "size") {
+    options.sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
+  }
 
   if (options.length === 0) return null;
 

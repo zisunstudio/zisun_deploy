@@ -47,7 +47,8 @@ export interface LegalMetrology {
   manufacturer_address: string;
   consumer_care_name: string;
   consumer_care_email: string;
-  consumer_care_phone: string;
+  /** Omitted while ZISUN has no business line; never the founder's mobile. */
+  consumer_care_phone: string | null;
 }
 
 /**
@@ -97,6 +98,13 @@ export interface GarmentAttributes {
   sleeve_type: string | null;
   sleeve_attached: boolean | null;
   dupatta_included: boolean | null;
+  fit: string | null;
+  garment_length: string | null;
+  embroidery: string | null;
+  bottom_type: string | null;
+  occasion: string | null;
+  /** Ordered, e.g. ["Kurta", "Palazzo"]. Drives "what you get" and net quantity. */
+  set_pieces: string[] | null;
 }
 
 export interface Product {

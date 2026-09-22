@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { SizeChart, StylingNote } from "@/lib/queries/catalog";
 import StylingNotesEditor from "@/components/admin/StylingNotesEditor";
+import SetPiecesEditor from "@/components/admin/SetPiecesEditor";
 import SizeChartEditor from "@/components/admin/SizeChartEditor";
 import { adminApi } from "@/lib/adminApi";
 import { PALETTE, swatchStyle } from "@/lib/colours";
@@ -52,6 +53,13 @@ export interface ProductFormData {
   sleeve_type: string;
   sleeve_attached: string;
   dupatta_included: string;
+  fit: string;
+  garment_length: string;
+  embroidery: string;
+  bottom_type: string;
+  occasion: string;
+  /** The garments in the set, in order. Drives "what you get" and net quantity. */
+  set_pieces: string[];
   /**
    * Offer. Rupees in the form, paise on the wire like base_price; empty means
    * no offer. offer_ends_at is a datetime-local string, or "" for open-ended.
@@ -91,6 +99,7 @@ export function emptyProductForm(): ProductFormData {
     has_pockets: "", colourfastness: "", wash_care: "",
     colour: "", print_type: "", pattern: "", neck_type: "",
     sleeve_type: "", sleeve_attached: "", dupatta_included: "",
+    fit: "", garment_length: "", embroidery: "", bottom_type: "", occasion: "", set_pieces: [],
     compare_at_rupees: "", offer_ends_at: "", size_chart: null, styling_notes: [],
   };
 }
@@ -102,6 +111,7 @@ export function priceToPaise(rupees: string): number {
 
 export default function ProductForm({ data, onChange, categories, compact = false }: Props) {
   const [writing, setWriting] = useState(false);
+  const [filling, setFilling] = useState(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
   // The model only sees what is on the form. It cannot invent a fabric the
   // founder did not enter, which is the whole point of feeding it facts
@@ -130,6 +140,60 @@ export default function ProductForm({ data, onChange, categories, compact = fals
       setWriting(false);
     }
   }
+  /**
+   * Read the description back and fill the detail sheet.
+   *
+   * The founder's note was that what she enters does not reach the product
+   * page. Half of that was a read-back bug in the API; the other half is
+   * that nobody fills fourteen fields by hand on a phone, so they stayed
+   * empty. She has already written the sentence - this turns it into the
+   * facts the page renders. Nothing is overwritten: only blanks are filled,
+   * so a value she typed always wins over one the model suggested.
+   */
+  async function fillDetails() {
+    setFilling(true); setAiNote(null);
+    try {
+      const res = await adminApi.post("/ai/attributes", {
+        name: data.name.trim(),
+        description: data.description || null,
+        facts: {
+          category: categories.find((c) => c.id === data.category_id)?.name ?? null,
+          colour: data.colour, fabric_composition: data.fabric_composition, weave: data.weave,
+          print_type: data.print_type, pattern: data.pattern, neck_type: data.neck_type,
+          sleeve_type: data.sleeve_type, fit: data.fit, garment_length: data.garment_length,
+          embroidery: data.embroidery, bottom_type: data.bottom_type, occasion: data.occasion,
+          set_pieces: data.set_pieces,
+        },
+      });
+      const a = res.data.attributes ?? {};
+      const next: ProductFormData = { ...data };
+      let added = 0;
+      const keep = (k: keyof ProductFormData, v: unknown) => {
+        if (v === null || v === undefined || v === "") return;
+        if (String(next[k] ?? "").trim()) return; // hers wins
+        (next[k] as unknown) = typeof v === "boolean" ? (v ? "yes" : "no") : String(v);
+        added += 1;
+      };
+      (["colour","print_type","pattern","neck_type","sleeve_type","fit","garment_length","embroidery","bottom_type","occasion","sleeve_attached","dupatta_included","has_pockets"] as const)
+        .forEach((k) => keep(k, (a as Record<string, unknown>)[k]));
+      if (Array.isArray(a.set_pieces) && a.set_pieces.length && next.set_pieces.length === 0) {
+        next.set_pieces = a.set_pieces.map(String);
+        added += 1;
+      }
+      onChange(next);
+      setAiNote(added
+        ? `Filled ${added} empty field${added === 1 ? "" : "s"}. Check each one before saving.`
+        : "Nothing to add — the description does not say more than you have already entered.");
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      setAiNote(e?.response?.status === 503
+        ? `AI is unavailable: ${detail ?? "ANTHROPIC_API_KEY is not set"}. Fill these in by hand.`
+        : (typeof detail === "string" ? detail : "Could not read the description just now."));
+    } finally {
+      setFilling(false);
+    }
+  }
+
   const f = (key: keyof ProductFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => onChange({ ...data, [key]: e.target.value });
@@ -341,9 +405,18 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           <span className="text-xs text-gray-400 hidden group-open:inline">optional</span>
         </summary>
         <div className="px-5 pb-5">
-        <p className="text-xs text-gray-400 mt-1 mb-4">
+        <p className="text-xs text-gray-400 mt-1 mb-3">
           Shown on the product page. Anything left blank is simply omitted.
         </p>
+        <div className="mb-4">
+          <button
+            type="button" onClick={fillDetails} disabled={filling || !data.name.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> {filling ? "Reading…" : "Fill from the description"}
+          </button>
+          <p className="text-[11px] text-gray-500 mt-1.5">Reads what you already wrote and fills only the empty boxes. Yours are never overwritten.</p>
+        </div>
 
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -362,6 +435,14 @@ export default function ProductForm({ data, onChange, categories, compact = fals
                 </select>
               </span>
               <p className="text-[11px] text-gray-500 mt-1">The main colour, for details and search. Each colour you sell is a variant below.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fit</label>
+              <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Relaxed" value={data.fit} onChange={f("fit")} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Length</label>
+              <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Calf length" value={data.garment_length} onChange={f("garment_length")} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Print</label>
@@ -412,6 +493,18 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Embroidery</label>
+              <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Hand-embroidered rose motif" value={data.embroidery} onChange={f("embroidery")} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bottom</label>
+              <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Palazzo" value={data.bottom_type} onChange={f("bottom_type")} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Wear it for</label>
+              <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Everyday and work" value={data.occasion} onChange={f("occasion")} />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Dupatta included</label>
               <select
                 className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30"
@@ -424,6 +517,12 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               </select>
             </div>
           </div>
+
+          {/* What is in the set. This is the field that retires "net
+              quantity: 5": the statutory declaration is derived from it, so
+              nobody types a bare number into a legal box again, and the
+              product page can finally say a co-ord set is two garments. */}
+          <SetPiecesEditor value={data.set_pieces} onChange={(pieces) => onChange({ ...data, set_pieces: pieces })} />
         </div>
         </div>
       </details>
