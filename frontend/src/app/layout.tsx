@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { SITE_URL } from "@/lib/legal";
-import { BRAND_TITLE } from "@/lib/brand";
+import { COMPANY, SITE_URL } from "@/lib/legal";
+import { jsonLdString } from "@/lib/structuredData";
+import { BRAND, BRAND_TITLE } from "@/lib/brand";
 import { Caveat, Instrument_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastProvider";
@@ -54,6 +55,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${sans.variable} ${display.variable} ${hand.variable} font-sans bg-background text-foreground`}>
+        {/* Who ZISUN is, for search engines and AI agents: the brand behind
+            every product block on the site, and how to reach it. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdString({
+            "@context": "https://schema.org",
+            "@graph": [
+              { "@type": "OnlineStore", "@id": `${SITE_URL}/#store`, name: BRAND.name, slogan: BRAND.tagline, url: SITE_URL,
+                email: COMPANY.email, ...(COMPANY.phone ? { telephone: COMPANY.phone } : {}),
+                address: { "@type": "PostalAddress", addressLocality: "Bengaluru", addressRegion: "Karnataka", addressCountry: "IN" } },
+              { "@type": "WebSite", "@id": `${SITE_URL}/#site`, name: BRAND.name, url: SITE_URL, publisher: { "@id": `${SITE_URL}/#store` },
+                potentialAction: { "@type": "SearchAction", target: `${SITE_URL}/search?q={query}`, "query-input": "required name=query" } },
+            ],
+          }) }}
+        />
         <SessionRestore />
         <OfflineBanner />
         <WhatsAppFab />

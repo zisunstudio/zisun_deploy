@@ -1,6 +1,7 @@
 "use client";
 
 import { ProductVariant } from "@/lib/queries/catalog";
+import { sizeRank } from "@/lib/colours";
 
 interface Props {
   variants: ProductVariant[];
@@ -13,20 +14,6 @@ interface Props {
    * reads as "we do not make this", which is false.
    */
   honourStock?: boolean;
-}
-
-/**
- * Sizes read in the order a rail hangs them, not the order the rows were
- * typed. The live page showed "XL · L · 3XL · 2XL · M", which makes a
- * customer hunt for her own size and makes the shop look unkept. Anything
- * the list does not know (a numeric size, "Free") keeps its entered order
- * and follows the ones it does.
- */
-const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "FREE"];
-
-function sizeRank(label: string | null): number {
-  const i = SIZE_ORDER.indexOf((label ?? "").trim().toUpperCase());
-  return i === -1 ? SIZE_ORDER.length : i;
 }
 
 export function VariantSelector({ variants, selected, onSelect, groupBy = "size", honourStock = true }: Props) {

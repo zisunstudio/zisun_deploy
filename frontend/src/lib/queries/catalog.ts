@@ -205,11 +205,16 @@ export function useProducts(params: {
   });
 }
 
-export function useProduct(id: string) {
+export function useProduct(id: string, initial?: Product) {
   return useQuery<Product>({
     queryKey: catalogKeys.product(id),
     queryFn: () => api.get(`/catalog/products/${id}`).then((r) => r.data),
     enabled: !!id,
+    // Server-rendered data paints the page at once; marked as already stale
+    // (updatedAt 0) so the client still refetches on mount. Stock and price
+    // on screen are never older than the visit.
+    initialData: initial,
+    initialDataUpdatedAt: initial ? 0 : undefined,
   });
 }
 

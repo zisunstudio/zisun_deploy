@@ -52,6 +52,21 @@ export const PALETTE_NAMES = PALETTE.map((c) => c.name);
 /** Sizes the console offers first; anything else can still be typed. */
 export const SIZE_PRESETS = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "Free"];
 
+/**
+ * Sizes in the order a rail hangs them. One ordering for every surface - the
+ * size buttons, the feed, llms.txt - so a customer and an AI assistant see
+ * "M, L, XL" rather than the order the rows happened to be typed. Unknown
+ * sizes keep their relative order and follow the known ones.
+ */
+const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "FREE"];
+export function sizeRank(label: string | null | undefined): number {
+  const i = SIZE_ORDER.indexOf((label ?? "").trim().toUpperCase());
+  return i === -1 ? SIZE_ORDER.length : i;
+}
+export function sortSizes<T extends string>(sizes: T[]): T[] {
+  return [...sizes].sort((a, b) => sizeRank(a) - sizeRank(b));
+}
+
 const byLower = new Map(PALETTE.map((c) => [c.name.toLowerCase(), c]));
 
 /** The palette entry for a stored colour name, tolerant of older free text. */
