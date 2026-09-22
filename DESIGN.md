@@ -285,9 +285,8 @@ on her.
 - **Named for a woman.** Each piece can carry one italic line under its
   name: who it is named for and who she was. "Tales, Antiqued." finally
   has tales in it. Names are hers to choose.
-- **Unbleached cotton.** The ground warmed from near-neutral ivory to the
-  colour of her cloth before it is dyed (#FAF3E8), rather than a borrowed
-  peach. One token; the garment is still the only saturated thing.
+- **Ivory stays.** A warmer "unbleached cotton" ground (#FAF3E8) was tried
+  and the founder chose to keep the original ivory (#FAF8F6).
 - **Free shipping across India, said out loud.** It was always free - the
   order total has never carried a shipping line. The policy now commits to
   it, and checkout shows "Shipping · Free" above the total.
