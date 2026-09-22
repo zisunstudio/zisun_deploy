@@ -5,7 +5,16 @@ Railway. Customer base is India.
 
 `DEPLOYMENT.md` is the authoritative deploy runbook. `DESIGN.md` is the
 storefront's design thesis — read it before changing anything a customer
-sees. This file covers what the code does not show on its face.
+sees. `FEATURES.md` is the ledger of everything that has shipped: a feature
+leaves the product only by moving to its **Retired** table with a reason and
+a restore commit, and `featureLedger.test.ts` fails the build if a file it
+names disappears. Update it in the same commit as any feature change. This
+file covers what the code does not show on its face.
+
+Deploys and status: `scripts/railway/deploy.sh [web worker beat]` and
+`scripts/railway/status.sh`. They read the token from `$RAILWAY_TOKEN` or
+`~/.config/zisun/railway_token`; session scratchpads are wiped on restart,
+which lost the old copies three times.
 
 ## Shape
 

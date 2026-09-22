@@ -13,6 +13,7 @@ import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
 import { recordEnquiry } from "@/lib/enquiry";
 import { INDIAN_STATES } from "@/lib/india";
+import { useAddresses, type Address } from "@/lib/queries/address";
 import { POLICY_TERMS } from "@/lib/legal";
 import { arrivalDate, clearExpressItem, getExpressItem, recallBuyer, rememberBuyer } from "@/lib/buyNow";
 import type { CartItem } from "@/store/useCartStore";
@@ -102,6 +103,24 @@ export default function CheckoutPage() {
     setReady(true);
   }, []);
 
+  // Her saved addresses, when she is signed in. The checkout this replaced
+  // let her pick one; the rewrite lost that and made a returning customer
+  // type her address again. Her default fills the form when nothing else
+  // has; any of them is one tap below the heading.
+  const { data: savedAddresses } = useAddresses();
+  const pickAddress = (a: Address) => setForm((f) => ({
+    ...f, line1: a.line1, line2: a.line2 ?? "", city: a.city,
+    state: INDIAN_STATES.includes(a.state) ? a.state : f.state, pincode: a.pincode,
+  }));
+  useEffect(() => {
+    if (!savedAddresses?.length) return;
+    setForm((f) => {
+      if (f.line1.trim()) return f; // typed or remembered - hers wins
+      const a = savedAddresses.find((x) => x.is_default) ?? savedAddresses[0];
+      return { ...f, line1: a.line1, line2: a.line2 ?? "", city: a.city, state: INDIAN_STATES.includes(a.state) ? a.state : f.state, pincode: a.pincode };
+    });
+  }, [savedAddresses]);
+
   // Prefill from the account when there is one. Never overwrite typing.
   useEffect(() => {
     if (!user) return;
@@ -129,10 +148,14 @@ export default function CheckoutPage() {
     return () => { cancelled = true; };
   }, [form.pincode]);
 
-  // A courier that will not carry cash to this pincode must not be offered it.
+  // A courier that will not carry cash to this pincode must not be offered it,
+  // and neither must an order above the COD limit - the server refuses both,
+  // and the old checkout said so up front. The new one lost that line and let
+  // her find out at the last tap.
+  const codOverLimit = items.reduce((s, i) => s + i.price * i.quantity, 0) > POLICY_TERMS.codMaxRupees;
   useEffect(() => {
-    if (pin && !pin.cod_available && paymentMethod === "COD") setPaymentMethod("RAZORPAY");
-  }, [pin, paymentMethod]);
+    if (((pin && !pin.cod_available) || codOverLimit) && paymentMethod === "COD") setPaymentMethod("RAZORPAY");
+  }, [pin, paymentMethod, codOverLimit]);
 
   const detailsValid = useMemo(() => (
     form.name.trim().length >= 2 &&
@@ -325,6 +348,23 @@ export default function CheckoutPage() {
           <section>
             <h1 className="font-display text-[30px] text-ink mb-1">Where to?</h1>
             <p className="text-sm text-muted mb-5">No account needed. We use your number to confirm the order.</p>
+            {savedAddresses && savedAddresses.length > 0 && (
+              <div className="mb-5">
+                <p className="text-xs text-muted mb-2">Your saved addresses</p>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5">
+                  {savedAddresses.map((a) => {
+                    const on = form.line1.trim() === a.line1.trim() && form.pincode === a.pincode;
+                    return (
+                      <button key={a.id} type="button" onClick={() => pickAddress(a)}
+                        className={`shrink-0 max-w-[220px] rounded-card border px-3 py-2.5 text-left text-xs leading-snug ${on ? "border-ink bg-rose" : "border-line hover:border-ink/40"}`}>
+                        <span className="block text-ink line-clamp-2">{[a.line1, a.line2].filter(Boolean).join(", ")}</span>
+                        <span className="block text-muted mt-0.5">{a.city} {a.pincode}{a.is_default ? " · default" : ""}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Full name" className="col-span-2"><input className={input} value={form.name} onChange={set("name")} autoComplete="name" /></Field>
               <Field label="Mobile number" className="col-span-2">
@@ -399,9 +439,11 @@ export default function CheckoutPage() {
               <PayOption
                 selected={paymentMethod === "COD"}
                 onSelect={() => setPaymentMethod("COD")}
-                disabled={pin ? !pin.cod_available : false}
+                disabled={(pin ? !pin.cod_available : false) || codOverLimit}
                 title="Cash on delivery"
-                subtitle={pin && !pin.cod_available ? "Not available at this pincode" : "Pay the courier when it arrives"}
+                subtitle={codOverLimit
+                  ? `For orders up to ${formatPrice(POLICY_TERMS.codMaxRupees * 100)}`
+                  : pin && !pin.cod_available ? "Not available at this pincode" : `Pay the courier when it arrives · orders up to ${formatPrice(POLICY_TERMS.codMaxRupees * 100)}`}
                 note="We will confirm on WhatsApp before packing."
               />
             </div>

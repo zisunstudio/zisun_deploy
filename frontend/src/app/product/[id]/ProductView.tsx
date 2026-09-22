@@ -507,6 +507,25 @@ export default function ProductView({ params, initial }: { params: { id: string 
                 : <>Model wears size <span className="text-ink font-medium">{product.model_size.trim()}</span></>}
             </p>
           ) : null}
+          {/* Before she has chosen a size, the colour as a whole. This was
+              lost once: the size line below was moved behind choosing a size,
+              and the page then said nothing about scarcity to anyone who had
+              not tapped one - on a shelf holding one of each. It is counted
+              across every size in the chosen colour, so it is true whichever
+              size she picks. */}
+          {!BROWSE_ONLY && !sizeReady && (() => {
+            const left = variantsInColour.filter((v) => v.is_active).reduce((s, v) => s + Math.max(0, v.stock), 0);
+            if (left <= 0 || left > AVAILABILITY.colourLowAt) return null;
+            const sizesLeft = new Set(variantsInColour.filter((v) => v.is_active && v.stock > 0).map((v) => v.size?.trim().toUpperCase())).size;
+            return (
+              <div className="-mt-1 mb-4">
+                <p className="text-xs font-medium text-rani">
+                  {left === sizesLeft ? "Only one left in each size" : `Only ${left} left in this colour`}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">{AVAILABILITY.batch}</p>
+              </div>
+            );
+          })()}
           {/* Only for a size she has chosen: "Only 1 left in XL" about a
               size she never picked is noise, and reads as pressure. */}
           {selectedVariant && sizeReady && !BROWSE_ONLY && selectedVariant.stock <= AVAILABILITY.lowStockAt && (

@@ -98,6 +98,12 @@ export const POLICY_TERMS = {
   refundProcessingDays: "5–7 business days",
   dispatchTimeframe: "2–3 business days",
   deliveryTimeframe: "4–8 business days",
+  /**
+   * The largest order Cash on Delivery will take, in rupees. Mirrors
+   * COD_MAX_ORDER_VALUE_PAISE in backend/app/services/coupon.py, which is the
+   * enforcement; this only lets checkout say so before she taps Place order.
+   */
+  codMaxRupees: 5000,
 } as const;
 
 /** Which required details are still outstanding for Razorpay KYC. */

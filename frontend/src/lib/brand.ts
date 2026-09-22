@@ -197,6 +197,8 @@ export const WAYS_TO_WEAR = {
  */
 export const AVAILABILITY = {
   lowStockAt: 3,
+  /** Before a size is chosen, the whole colour counts - shown at or below this. */
+  colourLowAt: 8,
   soldOut: "Sold out in this size",
   batch: "Woven in one small batch. When this colour goes, it does not come back.",
 } as const;
