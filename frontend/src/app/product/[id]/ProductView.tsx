@@ -30,6 +30,7 @@ import { PieceWeave } from "@/components/PieceWeave";
 import { WaysToWear } from "@/components/WaysToWear";
 import { AVAILABILITY, FOUNDER, INCLUDED } from "@/lib/brand";
 import { setExpressItem } from "@/lib/buyNow";
+import { HERO_NAME, navigate } from "@/lib/viewTransition";
 
 /**
  * The interactive product page. Rendered inside the server shell in
@@ -168,7 +169,9 @@ export default function ProductView({ params, initial }: { params: { id: string 
     // and the board should not show buy-now shoppers as having dropped off.
     trackEvent("add_to_cart", { product_id: product.id, variant_id: selectedVariant?.id ?? null, price, via: "buy_now" });
     setExpressItem(lineItem());
-    router.push("/checkout?express=1");
+    // Checkout rises from below, like a sheet - it is the next step of the
+    // same decision, not a different page.
+    navigate(router, "/checkout?express=1", { kind: "up" });
     // If she comes straight back, the button must not still say "Opening".
     setTimeout(() => setBuying(false), 4000);
   }
@@ -237,7 +240,7 @@ export default function ProductView({ params, initial }: { params: { id: string 
             aria-label={`${product.name} photographs`}
           >
             {images.map((src, i) => (
-              <div key={i} className="relative w-full shrink-0 snap-center aspect-[3/4] lg:aspect-[16/9]">
+              <div key={i} className="relative w-full shrink-0 snap-center aspect-[3/4] lg:aspect-[16/9]" style={i === 0 ? { viewTransitionName: HERO_NAME } : undefined}>
                 <Image
                   src={src}
                   alt={`${product.name}${images.length > 1 ? ` — photo ${i + 1} of ${images.length}` : ""}`}

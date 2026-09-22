@@ -11,6 +11,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
 import CartDrawer from "@/components/CartDrawer";
 import { SessionRestore } from "@/components/SessionRestore";
+import { ViewTransitionSettler } from "@/components/ViewTransitionSettler";
 
 // Three faces, one job each. Instrument Serif is the voice: a contemporary,
 // classical serif with masthead authority at 48-96px and none of the Didone
@@ -71,6 +72,7 @@ export default function RootLayout({
           }) }}
         />
         <SessionRestore />
+        <ViewTransitionSettler />
         <OfflineBanner />
         <WhatsAppFab />
         {/* Mounted once, here: the bag opens from every product page, not

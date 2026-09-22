@@ -89,3 +89,38 @@ body {
   opacity: 0.35;
 }
 
+
+/* ── Page transitions ───────────────────────────────────────────────────────
+   Native View Transitions (see lib/viewTransition.ts). Pages cross-fade
+   quickly; a tapped photograph grows into the product page's first photo;
+   checkout rises from below on Buy now. Nothing here runs without a
+   navigation, and reduced motion turns all of it off. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-group(product-hero) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-old(product-hero),
+::view-transition-new(product-hero) {
+  /* Both are the same photograph at different sizes: fill the box during the
+     morph rather than squash, so the garment never distorts. */
+  height: 100%;
+  object-fit: cover;
+}
+html[data-vt="up"]::view-transition-old(root) {
+  animation: vt-sink 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+html[data-vt="up"]::view-transition-new(root) {
+  animation: vt-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes vt-rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes vt-sink { to { transform: scale(0.97); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}

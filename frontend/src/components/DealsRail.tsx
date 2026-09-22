@@ -1,4 +1,5 @@
 "use client";
+import { navigate } from "@/lib/viewTransition";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -67,7 +68,7 @@ export function DealsRail() {
               return (
                 <button
                   key={p.id}
-                  onClick={() => { markOpenSource("deal"); router.push(`/product/${p.id}`); }}
+                  onClick={(e) => { markOpenSource("deal"); navigate(router, `/product/${p.id}`, { from: (e.currentTarget as HTMLElement).querySelector<HTMLElement>("img")?.parentElement ?? null }); }}
                   className="snap-start shrink-0 w-[156px] sm:w-[190px] text-left group"
                   aria-label={`${p.name}, ${p.offer.discount_pct} percent off`}
                 >

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { navigate } from "@/lib/viewTransition";
 import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Product, formatPrice, productImageUrl } from "@/lib/queries/catalog";
@@ -55,9 +56,11 @@ export function ProductCard({ product, className = "" }: Props) {
     <div
       ref={impressionRef as React.RefObject<HTMLDivElement>}
       className={`flex flex-col cursor-pointer group ${className}`}
-      onClick={() => { markOpenSource("card"); router.push(`/product/${product.id}`); }}
+      onClick={(e) => { markOpenSource("card"); navigate(router, `/product/${product.id}`, { from: (e.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-vt-photo]") }); }}
+      onPointerEnter={() => router.prefetch(`/product/${product.id}`)}
+      onTouchStart={() => router.prefetch(`/product/${product.id}`)}
     >
-      <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
+      <div data-vt-photo className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
         <Image
           src={imageUrl}
           alt={product.name}

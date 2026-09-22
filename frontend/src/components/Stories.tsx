@@ -8,6 +8,7 @@ import { formatPrice, type Product } from "@/lib/queries/catalog";
 import { FOUNDER } from "@/lib/brand";
 import { markOpenSource } from "@/lib/enquiry";
 import { trackEvent } from "@/lib/queries/analytics";
+import { navigate } from "@/lib/viewTransition";
 
 /**
  * The drop, as stories.
@@ -195,10 +196,13 @@ function StoryViewer({ pieces, start, onSeen, onClose }: {
     if (x < 0.3) back(); else next();
   }
 
+  const cardPhoto = useRef<HTMLDivElement>(null);
   function openPiece() {
     markOpenSource("story");
-    onClose();
-    router.push(`/product/${p.id}`);
+    // The story closes inside the transition, not before it: the photograph
+    // has to still be on screen when the browser captures it, so it can grow
+    // into the product page's first photograph.
+    navigate({ push: (href) => { onClose(); router.push(href); } }, `/product/${p.id}`, { from: cardPhoto.current });
   }
 
   return (
@@ -228,7 +232,7 @@ function StoryViewer({ pieces, start, onSeen, onClose }: {
         {onCard ? (
           /* The last frame: the piece, and the one way in. */
           <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-            <div className="relative h-[46vh] w-full max-w-[280px] overflow-hidden rounded-card">
+            <div ref={cardPhoto} className="relative h-[46vh] w-full max-w-[280px] overflow-hidden rounded-card">
               <Image src={shots[0]} alt="" fill sizes="280px" className="object-cover object-top" />
             </div>
             <p className="mt-6 font-display text-[30px] leading-tight">{p.name}</p>

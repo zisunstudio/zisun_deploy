@@ -17,6 +17,7 @@ import { Reveal } from "@/components/Reveal";
 import { CRAFT, HERO, LOOM, MANIFESTO, OCCASIONS, daypartAt } from "@/lib/brand";
 import { Weave } from "@/components/Weave";
 import { Stories } from "@/components/Stories";
+import { navigate } from "@/lib/viewTransition";
 import { markOpenSource } from "@/lib/enquiry";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
@@ -166,7 +167,7 @@ export default function HomePage() {
               >
                 {label}
                 {id === "cart" && cartItemsCount > 0 && (
-                  <span className="ml-1.5 text-[10px] font-bold">({cartItemsCount})</span>
+                  <span key={cartItemsCount} className="ml-1.5 inline-block text-[10px] font-bold motion-safe:animate-pop">({cartItemsCount})</span>
                 )}
               </button>
             ))}
@@ -216,7 +217,7 @@ export default function HomePage() {
             <button
               type="button"
               aria-label="Open the featured piece"
-              onClick={() => { markOpenSource("hero"); router.push(`/product/${featuredId}`); }}
+              onClick={() => { markOpenSource("hero"); navigate(router, `/product/${featuredId}`, { from: heroRef.current }); }}
               className="absolute inset-0 w-full h-full cursor-pointer"
             />
           )}
@@ -238,7 +239,7 @@ export default function HomePage() {
                 </button>
                 {FEATURED && featuredName && (
                   <button
-                    onClick={() => { markOpenSource("hero"); router.push(`/product/${featuredId}`); }}
+                    onClick={() => { markOpenSource("hero"); navigate(router, `/product/${featuredId}`, { from: heroRef.current }); }}
                     className="text-white/75 text-[12px] tracking-wide hover:text-white underline-offset-4 hover:underline text-left"
                   >
                     {HERO.credit}: {featuredName} →
@@ -398,7 +399,7 @@ export default function HomePage() {
               <div className="relative">
                 <Icon className="w-[22px] h-[22px]" strokeWidth={isActive ? 2.2 : 1.8} />
                 {isCart && cartItemsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-rani text-white text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                  <span key={cartItemsCount} className="absolute -top-1.5 -right-1.5 bg-rani text-white text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center motion-safe:animate-pop">
                     {cartItemsCount}
                   </span>
                 )}
