@@ -152,6 +152,11 @@ class Product(BaseModel):
     # photograph. Also derives the Legal Metrology net quantity.
     set_pieces: Mapped[Optional[list]] = mapped_column(JSONB)
 
+    # Who is wearing it in the photographs: "M", "5'4\"". The fit cue a size
+    # chart cannot give - a real person to compare herself with.
+    model_size: Mapped[Optional[str]] = mapped_column(String(12))
+    model_height: Mapped[Optional[str]] = mapped_column(String(20))
+
     variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"
     )

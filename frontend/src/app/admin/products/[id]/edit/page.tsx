@@ -51,6 +51,8 @@ export default function EditProductPage() {
     bottom_type: "",
     occasion: "",
     set_pieces: [],
+    model_size: "",
+    model_height: "",
     styling_notes: [],
   });
   const [variants, setVariants] = useState<VariantRow[]>([]);
@@ -120,6 +122,8 @@ export default function EditProductPage() {
       bottom_type: product.bottom_type ?? "",
       occasion: product.occasion ?? "",
       set_pieces: product.set_pieces ?? [],
+      model_size: product.model_size ?? "",
+      model_height: product.model_height ?? "",
       styling_notes: product.styling_notes ?? [],
     });
     setVariants(
@@ -170,6 +174,8 @@ export default function EditProductPage() {
         compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
         offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
         size_chart: form.size_chart,
+        model_size: form.model_size.trim(),
+        model_height: form.model_height.trim(),
         fit: form.fit.trim(),
         garment_length: form.garment_length.trim(),
         embroidery: form.embroidery.trim(),

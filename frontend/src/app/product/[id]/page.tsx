@@ -423,6 +423,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               size is well stocked, the exact count when it is nearly gone,
               and the batch fact underneath - which is not a countdown
               clock, it is how the label actually works. */}
+          {/* The fit cue a chart cannot give: a real person, her height and
+              her size, to compare against. Sits under the sizes, where the
+              decision is being made. */}
+          {product.model_size?.trim() && (
+            <p className="-mt-2 mb-4 text-xs text-muted">
+              {product.model_height?.trim()
+                ? <>Model is {product.model_height.trim()} and wears <span className="text-ink font-medium">{product.model_size.trim()}</span></>
+                : <>Model wears size <span className="text-ink font-medium">{product.model_size.trim()}</span></>}
+            </p>
+          )}
           {/* Only for a size she has chosen: "Only 1 left in XL" about a
               size she never picked is noise, and reads as pressure. */}
           {selectedVariant && sizeReady && !BROWSE_ONLY && selectedVariant.stock <= AVAILABILITY.lowStockAt && (

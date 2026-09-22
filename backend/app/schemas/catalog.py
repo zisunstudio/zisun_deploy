@@ -255,6 +255,14 @@ class MerchandisingFields(BaseModel):
     # Ways to wear it. Four is the ceiling: the product page shows them as
     # chips on one line of a phone, and a fifth wraps.
     styling_notes: Optional[List[StylingNote]] = Field(None, max_length=4)
+    # The model in the photographs. Blank is "", so it can be cleared.
+    model_size: Optional[str] = Field(None, max_length=12)
+    model_height: Optional[str] = Field(None, max_length=20)
+
+    @field_validator("model_size", "model_height")
+    @classmethod
+    def trim_model(cls, v: Optional[str]) -> Optional[str]:
+        return None if v is None else v.strip()
 
     def merchandising_values(self) -> dict:
         supplied = self.model_dump(exclude_unset=True)
@@ -578,6 +586,9 @@ class ProductResponse(ProductBase):
     # How the founder would wear it, by occasion. Null or empty hides the
     # section on the product page.
     styling_notes: Optional[List[StylingNote]] = None
+    # "Model is 5'4" and wears M". Empty hides the line.
+    model_size: Optional[str] = None
+    model_height: Optional[str] = None
 
     class Config:
         from_attributes = True

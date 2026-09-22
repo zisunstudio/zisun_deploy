@@ -60,6 +60,9 @@ export interface ProductFormData {
   occasion: string;
   /** The garments in the set, in order. Drives "what you get" and net quantity. */
   set_pieces: string[];
+  /** The model in the photographs. */
+  model_size: string;
+  model_height: string;
   /**
    * Offer. Rupees in the form, paise on the wire like base_price; empty means
    * no offer. offer_ends_at is a datetime-local string, or "" for open-ended.
@@ -100,6 +103,7 @@ export function emptyProductForm(): ProductFormData {
     colour: "", print_type: "", pattern: "", neck_type: "",
     sleeve_type: "", sleeve_attached: "", dupatta_included: "",
     fit: "", garment_length: "", embroidery: "", bottom_type: "", occasion: "", set_pieces: [],
+    model_size: "", model_height: "",
     compare_at_rupees: "", offer_ends_at: "", size_chart: null, styling_notes: [],
   };
 }
@@ -608,6 +612,19 @@ export default function ProductForm({ data, onChange, categories, compact = fals
           Optional. Without one, the storefront shows the category&apos;s chart. Enter in whichever unit you measured — customers can switch.
         </p>
         <SizeChartEditor value={data.size_chart} onChange={(c) => onChange({ ...data, size_chart: c })} />
+        {/* Printed under the size buttons as "Model is 5'4" and wears M" -
+            the fit cue a chart cannot give. */}
+        <div className="mt-5 border-t border-gray-100 pt-4 grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Model wears</label>
+            <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="M" maxLength={12} value={data.model_size} onChange={f("model_size")} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Model height</label>
+            <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder={"5'4\""} maxLength={20} value={data.model_height} onChange={f("model_height")} />
+          </div>
+          <p className="col-span-2 -mt-2 text-[11px] text-gray-500">Shown under the sizes: &ldquo;Model is 5&prime;4&Prime; and wears M&rdquo;. The strongest sizing hint there is &mdash; leave blank if nobody is wearing it in the photos.</p>
+        </div>
         </div>
       </details>
 

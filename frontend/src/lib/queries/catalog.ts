@@ -126,6 +126,9 @@ export interface Product {
   size_chart: SizeChart | null;
   shelf_rank: number | null;
   styling_notes?: StylingNote[] | null;
+  /** Who wears it in the photographs: "M", "5'4\"". */
+  model_size?: string | null;
+  model_height?: string | null;
 }
 
 export interface ProductListResponse {
