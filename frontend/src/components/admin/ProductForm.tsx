@@ -635,11 +635,17 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               <label className="block text-sm font-medium text-gray-700 mb-1">Net quantity</label>
               <input
                 className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
-                placeholder="1 unit"
+                placeholder={data.set_pieces.length > 1 ? `1 set - ${data.set_pieces.length} pieces` : "1 piece"}
                 value={data.net_quantity}
                 onChange={f("net_quantity")}
               />
-              <p className="text-xs text-gray-400 mt-1">A co-ord set is “1 set of 2 pieces”.</p>
+              {/^\s*\d+\s*$/.test(data.net_quantity) ? (
+                <p className="text-xs text-amber-700 mt-1">
+                  &ldquo;{data.net_quantity.trim()}&rdquo; reads to a customer as {data.net_quantity.trim()} garments in one pack. Clear it and list the pieces under Product details instead &mdash; this fills itself in.
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1">Leave blank: it is written from &ldquo;What is in the set&rdquo;. It is what is in one pack, not how many you have in stock.</p>
+              )}
             </div>
 
             <div>

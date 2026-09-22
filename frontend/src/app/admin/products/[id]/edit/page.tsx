@@ -170,11 +170,11 @@ export default function EditProductPage() {
         compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
         offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
         size_chart: form.size_chart,
-        fit: form.fit.trim() || null,
-        garment_length: form.garment_length.trim() || null,
-        embroidery: form.embroidery.trim() || null,
-        bottom_type: form.bottom_type.trim() || null,
-        occasion: form.occasion.trim() || null,
+        fit: form.fit.trim(),
+        garment_length: form.garment_length.trim(),
+        embroidery: form.embroidery.trim(),
+        bottom_type: form.bottom_type.trim(),
+        occasion: form.occasion.trim(),
         // Cleaned here as well as server-side: a blank chip would make
         // "1 set - 3 pieces" out of two garments.
         set_pieces: form.set_pieces.map((p) => p.trim()).filter(Boolean),
@@ -186,8 +186,17 @@ export default function EditProductPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
-    onError: (e: any) =>
-      setError(e?.response?.data?.detail ?? e.message ?? "Save failed"),
+    // FastAPI's 422 detail is a list of {loc, msg} objects, not a string, and
+    // handing it to setError crashed the page on the first validation error.
+    // The net-quantity check is the first one a founder is likely to meet.
+    onError: (e: any) => {
+      const d = e?.response?.data?.detail;
+      setError(
+        Array.isArray(d)
+          ? d.map((x: any) => String(x?.msg ?? x).replace(/^Value error, /, "")).join(" · ")
+          : typeof d === "string" ? d : (e?.message ?? "Save failed"),
+      );
+    },
   });
 
   // Variant API callbacks (edit mode — each save hits the API immediately)

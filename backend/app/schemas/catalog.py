@@ -179,7 +179,9 @@ class GarmentAttributeFields(BaseModel):
             # statutory declaration, not just an untidy list.
             if name and name.lower() not in {o.lower() for o in out}:
                 out.append(name)
-        return out or None
+        # [] rather than None, for the same reason as net quantity: None is
+        # dropped by the update path, so an emptied list could never be saved.
+        return out
 
     def attribute_values(self) -> dict:
         """Only this class's own supplied keys — see LegalMetrologyFields."""
@@ -295,8 +297,13 @@ class LegalMetrologyFields(BaseModel):
         if v is None:
             return None
         v = v.strip()
+        # Blank stays "", not None. The update path drops None (so omitting a
+        # field never blanks it), which means None cannot clear a stored
+        # value - and clearing is exactly how a founder retires a wrong "5".
+        # "" is stored, falls through `or` at resolve time, and the
+        # declaration is derived from the pieces instead.
         if not v:
-            return None
+            return ""
         if v.isdigit():
             raise ValueError(
                 f"net quantity {v!r} needs its unit - write \"1 set\" or "

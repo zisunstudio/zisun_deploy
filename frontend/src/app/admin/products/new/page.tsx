@@ -103,11 +103,11 @@ export default function NewProductPage() {
         compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
         offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
         size_chart: form.size_chart,
-        fit: form.fit.trim() || null,
-        garment_length: form.garment_length.trim() || null,
-        embroidery: form.embroidery.trim() || null,
-        bottom_type: form.bottom_type.trim() || null,
-        occasion: form.occasion.trim() || null,
+        fit: form.fit.trim(),
+        garment_length: form.garment_length.trim(),
+        embroidery: form.embroidery.trim(),
+        bottom_type: form.bottom_type.trim(),
+        occasion: form.occasion.trim(),
         // Cleaned here as well as server-side: a blank chip would make
         // "1 set - 3 pieces" out of two garments.
         set_pieces: form.set_pieces.map((p) => p.trim()).filter(Boolean),
@@ -124,8 +124,15 @@ export default function NewProductPage() {
       return res.data;
     },
     onSuccess: (product) => router.push(`/admin/products/${product.id}/edit#photos`),
-    onError: (e: any) =>
-      setError(e?.response?.data?.detail ?? e.message ?? "Failed to create product"),
+    // A 422 detail is a list, not a string; rendering it crashed the page.
+    onError: (e: any) => {
+      const d = e?.response?.data?.detail;
+      setError(
+        Array.isArray(d)
+          ? d.map((x: any) => String(x?.msg ?? x).replace(/^Value error, /, "")).join(" · ")
+          : typeof d === "string" ? d : (e?.message ?? "Failed to create product"),
+      );
+    },
   });
 
   return (
