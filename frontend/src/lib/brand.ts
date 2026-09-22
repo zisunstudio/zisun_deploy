@@ -162,17 +162,23 @@ export function daypartAt(hour: number) {
  * The loom on the home page: a cloth in the colours of the current drop,
  * woven by the visitor's scroll, and a different cloth every day.
  */
+// The pattern on the home page and each piece's "mark" are GENERATED from
+// colours - they are not pictures of the fabric, and they are not how any
+// piece was made. The words must never say otherwise: "Every piece begins
+// like this", "by hand", "no other piece has this cloth" and "Herringbone"
+// all did, over pieces bought in and one recorded as silk. They are the
+// label's signature, and said to be exactly that.
 export const LOOM = {
-  eyebrow: "On the loom",
-  heading: "Every piece begins like this.",
-  body: "Thread over thread, by hand. Keep scrolling: you are the shuttle.",
+  eyebrow: "Today's pattern",
+  heading: "A new one every day.",
+  body: "Drawn from the colours of this week's pieces. Keep scrolling and you weave it.",
   touch: "Go on, touch it.",
 } as const;
 
 /** The caption under a piece's own weave on its product page. */
 export const WEAVE = {
-  eyebrow: "The weave",
-  body: "Drawn from this piece's own colours, and from nothing else. No other piece has this cloth.",
+  eyebrow: "Its ZISUN mark",
+  body: "A pattern drawn from this piece's colours: its own signature, not a picture of the fabric. The photographs show the fabric; this mark and its number are on the tag.",
   touch: "Tilt your phone, or touch it.",
 } as const;
 
@@ -200,7 +206,8 @@ export const AVAILABILITY = {
   /** Before a size is chosen, the whole colour counts - shown at or below this. */
   colourLowAt: 8,
   soldOut: "Sold out in this size",
-  batch: "Woven in one small batch. When this colour goes, it does not come back.",
+  // Only what is true of stock we buy in: there is very little of it.
+  batch: "We keep very few of each. When a size sells out, it may not come back.",
 } as const;
 
 /** The pieces in a set, said the way she would say it. */

@@ -21,7 +21,7 @@ export async function GET() {
   const lines: string[] = [
     `# ${BRAND.name}`,
     "",
-    `> ${BRAND.tagline} A small Indian women's clothing label from Bengaluru, founded and run by ${FOUNDER.name}. Kurtas and co-ord sets made in small batches that are never re-run.`,
+    `> ${BRAND.tagline} A small Indian women's clothing label from Bengaluru, founded and run by ${FOUNDER.name}. Kurtas and co-ord sets, stocked in small numbers.`,
     "",
     "## Buying",
     `- Order online at ${SITE_URL}: pay by UPI, card or netbanking (Razorpay), or cash on delivery on most pincodes.`,

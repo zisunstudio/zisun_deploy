@@ -171,6 +171,16 @@ failure it stops asking for ten minutes. Without a key or credits it
 answers from rules alone. Any further customer-facing AI needs the same
 fences or the Anthropic bill is in strangers' hands.
 
+**The generated pattern is a mark, never the fabric.** The "weave" on a
+product page, the home page's daily pattern, the tag and the "It's yours"
+keepsake are drawn by code from colours. Customer-facing words call it the
+piece's **ZISUN mark**; they must not say or imply it is the cloth, how the
+piece was made, "by hand", "no other piece has this cloth", or a weave
+structure (herringbone, twill) - ZISUN buys pieces in, and the live one is
+recorded as silk. Any claim about how a piece is made (handloom, handwoven,
+a weaving centre, "never re-run") needs the founder's confirmation that it
+is true of that piece.
+
 **A piece's weave is its id.** `designWeave(product.id, colours)` in
 `frontend/src/lib/weave.ts` is deterministic and its number ("No. D20A") is
 shown to customers. Changing the hash, the RNG, or the order in which

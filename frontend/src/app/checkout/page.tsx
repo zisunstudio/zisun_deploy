@@ -270,9 +270,9 @@ export default function CheckoutPage() {
           {bought?.productId ? (
             <div className="mx-auto w-full max-w-[280px]">
               <div className="aspect-[4/3] rounded-lg overflow-hidden bg-rose">
-                <ClothWeave seed={bought.productId} colours={[bought.color]} label="The weave of the piece you just bought" onSpec={setWeave} />
+                <ClothWeave seed={bought.productId} colours={[bought.color]} label="The ZISUN mark of the piece you just bought" onSpec={setWeave} />
               </div>
-              {weave && <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-muted tabular-nums">Weave No. {weave.code} · yours</p>}
+              {weave && <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-muted tabular-nums">Mark No. {weave.code} · yours</p>}
             </div>
           ) : (
             <div className="w-14 h-14 rounded-full bg-burgundy/10 flex items-center justify-center mx-auto">

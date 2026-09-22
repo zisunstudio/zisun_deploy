@@ -5,7 +5,6 @@ import { Printer } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { Weave } from "@/components/Weave";
 import type { WeaveSpec } from "@/lib/weave";
-import { INTERLACE_NAME } from "@/lib/weave";
 import { BRAND } from "@/lib/brand";
 import { Page, Card, Button, Field, Select } from "@/components/admin/ui";
 
@@ -102,7 +101,7 @@ function Tag({ productId, name, namedFor, washCare, fabric, colour }: {
         </div>
         {spec && (
           <p className="mt-[2.5mm] text-[6.5pt] uppercase tracking-[0.16em] tabular-nums">
-            Weave No. {spec.code}
+            ZISUN mark No. {spec.code}
           </p>
         )}
         <p className="mt-auto font-display text-[10.5pt] leading-tight text-center line-clamp-2">{name}</p>
@@ -111,9 +110,9 @@ function Tag({ productId, name, namedFor, washCare, fabric, colour }: {
       <div className="flex flex-col px-[5mm] pt-[7mm] pb-[4mm] text-[7pt] leading-[1.45]">
         {namedFor?.trim() && <p className="font-display italic text-[9pt] leading-snug">{namedFor.trim()}</p>}
         <p className="mt-[3mm] text-ink/80">
-          {fabric?.trim() ? `${fabric.trim()}. ` : ""}Made in one small batch. When this colour goes, it does not come back.
+          {fabric?.trim() ? `${fabric.trim()}. ` : ""}Its ZISUN mark on the front is drawn from its colours — the same one as on its page.
         </p>
-        {spec && <p className="mt-[2mm] text-muted">{INTERLACE_NAME[spec.interlace]}{colour ? ` · ${colour}` : ""}</p>}
+        {colour && <p className="mt-[2mm] text-muted">{colour}</p>}
         <div className="mt-auto space-y-[2.5mm]">
           <p className="flex items-end gap-[2mm]">Size <span className="flex-1 border-b border-gray-400 h-[3.5mm]" /></p>
           {washCare?.trim() && <p className="text-[6.5pt] text-muted line-clamp-2">{washCare.trim()}</p>}

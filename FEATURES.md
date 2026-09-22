@@ -26,7 +26,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Stories of the drop, full-screen viewer, seen rings | `frontend/src/components/Stories.tsx` | Live |
 | Deals rail (offers, coupons) | `frontend/src/components/DealsRail.tsx` | Live |
 | The drop grid, quiet cards, "Only N left" at ≤3 | `frontend/src/components/ProductCard.tsx` | Live |
-| The loom — cloth woven by scroll, new each day | `frontend/src/components/Weave.tsx`, `frontend/src/lib/weave.ts` | Live |
+| Today's pattern — drawn from the week's colours, woven by scroll, new each day (a pattern, not a claim about the fabric) | `frontend/src/components/Weave.tsx`, `frontend/src/lib/weave.ts` | Live |
 | Manifesto, occasions, craft facts | `frontend/src/lib/brand.ts` | Live |
 | Founder note (incl. "photographed on me, 153 cm") | `frontend/src/components/FounderNote.tsx` | Live |
 | Legal footer with policy links | `frontend/src/components/LegalFooter.tsx` | Live |
@@ -50,7 +50,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Find my size — kurta / measurements, private on-device; asks "across or all the way round", reads an impossible flat width as round, reads it back | `frontend/src/components/FitStylist.tsx`, `frontend/src/lib/fitMath.ts` | Live |
 | Description, Ways to wear it | `frontend/src/components/WaysToWear.tsx` | Needs data |
 | Assurances (free shipping online, Razorpay, COD + ₹99, help) | `frontend/src/components/ProductAssurances.tsx` | Live |
-| The weave as cloth (WebGL), No. + interlace | `frontend/src/components/PieceWeave.tsx`, `frontend/src/components/ClothWeave.tsx` | Live |
+| Its ZISUN mark — generated pattern as cloth (WebGL), Mark No.; explicitly not the fabric | `frontend/src/components/PieceWeave.tsx`, `frontend/src/components/ClothWeave.tsx` | Live |
 | Fabric & care | `frontend/src/components/FabricSpecs.tsx` | Live |
 | The garment (fit, length, neck, sleeve, print, embroidery, pockets, dupatta…) | `frontend/src/components/GarmentDetails.tsx` | Needs data |
 | Legal declarations (collapsed) | `frontend/src/components/ProductDeclarations.tsx` | Live |
@@ -95,7 +95,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Ways to wear it editor | `frontend/src/components/admin/StylingNotesEditor.tsx` | Live |
 | Size chart editor, "What did you measure?" | `frontend/src/components/admin/SizeChartEditor.tsx` | Live |
 | Variants, photos per colour | `frontend/src/components/admin/VariantEditor.tsx` | Live |
-| Hang tags with the weave | `frontend/src/app/admin/products/[id]/tag/page.tsx` | Live |
+| Hang tags with the piece's ZISUN mark | `frontend/src/app/admin/products/[id]/tag/page.tsx` | Live |
 | Inventory + bulk CSV | `frontend/src/app/admin/inventory/page.tsx` | Live |
 | Orders, status, COD dispatch gate | `frontend/src/app/admin/orders/page.tsx` | Live |
 | WhatsApp enquiries | `frontend/src/app/admin/enquiries/page.tsx` | Live |
@@ -128,6 +128,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Warm "unbleached cotton" ground | Founder chose ivory | `git show ef0ec53:frontend/tailwind.config.ts` |
 | "24h exchange" in the shopping flow (home promise, product assurances, checkout, footer, size-guide alert) | Founder: a time limit before purchase makes customers panic. The policy pages (refund, terms) keep it in full. | `git show 8c72041:frontend/src/components/ProductAssurances.tsx` (and SizeGuideModal, page.tsx, LegalFooter) |
 | "Free shipping across India" on every order | Free shipping is prepaid only; COD pays ₹99 | `git show 8c72041:frontend/src/app/shipping/page.tsx` |
+| Weave wording that implied the pattern was the fabric ("The weave", "No other piece has this cloth", "Herringbone", "Every piece begins like this… by hand", "Woven in one small batch") | Pieces are bought in; the pattern is generated. It is the piece's ZISUN mark. | `git show 465152d:frontend/src/lib/brand.ts` |
 
 ## Data lost (not code)
 

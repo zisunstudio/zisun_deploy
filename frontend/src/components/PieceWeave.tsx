@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ClothWeave } from "@/components/ClothWeave";
-import { INTERLACE_NAME, type WeaveSpec } from "@/lib/weave";
+import type { WeaveSpec } from "@/lib/weave";
 import { WEAVE } from "@/lib/brand";
 
 /**
@@ -23,12 +23,12 @@ export function PieceWeave({ productId, colours }: { productId: string; colours:
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-burgundy">{WEAVE.eyebrow}</p>
         {spec && (
           <p className="text-[11px] uppercase tracking-[0.16em] text-muted tabular-nums">
-            No. {spec.code} · {INTERLACE_NAME[spec.interlace]}
+            Mark No. {spec.code}
           </p>
         )}
       </div>
       <div className="mt-3 aspect-[3/2] rounded-lg overflow-hidden bg-rose">
-        <ClothWeave seed={productId} colours={colours} label="This piece's weave as cloth; tilt your phone or touch it" onSpec={setSpec} />
+        <ClothWeave seed={productId} colours={colours} label="This piece's ZISUN mark, a pattern drawn from its colours; tilt your phone or touch it" onSpec={setSpec} />
       </div>
       <p className="mt-3 text-[13px] leading-relaxed text-muted">
         {WEAVE.body} <span className="text-ink">{WEAVE.touch}</span>

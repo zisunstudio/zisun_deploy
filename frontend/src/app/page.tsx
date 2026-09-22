@@ -317,7 +317,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="h-[46svh] min-h-[280px] lg:h-[52vh] bg-rose">
-              <Weave seed={loomSeed} colours={loomColours} mode="scroll" cols={84} rows={60} label="A handloom cloth in the colours of this week's drop, being woven as you scroll" />
+              <Weave seed={loomSeed} colours={loomColours} mode="scroll" cols={84} rows={60} label="Today's pattern, drawn from the colours of this week's pieces, woven as you scroll" />
             </div>
             <p className="px-5 lg:px-8 max-w-6xl mx-auto mt-4 text-[13px] leading-relaxed text-muted">
               {LOOM.body} <span className="text-ink">{LOOM.touch}</span>
