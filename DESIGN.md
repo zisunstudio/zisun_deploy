@@ -333,3 +333,34 @@ Both read one smoothed tilt (`lib/useTilt.ts`: the phone's orientation,
 or the pointer on a laptop). iOS asks for motion permission only when she
 touches the cloth. Everything sleeps when still, stops off-screen and in a
 background tab, and reduced motion or no WebGL gives the flat weave.
+
+## 13. Your fit, privately
+
+Women choose by bust and hip, and those numbers are intimate. A fit tool
+that makes a 3XL customer feel measured and judged loses more than it
+wins, so it is built on four rules:
+
+1. **She chooses how much to say.** "The size I usually wear" (no numbers),
+   "A kurta that fits me well" (measure a kurta laid flat - the kurta, not
+   herself), or "My measurements" (bust and hip; no waist, no weight).
+2. **Her numbers never leave her phone.** The two measuring paths are worked
+   out in the browser (`lib/fitMath.ts`) against the piece's chart; nothing
+   is sent to the server, to Claude or to Sushmita, and the sheet says so
+   before she types. Only the method is counted in analytics, never a
+   number. "Forget my measurements" clears them.
+3. **The answer describes the garment, never her.** Each size is a word -
+   close, comfortable, relaxed, roomy, or "like your kurta" - at equal
+   weight. Sizes that would not fit are *left out*, not listed as "too
+   close": four boxes saying no in a row is exactly the moment to spare her.
+4. **When nothing is comfortable, Sushmita offers to help** - in her voice,
+   through a private channel only (a 1:1 chat or email, never the community
+   group).
+
+Nothing about a customer's size is ever shown to anyone else.
+
+Charts come in two kinds and both exist in the shop: the body a size fits,
+or the garment measured with a tape (the live chart is the latter - a 38"
+waist on a 39" chest). The console now asks "What did you measure?", the
+maths infers it for charts saved before, and the size guide's instruction
+follows it - it used to tell customers to match their bust to a kurta's own
+measurement, which picks a size that does not close.

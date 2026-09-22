@@ -17,16 +17,20 @@ interface Props {
 }
 
 export function VariantSelector({ variants, selected, onSelect, groupBy = "size", honourStock = true }: Props) {
-  const options = Array.from(
-    new Map(
-      variants
-        .filter((v) => v.is_active)
-        // Trimmed: "Purple " and "Purple" were two chips for one colour, and
-        // "XL " and "XL" two sizes. The API trims on write now; this keeps
-        // rows entered before it did from splitting the selector.
-        .map((v) => [(groupBy === "size" ? v.size : v.color)?.trim() ?? null, v])
-    ).values()
-  );
+  // One chip per size (or colour). Two rows can share a label - the live
+  // catalogue has two "XL / Purple" rows - so the chip stands for whichever
+  // of them is in stock, and "selected" is decided by label, not by row id:
+  // choosing either row lights the same chip.
+  const key = (v: ProductVariant) => (groupBy === "size" ? v.size : v.color)?.trim().toUpperCase() ?? "";
+  const byLabel = new Map<string, ProductVariant>();
+  for (const v of variants.filter((x) => x.is_active)) {
+    const k = key(v);
+    const had = byLabel.get(k);
+    if (!had || (had.stock === 0 && v.stock > 0)) byLabel.set(k, v);
+  }
+  const options = Array.from(byLabel.values());
+  const selectedVariant = variants.find((v) => v.id === selected);
+  const selectedKey = selectedVariant ? key(selectedVariant) : null;
   if (groupBy === "size") {
     options.sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
   }
@@ -38,7 +42,7 @@ export function VariantSelector({ variants, selected, onSelect, groupBy = "size"
       {options.map((variant) => {
         const label = groupBy === "size" ? variant.size : variant.color;
         const isOutOfStock = honourStock && variant.stock === 0;
-        const isSelected = selected === variant.id;
+        const isSelected = selectedKey !== null && key(variant) === selectedKey;
 
         return (
           <button

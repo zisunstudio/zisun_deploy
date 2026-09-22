@@ -84,6 +84,8 @@ export interface SizeChartRow {
 }
 export interface SizeChart {
   unit: SizeUnit;
+  /** The body a size fits, or the garment laid out and measured. Unset = inferred. */
+  measures?: "body" | "garment" | null;
   rows: SizeChartRow[];
 }
 

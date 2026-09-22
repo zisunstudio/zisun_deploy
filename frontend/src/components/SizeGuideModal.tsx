@@ -1,4 +1,5 @@
 "use client";
+import { chartKind, type Chart } from "@/lib/fitMath";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -134,7 +135,18 @@ export function SizeGuideModal({ isOpen, onClose, categoryName, selectedSize, ch
             </div>
 
             <div className="px-5 py-4 space-y-5">
-              {chart?.intro && <p className="text-sm text-muted leading-relaxed">{chart.intro}</p>}
+              {/* The instruction has to match the numbers. The category intro
+                  says "measure yourself and match your bust", which is right for
+                  a body chart and wrong for a chart of the kurta itself: a 39"
+                  bust matched to a 39" kurta is a kurta that does not close. */}
+              {fromProduct && productChart && chartKind(productChart as Chart) === "garment" ? (
+                <p className="text-sm text-muted leading-relaxed">
+                  These are the kurta&rsquo;s own measurements, all the way round — not body sizes. Choose one comfortably bigger than you:
+                  a few inches over your bust and hip for an easy fit. Or tap <span className="text-ink">Find my size</span> and we will work it out.
+                </p>
+              ) : (
+                chart?.intro && <p className="text-sm text-muted leading-relaxed">{chart.intro}</p>
+              )}
 
               {/* Above the chart, not below it. With no returns and a size-only
                   exchange this is the reason the chart matters, and one line of

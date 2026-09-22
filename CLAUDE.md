@@ -216,6 +216,14 @@ default is highp, the fragment default mediump, and a mismatch fails to
 *link* on every device (it did: the cloth silently fell back to the flat
 weave until `uTilt` was declared `mediump` in both).
 
+**Body measurements never leave the device.** The "kurta" and
+"measurements" paths of Find my size run in `lib/fitMath.ts` in the
+browser; do not add them to an API call, an analytics event or a Claude
+prompt. Only the no-numbers path (usual size) calls `/stylist/fit`. A size
+chart's `measures` ("body" | "garment") changes the maths - the live chart
+is garment measurements despite the old console wording - and size labels
+are normalised (`XXL` = `2XL`) before any comparison.
+
 ## Traps found the hard way
 
 Each of these produced a green build or a healthy-looking deploy:

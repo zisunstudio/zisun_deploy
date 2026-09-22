@@ -213,6 +213,11 @@ class SizeChart(BaseModel):
     storefront converts for the customer.
     """
     unit: Literal["cm", "in"] = "cm"
+    # What the numbers are: the body a size is cut to fit, or the garment
+    # itself laid out and measured. Both exist in the shop - a maker with a
+    # tape in hand measures the kurta - and the fit maths treats them
+    # differently. None means "not said"; the storefront infers it.
+    measures: Optional[Literal["body", "garment"]] = None
     rows: List[SizeChartRow] = Field(default_factory=list, max_length=12)
 
     @field_validator("rows")

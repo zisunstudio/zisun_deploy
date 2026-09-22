@@ -27,8 +27,8 @@ export default function SizeChartEditor({ value, onChange }: Props) {
   const chart: SizeChart = value ?? { unit: "cm", rows: [] };
   const [showBottom, setShowBottom] = useState(chart.rows.some((r) => r.bottom_length != null));
 
-  function update(rows: SizeChartRow[], unit: SizeUnit = chart.unit) {
-    onChange(rows.length === 0 ? null : { unit, rows });
+  function update(rows: SizeChartRow[], unit: SizeUnit = chart.unit, measures = chart.measures ?? null) {
+    onChange(rows.length === 0 ? null : { unit, measures, rows });
   }
   function setRow(i: number, patch: Partial<SizeChartRow>) {
     update(chart.rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -43,6 +43,25 @@ export default function SizeChartEditor({ value, onChange }: Props) {
 
   return (
     <div className="space-y-3">
+      {/* What the numbers are. The customer's "Find my size" compares her
+          own kurta, or her bust and hip, against this chart, and it needs to
+          know whether a 39 is the kurta or the body it fits. */}
+      <div>
+        <p className="text-sm font-medium text-gray-700 mb-1.5">What did you measure?</p>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="What was measured">
+          {([
+            ["garment", "The kurta itself", "Laid flat and measured with a tape"],
+            ["body", "The body it fits", "\u201cTo fit bust 36\u201d style"],
+          ] as const).map(([id, title, sub]) => (
+            <button key={id} type="button" role="radio" aria-checked={chart.measures === id}
+              onClick={() => update(chart.rows, chart.unit, id)}
+              className={`rounded-lg border px-3 py-2 text-left ${chart.measures === id ? "border-ink bg-gray-50" : "border-gray-300 hover:border-gray-400"}`}>
+              <span className="block text-sm font-medium text-gray-900">{title}</span>
+              <span className="block text-[11px] text-gray-500">{sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm" role="radiogroup" aria-label="Measurement unit">
           {(["cm", "in"] as SizeUnit[]).map((u) => (
@@ -126,7 +145,11 @@ export default function SizeChartEditor({ value, onChange }: Props) {
         </button>
       </div>
       <p className="text-xs text-gray-400">
-        Body measurements the size is cut to fit. Leave a cell blank if you have not measured it — a wrong number causes an exchange, a blank one causes a question.
+        {chart.measures === "garment"
+          ? "Measure all the way round (or across and double it). Leave a cell blank if you have not measured it — a wrong number causes an exchange, a blank one causes a question."
+          : chart.measures === "body"
+            ? "The body each size is cut to fit. Leave a cell blank if you have not measured it — a wrong number causes an exchange, a blank one causes a question."
+            : "Say above what you measured — it decides how customers\u2019 sizes are matched. Leave a cell blank if you have not measured it."}
       </p>
     </div>
   );

@@ -38,6 +38,17 @@ export const WHATSAPP_GROUP_HREF = HAS_WHATSAPP_GROUP ? WHATSAPP_GROUP_URL : nul
 /** Somewhere on WhatsApp a visitor can actually reach ZISUN. */
 export const HAS_ANY_WHATSAPP = HAS_WHATSAPP || HAS_WHATSAPP_GROUP;
 
+/**
+ * A private 1:1 chat with a message already written, or null.
+ *
+ * Never falls back to the community group: this is for things a customer
+ * would not say in front of others - a size question above all.
+ */
+export function whatsappPrivateUrl(text: string): string | null {
+  if (!HAS_WHATSAPP) return null;
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+}
+
 /** Best available WhatsApp destination: 1:1 chat if configured, else the group. */
 export function whatsappContactUrl(productName?: string): string | null {
   return whatsappOrderUrl(productName) ?? WHATSAPP_GROUP_HREF;

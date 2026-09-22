@@ -12,7 +12,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { trackEvent } from "@/lib/queries/analytics";
-import { BROWSE_ONLY, whatsappOrderUrl } from "@/lib/launchMode";
+import { BROWSE_ONLY, whatsappOrderUrl, whatsappPrivateUrl } from "@/lib/launchMode";
 import { FIREBASE_ENABLED } from "@/lib/firebase";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { ProductAssurances } from "@/components/ProductAssurances";
@@ -32,7 +32,10 @@ import { AVAILABILITY, FOUNDER, INCLUDED } from "@/lib/brand";
 import { setExpressItem } from "@/lib/buyNow";
 import { HERO_NAME, navigate } from "@/lib/viewTransition";
 import { DepthPhoto } from "@/components/DepthPhoto";
-import { FitStylist, askFit, readFitProfile, type FitAnswer } from "@/components/FitStylist";
+import { FitStylist, askFit, answerLocally, readFitProfile, stockSizes, type FitAnswer } from "@/components/FitStylist";
+import { chartForCategory } from "@/lib/sizeGuide";
+import { COMPANY } from "@/lib/legal";
+import { normSize, type Chart } from "@/lib/fitMath";
 
 /**
  * The interactive product page. Rendered inside the server shell in
@@ -66,13 +69,28 @@ export default function ProductView({ params, initial }: { params: { id: string 
   // A returning visitor who has answered once gets her size on every piece
   // without asking again. Silent on failure: the prompt is still there.
   const [fitAnswer, setFitAnswer] = useState<FitAnswer | null>(null);
+  const fitChart: Chart | null = product?.size_chart?.rows?.length
+    ? (product.size_chart as Chart)
+    : (() => {
+        const c = chartForCategory(product?.category?.name);
+        // Category charts are "to fit" body measurements, in cm.
+        return c ? { unit: "cm", measures: "body", rows: c.rows.map((r) => ({ size: r.size, chest: r.bust, waist: r.waist, hip: r.hip })) } : null;
+      })();
+  const fitStock = product ? stockSizes(product.variants) : [];
   useEffect(() => {
     const profile = readFitProfile();
-    if (!profile) return;
+    if (!profile || !product) return;
+    // Measurements are answered here, on her phone; only the no-numbers
+    // path asks the server.
+    if (profile.method === "kurta" || profile.method === "body") {
+      setFitAnswer(answerLocally(profile, fitChart, fitStock, { wornByFounder: Boolean(product.worn_by_founder), garmentLength: product.garment_attributes?.garment_length }));
+      return;
+    }
     let live = true;
     askFit(params.id, profile).then((a) => { if (live) setFitAnswer(a); }).catch(() => {});
     return () => { live = false; };
-  }, [params.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id, product?.updated_at]);
   const [imageIdx, setImageIdx] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
   function scrollGalleryTo(i: number) {
@@ -611,9 +629,18 @@ export default function ProductView({ params, initial }: { params: { id: string 
         isOpen={fitOpen}
         onClose={() => setFitOpen(false)}
         initialAnswer={fitAnswer}
+        chart={fitChart}
+        inStock={fitStock}
+        wornByFounder={Boolean(product.worn_by_founder)}
+        garmentLength={product.garment_attributes?.garment_length}
+        // Private only: a 1:1 chat, else email - never the community group,
+        // which is the last place anyone wants to discuss her size.
+        helpHref={whatsappPrivateUrl(`Hi Sushmita — could you check which size of "${product.name}" would fit me?`)
+          ?? `mailto:${COMPANY.email}?subject=${encodeURIComponent(`Size check: ${product.name}`)}`}
         onChoose={(size) => {
-          const v = variantsInColour.find((x) => x.is_active && x.size?.trim().toUpperCase() === size.toUpperCase())
-            ?? product.variants.find((x) => x.is_active && x.size?.trim().toUpperCase() === size.toUpperCase() && x.stock > 0);
+          const same = (s?: string | null) => Boolean(s) && normSize(s as string) === normSize(size);
+          const v = variantsInColour.find((x) => x.is_active && same(x.size))
+            ?? product.variants.find((x) => x.is_active && same(x.size) && x.stock > 0);
           if (v) { setSelectedVariantId(v.id); setSizePicked(true); }
         }}
       />
