@@ -31,6 +31,7 @@ import { WaysToWear } from "@/components/WaysToWear";
 import { AVAILABILITY, FOUNDER, INCLUDED } from "@/lib/brand";
 import { setExpressItem } from "@/lib/buyNow";
 import { HERO_NAME, navigate } from "@/lib/viewTransition";
+import { DepthPhoto } from "@/components/DepthPhoto";
 import { FitStylist, askFit, readFitProfile, type FitAnswer } from "@/components/FitStylist";
 
 /**
@@ -253,14 +254,19 @@ export default function ProductView({ params, initial }: { params: { id: string 
           >
             {images.map((src, i) => (
               <div key={i} className="relative w-full shrink-0 snap-center aspect-[3/4] lg:aspect-[16/9]" style={i === 0 ? { viewTransitionName: HERO_NAME } : undefined}>
-                <Image
-                  src={src}
-                  alt={`${product.name}${images.length > 1 ? ` — photo ${i + 1} of ${images.length}` : ""}`}
-                  fill
-                  priority={i === 0}
-                  sizes="100vw"
-                  className="object-cover"
-                />
+                {/* Depth: the photograph leans a few degrees with the phone
+                    and a band of light crosses it, like cloth turned in the
+                    hand. Still when the phone is still. */}
+                <DepthPhoto>
+                  <Image
+                    src={src}
+                    alt={`${product.name}${images.length > 1 ? ` — photo ${i + 1} of ${images.length}` : ""}`}
+                    fill
+                    priority={i === 0}
+                    sizes="100vw"
+                    className="object-cover"
+                  />
+                </DepthPhoto>
               </div>
             ))}
           </div>

@@ -173,7 +173,7 @@ export const LOOM = {
 export const WEAVE = {
   eyebrow: "The weave",
   body: "Drawn from this piece's own colours, and from nothing else. No other piece has this cloth.",
-  touch: "Touch it.",
+  touch: "Tilt your phone, or touch it.",
 } as const;
 
 /**

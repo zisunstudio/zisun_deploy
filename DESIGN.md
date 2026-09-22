@@ -303,3 +303,33 @@ on her.
 Not taken: their monogram, a permanent "Sale" badge on every piece, a
 scrolling announcement bar, floating buttons over the photographs, and
 their return promise.
+
+## 12. Found, felt, fitted, held (v2 foundations)
+
+**Found.** Product pages render on the server with schema.org Product data,
+there is a Google Merchant feed (`/feeds/google.xml`), a sitemap of every
+live piece, and `/llms.txt` - the shop in plain text for AI assistants,
+which are now where many shoppers start. Nothing visible changed; a machine
+that reads the page now finds the piece.
+
+**Felt.** Native View Transitions: a tapped photograph grows into the
+product page, Buy now lifts checkout up from below, the bag count pops.
+Motion here explains where she went, which is the only motion the site
+spends.
+
+**Fitted.** "Find my size" - three taps (height, usual size, how she likes
+it to sit). A rules engine decides and compares her height with Sushmita's
+153 cm; Claude may phrase the answer, never change it. Her answers are
+remembered, so the next piece says "For you: take M" unasked.
+
+**Held (spatial v1).** Depth that answers the hand, not a headset:
+- Product photographs lean up to three degrees with the phone and a band
+  of light crosses them, clipped so no edge ever shows.
+- The weave becomes cloth: a WebGL drape pinned along its top, pleated,
+  swaying with the tilt, rippling under a finger, catching a light that
+  moves with her. Same seed, same number. It is also the "It's yours"
+  keepsake.
+Both read one smoothed tilt (`lib/useTilt.ts`: the phone's orientation,
+or the pointer on a laptop). iOS asks for motion permission only when she
+touches the cloth. Everything sleeps when still, stops off-screen and in a
+background tab, and reduced motion or no WebGL gives the flat weave.

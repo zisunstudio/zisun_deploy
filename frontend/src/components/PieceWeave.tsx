@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Weave } from "@/components/Weave";
+import { ClothWeave } from "@/components/ClothWeave";
 import { INTERLACE_NAME, type WeaveSpec } from "@/lib/weave";
 import { WEAVE } from "@/lib/brand";
 
@@ -28,7 +28,7 @@ export function PieceWeave({ productId, colours }: { productId: string; colours:
         )}
       </div>
       <div className="mt-3 aspect-[3/2] rounded-lg overflow-hidden bg-rose">
-        <Weave seed={productId} colours={colours} mode="enter" label="This piece's weave, generated from its colours" onSpec={setSpec} />
+        <ClothWeave seed={productId} colours={colours} label="This piece's weave as cloth; tilt your phone or touch it" onSpec={setSpec} />
       </div>
       <p className="mt-3 text-[13px] leading-relaxed text-muted">
         {WEAVE.body} <span className="text-ink">{WEAVE.touch}</span>

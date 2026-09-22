@@ -208,6 +208,14 @@ for every visitor. `app/core/client_ip.py` reads `X-Real-IP` (then the last
 proxy, so its "per IP" limits were site-wide: 100 API calls a minute and 10
 sign-ins a minute for all customers together.
 
+**The spatial layer never runs a free loop.** `useTilt` sleeps once the
+tilt settles; `ClothWeave` draws only while on screen, in a visible tab,
+and for six seconds after the last tilt or touch. Shaders that share a
+uniform must declare its precision explicitly in both stages - the vertex
+default is highp, the fragment default mediump, and a mismatch fails to
+*link* on every device (it did: the cloth silently fell back to the flat
+weave until `uTilt` was declared `mediump` in both).
+
 ## Traps found the hard way
 
 Each of these produced a green build or a healthy-looking deploy:

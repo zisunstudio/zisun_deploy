@@ -16,7 +16,7 @@ import { INDIAN_STATES } from "@/lib/india";
 import { POLICY_TERMS } from "@/lib/legal";
 import { arrivalDate, clearExpressItem, getExpressItem, recallBuyer, rememberBuyer } from "@/lib/buyNow";
 import type { CartItem } from "@/store/useCartStore";
-import { Weave } from "@/components/Weave";
+import { ClothWeave } from "@/components/ClothWeave";
 import type { WeaveSpec } from "@/lib/weave";
 
 declare global {
@@ -242,7 +242,7 @@ export default function CheckoutPage() {
           {bought?.productId ? (
             <div className="mx-auto w-full max-w-[280px]">
               <div className="aspect-[4/3] rounded-lg overflow-hidden bg-rose">
-                <Weave seed={bought.productId} colours={[bought.color]} mode="enter" label="The weave of the piece you just bought" onSpec={setWeave} />
+                <ClothWeave seed={bought.productId} colours={[bought.color]} label="The weave of the piece you just bought" onSpec={setWeave} />
               </div>
               {weave && <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-muted tabular-nums">Weave No. {weave.code} · yours</p>}
             </div>
