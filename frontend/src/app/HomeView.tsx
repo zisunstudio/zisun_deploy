@@ -69,6 +69,9 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
   // catalogue outgrows that this becomes a "load more" rather than the
   // nested infinite scroller it used to be.
   const [feedPage] = useState(1);
+  // Accumulated across pages once the visitor loads more. Empty on first
+  // render by definition - see `feedItems` below, which is what the page
+  // actually reads.
   const [allFeedItems, setAllFeedItems] = useState<FeedItem[]>([]);
   const toggleCart = useCartStore((state) => state.toggleCart);
   const cartItemsCount = useCartStore((state) => state.items.length);
@@ -146,8 +149,19 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
   // The hero's photograph and credit line come from the first feed item,
   // which is a published Content card when one exists and the shelf's first
   // product otherwise. That is how the founder art-directs the opening screen.
-  const FEATURED = allFeedItems[0];
+  // Read from the query data, not from the accumulator.
+  //
+  // `allFeedItems` starts empty and is only filled by an effect, and effects
+  // do not run on the server or on the hydration pass. So the first paint
+  // always had no featured item and fell through to the launch photograph -
+  // a licensed stock image of a different woman - which then swapped to the
+  // real piece a second or two later, on every single visit. The feed is
+  // already server-rendered into `initial.feed`; using it directly means the
+  // opening screen is right in the HTML, before any JavaScript runs.
+  const feedItems: FeedItem[] = allFeedItems.length > 0 ? allFeedItems : ((feedData?.items ?? []) as FeedItem[]);
+  const FEATURED = feedItems[0];
   const featuredId = FEATURED?.products?.[0]?.id ?? FEATURED?.id;
+  const fallbackHero = (dropData?.items ?? []).map(productImageUrl).find(Boolean) ?? heroSrc;
   const featuredName = FEATURED?.products?.[0]?.name ?? FEATURED?.name ?? null;
 
   function handleNavClick(id: string, href: string | null) {
@@ -230,7 +244,11 @@ export default function HomeView({ initial = {} }: { initial?: HomeInitial }) {
           ) : loadingFeed ? (
             <div className="absolute inset-0 bg-rose animate-pulse" aria-hidden="true" />
           ) : (
-            <Image src={heroSrc} alt="Handwoven South Indian cotton" fill priority sizes="100vw" onError={() => setHeroSrc(HERO_FALLBACK)} className="object-cover object-[50%_20%]" />
+            // Last resort only: the feed is empty or unreachable. A piece from
+            // the shelf before the launch photograph, because that photograph
+            // is licensed stock of someone who is not Sushmita and the page
+            // says "photographed on me" a few screens further down.
+            <Image src={fallbackHero} alt="" fill priority sizes="100vw" onError={() => setHeroSrc(HERO_FALLBACK)} className="object-cover object-[50%_20%]" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-transparent" />
           {FEATURED && (

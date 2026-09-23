@@ -72,4 +72,28 @@ async def health_check():
     except Exception as exc:  # noqa: BLE001
         status["components"]["celery"] = f"unknown: {type(exc).__name__}"
 
+    # Can we actually take a prepaid payment?
+    #
+    # This is here because razorpay 1.4.1 imports pkg_resources, Python 3.12
+    # stopped shipping it, and the client silently failed to construct. The
+    # API then did the right thing - refused to create a prepaid order rather
+    # than write one no webhook could ever match - but the only evidence was a
+    # single warning line in the container log, and real orders were lost
+    # while everything looked healthy. A shop that cannot charge a card is not
+    # "ok", so this degrades the whole report.
+    if settings.checkout_enabled and not settings.PAYMENTS_COD_ONLY:
+        try:
+            from app.services.checkout import _razorpay_client  # noqa: PLC0415
+
+            if _razorpay_client() is None:
+                status["components"]["razorpay"] = "unavailable — prepaid orders are being refused"
+                status["status"] = "degraded"
+            else:
+                status["components"]["razorpay"] = "ok"
+        except Exception as exc:  # noqa: BLE001
+            status["components"]["razorpay"] = f"unavailable: {type(exc).__name__}"
+            status["status"] = "degraded"
+    else:
+        status["components"]["razorpay"] = "not required (COD only)"
+
     return status

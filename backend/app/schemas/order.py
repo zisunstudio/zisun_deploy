@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 import uuid
 
-from app.models.order import OrderStatus, PaymentStatus, PaymentMethod
+from app.models.order import CODConfirmation, OrderStatus, PaymentMethod, PaymentStatus
 
 # ── Cart request / response schemas ──────────────────────────────────────────
 
@@ -102,6 +102,13 @@ class OrderResponse(BaseModel):
     
     items: List[OrderItemResponse] = []
     payment: Optional[PaymentResponse] = None
+
+    # The console could not tell a COD order from a prepaid one, which made a
+    # stuck COD order invisible: it rests in PAYMENT_PENDING by design, and
+    # the page offered no action for that status at all.
+    payment_method: Optional[PaymentMethod] = None
+    cod_confirmation: Optional[CODConfirmation] = None
+    cod_amount_due: Optional[int] = None
 
     class Config:
         from_attributes = True

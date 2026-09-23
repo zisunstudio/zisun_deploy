@@ -3,7 +3,7 @@ import uuid
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,11 +11,11 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_async_db
 from app.core.config import settings
 from app.core.security import require_role
-from app.models.order import Order, OrderStatus, Payment, PaymentStatus, OutboxEvent
+from app.models.order import Order, OrderStatus, Payment, PaymentMethod, PaymentStatus, OutboxEvent
 from app.models.user import User
 from app.schemas.order import OrderResponse
 from app.services.order_state_machine import OrderStateMachine
-from app.services.cod_confirmation import may_dispatch
+from app.services.cod_confirmation import apply_reply, may_dispatch
 from app.tasks.commerce import _release_locks_for_order
 
 router = APIRouter()
@@ -232,3 +232,54 @@ async def admin_refund_order(
     # 7. Commit and return
     await db.commit()
     return {"success": True, "refund_id": refund_id, "amount": refund_amount}
+
+# ── POST /{id}/cod-confirmation — she rang the customer ──────────────────────
+
+class CODConfirmBody(BaseModel):
+    confirmed: bool
+    note: Optional[str] = Field(default=None, max_length=300)
+
+
+@router.post("/{order_id}/cod-confirmation")
+async def admin_confirm_cod(
+    order_id: uuid.UUID,
+    body: CODConfirmBody,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Record a COD confirmation the founder got by phone.
+
+    Until now the *only* way a COD order could reach CONFIRMED was an inbound
+    WhatsApp reply. That message is sent by the worker through the WhatsApp
+    Cloud API, and with `WHATSAPP_ACCESS_TOKEN` unset it was never sent - so
+    every COD order rested at PENDING, `may_dispatch()` refused to let it be
+    packed, and nothing could ship. The shop could take an order and never
+    fulfil it.
+
+    A small shop rings the customer anyway. This records that call. The
+    invariant is untouched: an unconfirmed COD order still cannot reach
+    PACKED - this is a way to *confirm* one, not a way around the gate.
+    """
+    order = (await db.execute(
+        select(Order).options(selectinload(Order.items)).where(Order.id == order_id).with_for_update()
+    )).scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    if order.payment_method != PaymentMethod.COD:
+        raise HTTPException(422, "This is not a Cash on Delivery order.")
+
+    if not apply_reply(order, body.confirmed):
+        state = order.cod_confirmation.value if order.cod_confirmation else "not asked"
+        raise HTTPException(409, f"Already answered ({state}) or the order is closed.")
+
+    if not body.confirmed:
+        await _release_locks_for_order(db, order_id)
+        OrderStateMachine.transition(order, OrderStatus.CANCELLED)
+
+    await db.commit()
+    await db.refresh(order)
+    return {
+        "order_id": str(order.id),
+        "cod_confirmation": order.cod_confirmation.value if order.cod_confirmation else None,
+        "may_dispatch": may_dispatch(order),
+        "status": order.status.value,
+    }
