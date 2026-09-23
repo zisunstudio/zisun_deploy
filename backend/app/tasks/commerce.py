@@ -96,6 +96,28 @@ async def _cleanup_zombie_orders():
 
         for order in orders:
             try:
+                # Ask the gateway before destroying anything.
+                #
+                # "No webhook" and "not paid" are not the same fact, and this
+                # loop used to treat them as one: a customer paid, her
+                # webhook was rejected at signature verification, and thirty
+                # minutes later her order was cancelled and the stock put
+                # back. Razorpay knew all along; nothing asked it.
+                #
+                # A failure to reach Razorpay returns False, so an outage
+                # cancels nothing it would not otherwise have cancelled.
+                if order.razorpay_order_id:
+                    from app.services.razorpay_reconcile import (  # noqa: PLC0415
+                        settle_from_gateway,
+                    )
+
+                    if await settle_from_gateway(db, order):
+                        logger.warning(
+                            "Order %s was paid after all - settled instead of cancelled",
+                            order.id,
+                        )
+                        continue
+
                 OrderStateMachine.transition(order, OrderStatus.CANCELLED)
 
                 # Release active inventory locks for this order

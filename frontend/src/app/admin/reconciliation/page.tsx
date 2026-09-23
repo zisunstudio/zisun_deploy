@@ -1,7 +1,8 @@
 "use client";
-import { Page, Card, TableScroll } from "@/components/admin/ui";
-import { useQuery } from "@tanstack/react-query";
+import { Page, Card, TableScroll, Button } from "@/components/admin/ui";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
+import { formatPrice } from "@/lib/queries/catalog";
 
 interface ReconciliationData {
   period_days: number;
@@ -38,6 +39,9 @@ function downloadCSV(data: ReconciliationData) {
 }
 
 export default function ReconciliationPage() {
+  const recon = useMutation<{ checked: number; days: number; recovered: Array<{ order_id: string; razorpay_order_id: string; amount_paise: number }> }>({
+    mutationFn: async () => (await adminApi.post("/orders/reconcile-payments?days=14")).data,
+  });
   const { data, isLoading, isError } = useQuery({
     queryKey: ["admin-reconciliation"],
     queryFn: async () => {
@@ -55,6 +59,49 @@ export default function ReconciliationPage() {
             Export CSV
           </button>
         )}</>}>
+
+      {/* Recover orders the gateway says were paid and we do not.
+          This exists because it happened: a customer paid, her webhook was
+          rejected at signature verification, and the zombie sweep cancelled
+          her order half an hour later. Her address and items were never
+          lost - only the status was wrong. */}
+      <Card className="mb-4">
+        <h2 className="text-sm font-semibold text-gray-900">Check for missed payments</h2>
+        <p className="text-xs text-gray-500 mt-1">
+          Asks Razorpay what was actually paid and repairs any order that disagrees. It only ever
+          marks an order paid, never cancels one, so it is safe to run whenever you like.
+        </p>
+        <Button
+          variant="primary"
+          className="mt-3"
+          disabled={recon.isPending}
+          onClick={() => recon.mutate()}
+        >
+          {recon.isPending ? "Asking Razorpay…" : "Check the last 14 days"}
+        </Button>
+        {recon.data && (
+          <div className="mt-3 text-sm">
+            {recon.data.recovered.length === 0 ? (
+              <p className="text-gray-600">Checked {recon.data.checked} — every order matches Razorpay.</p>
+            ) : (
+              <>
+                <p className="font-semibold text-green-800">
+                  Recovered {recon.data.recovered.length} paid {recon.data.recovered.length === 1 ? "order" : "orders"}.
+                </p>
+                <ul className="mt-1.5 space-y-1 text-xs text-gray-700">
+                  {recon.data.recovered.map((r) => (
+                    <li key={r.order_id} className="tabular-nums">
+                      {r.order_id.slice(0, 8).toUpperCase()} · {formatPrice(r.amount_paise)} · {r.razorpay_order_id}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-xs text-gray-500">They are in Orders now, with the customer&rsquo;s address, ready to pack.</p>
+              </>
+            )}
+          </div>
+        )}
+        {recon.isError && <p className="mt-2 text-sm text-red-700">Could not reach Razorpay. Try again.</p>}
+      </Card>
 
       {isLoading ? (
         <div className="space-y-3">

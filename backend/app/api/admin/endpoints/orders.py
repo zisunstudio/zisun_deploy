@@ -289,3 +289,27 @@ async def admin_confirm_cod(
         "may_dispatch": may_dispatch(order),
         "status": order.status.value,
     }
+
+
+# ── POST /reconcile-payments — ask Razorpay what was really paid ─────────────
+
+
+@router.post("/reconcile-payments")
+async def admin_reconcile_payments(
+    days: int = Query(14, ge=1, le=90),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Find orders the gateway says were paid and this database does not.
+
+    Built because exactly that happened: a customer paid, the webhook was
+    rejected at signature verification, and the zombie sweep cancelled her
+    order half an hour later and returned the stock. Her address and items
+    were never lost - only the status was wrong - and this is what puts it
+    right without having to ask her for anything again.
+
+    Only ever moves an order towards PAID, and only on Razorpay's word.
+    Never cancels. Safe to run as often as you like.
+    """
+    from app.services.razorpay_reconcile import sweep  # noqa: PLC0415
+
+    return await sweep(db, days=days)

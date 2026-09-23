@@ -30,6 +30,9 @@ from app.services.shiprocket import track_awb
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+#: Rejected Razorpay webhooks in the last week. Read by the dashboard.
+WEBHOOK_REJECT_KEY = "razorpay:webhook:rejected"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -151,7 +154,25 @@ async def razorpay_webhook(
 
     # HMAC verification
     if not verify_razorpay_signature(raw_body, signature):
-        logger.warning("Invalid Razorpay webhook signature")
+        # A rejected webhook means money may have moved with nothing here to
+        # show for it. It used to be one WARNING line in a container log,
+        # which is how a customer's paid order was cancelled half an hour
+        # later without anyone noticing. Counted in Redis so the dashboard
+        # can say it out loud; the counter is best-effort and must never
+        # stop the handler returning.
+        logger.error(
+            "Invalid Razorpay webhook signature - RAZORPAY_WEBHOOK_SECRET "
+            "probably differs from the secret set on the webhook in the "
+            "Razorpay dashboard. Payments will not be recorded."
+        )
+        try:
+            from app.core.redis import get_redis_client  # noqa: PLC0415
+
+            redis = await get_redis_client()
+            await redis.incr(WEBHOOK_REJECT_KEY)
+            await redis.expire(WEBHOOK_REJECT_KEY, 7 * 24 * 3600)
+        except Exception:  # noqa: BLE001
+            pass
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
     try:

@@ -85,6 +85,22 @@ events and the founder would see two different orders.
 photographs in place, untagged; they are the most expensive asset in the
 business and re-tagging is one click.
 
+**The gateway is the authority on money; the webhook is only a notice.**
+A customer paid, her webhook was rejected at signature verification
+("Invalid Razorpay webhook signature"), the order stayed PAYMENT_PENDING,
+and thirty minutes later `_cleanup_zombie_orders` cancelled it and returned
+the stock - because an unpaid gateway order is indistinguishable from an
+abandoned one *if you only ever look at your own database*. Razorpay knew.
+Nothing asked it. The sweep now calls `settle_from_gateway()` before
+cancelling any order that has a `razorpay_order_id`, so a dropped webhook
+costs a half-hour delay rather than a lost sale, and a failure to reach
+Razorpay returns False and cancels nothing it would not have anyway.
+`POST /admin/orders/reconcile-payments` (a button on Reconciliation)
+re-examines recent orders and restores any the gateway says were paid - it
+only ever moves an order towards PAID and never cancels. A rejected webhook
+is counted in Redis and named on the dashboard, because one WARNING line in
+a container log is how this went unnoticed.
+
 **An unconfirmed COD order must not reach PACKED.** `may_dispatch()` gates the
 admin status endpoint with a 409. Asking the customer and shipping anyway
 saves nothing.

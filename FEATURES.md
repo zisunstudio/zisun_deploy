@@ -48,6 +48,8 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Per-product journey: shown → opened → bag/buy → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |
 | One money definition: collected vs committed, never added | `backend/app/services/metrics.py` | Live |
 | Prepaid payment health: paid / failed / walked away / still trying, and webhook mismatches | `backend/app/services/metrics.py`, `frontend/src/app/admin/page.tsx` | Live |
+| Gateway-verified cancellation: never cancel a prepaid order Razorpay says was paid | `backend/app/services/razorpay_reconcile.py`, `backend/app/tasks/commerce.py` | Live |
+| One-button recovery of orders the webhook missed | `frontend/src/app/admin/reconciliation/page.tsx` | Live |
 | Payment instrumentation: sheet opened, failed (with gateway reason), dismissed, checkout viewed | `frontend/src/app/checkout/page.tsx` | Live |
 | First-touch attribution on every event and every order | `frontend/src/lib/attribution.ts`, `backend/alembic/versions/0021_order_attribution.py` | Live |
 | Acquisition panel: visits, people and money by channel | `frontend/src/app/admin/page.tsx` | Needs data |

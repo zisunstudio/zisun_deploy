@@ -495,6 +495,25 @@ async def compute_dashboard(days: int = 30) -> dict:
     # Money first. A payment that failed at the gateway is the shop's problem
     # and is fixable; a customer who closed the sheet is not. Nothing here
     # fires on a single order - one decline is a bank, not a fault.
+    # A rejected webhook is money moving with nothing here to show for it.
+    # It is the single most expensive thing that can go quietly wrong.
+    _rejected = 0
+    try:
+        from app.api.endpoints.orders import WEBHOOK_REJECT_KEY  # noqa: PLC0415
+        from app.core.redis import get_redis_client  # noqa: PLC0415
+
+        _redis = await get_redis_client()
+        _rejected = int(await _redis.get(WEBHOOK_REJECT_KEY) or 0)
+    except Exception:  # noqa: BLE001
+        _rejected = 0
+    if _rejected:
+        items.append({
+            "severity": "critical",
+            "title": f"{_rejected} Razorpay {'webhook was' if _rejected == 1 else 'webhooks were'} rejected this week",
+            "body": "The signature did not match, so paid orders are not being marked paid - and unpaid-looking orders get cancelled after 30 minutes. Check RAZORPAY_WEBHOOK_SECRET against the secret on the webhook in the Razorpay dashboard, then run 'Check for missed payments' on Reconciliation.",
+            "href": "/admin/reconciliation",
+        })
+
     if _pay.mismatched:
         items.append({
             "severity": "critical",
