@@ -34,6 +34,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Journal pipeline: ideas, Claude draft from facts only, approve, publish | `backend/app/api/admin/endpoints/journal.py`, `frontend/src/app/admin/journal/page.tsx` | Live |
 | Markdown rendered without any raw-HTML path | `frontend/src/lib/markdown.tsx` | Live |
 | Image optimization: sharp, AVIF/WebP, year-long cache (48.8MB → 265KB per page) | `frontend/next.config.js` | Live |
+| One presentation system for every photograph: own-colour load-in, focal point, fixed ratio, hairline | `frontend/src/components/Photo.tsx` | Live |
 | Photographs downscaled in the browser before upload (2400px master) | `frontend/src/lib/downscale.ts` | Live |
 | Dependency round-trip timings on /health | `backend/app/api/endpoints/health.py` | Live |
 | Per-product journey: shown → opened → bag/buy → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |

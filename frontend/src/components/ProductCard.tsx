@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { navigate } from "@/lib/viewTransition";
 import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -12,6 +11,7 @@ import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { OfferBadge } from "@/components/OfferBadge";
 import { useImpression } from "@/lib/useImpression";
 import { swatchStyle } from "@/lib/colours";
+import { Photo } from "@/components/Photo";
 import { markOpenSource } from "@/lib/enquiry";
 
 interface Props {
@@ -62,16 +62,12 @@ export function ProductCard({ product, className = "", markNew = true }: Props) 
       onPointerEnter={() => router.prefetch(`/product/${product.id}`)}
       onTouchStart={() => router.prefetch(`/product/${product.id}`)}
     >
-      <div data-vt-photo className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
-        <Image
-          src={imageUrl}
-          alt={product.name}
-          fill
-          sizes="(max-width: 768px) 50vw, 33vw"
-          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
-          placeholder="blur"
-          blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-        />
+      <Photo
+        src={imageUrl}
+        alt={product.name}
+        sizes="(max-width: 768px) 50vw, 33vw"
+        hover
+      >
         <RepresentativeImage className="absolute bottom-1.5 left-1.5 text-[8px] px-1.5 py-[2px] z-10" />
         <OfferBadge offer={product.offer} className="absolute top-2.5 left-2.5 z-10 shadow-sm" />
         {/* "New" for two weeks after listing, only when there is no offer badge
@@ -86,7 +82,7 @@ export function ProductCard({ product, className = "", markNew = true }: Props) 
             </span>
           </div>
         )}
-      </div>
+      </Photo>
       <p className="text-ink text-[13px] mt-3 leading-snug line-clamp-2">{product.name}</p>
       {/* The colours it comes in, as dots. Says "there is a choice" without
           a word, which is what makes a thumb stop on a card. */}

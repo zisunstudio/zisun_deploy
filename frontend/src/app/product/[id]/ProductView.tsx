@@ -22,6 +22,7 @@ import { ProductDeclarations } from "@/components/ProductDeclarations";
 import { FabricSpecs } from "@/components/FabricSpecs";
 import Link from "next/link";
 import { GarmentDetails } from "@/components/GarmentDetails";
+import { Photo } from "@/components/Photo";
 import { KIND_LABEL, type ArticleCard } from "@/lib/journal";
 import { OfferBadge, OfferCountdown } from "@/components/OfferBadge";
 import { CouponTicket } from "@/components/CouponTicket";
@@ -269,22 +270,26 @@ export default function ProductView({ params, initial, articles }: { params: { i
           <div
             ref={galleryRef}
             onScroll={onGalleryScroll}
-            className="flex w-full overflow-x-auto snap-x snap-mandatory no-scrollbar bg-rose"
+            className="flex w-full overflow-x-auto snap-x snap-mandatory no-scrollbar bg-porcelain"
             aria-label={`${product.name} photographs`}
           >
             {images.map((src, i) => (
-              <div key={i} className="relative w-full shrink-0 snap-center aspect-[3/4] lg:aspect-[16/9]" style={i === 0 ? { viewTransitionName: HERO_NAME } : undefined}>
+              <div key={i} className="relative w-full shrink-0 snap-center aspect-[3/4] lg:aspect-[4/5]">
                 {/* Depth: the photograph leans a few degrees with the phone
                     and a band of light crosses it, like cloth turned in the
                     hand. Still when the phone is still. */}
                 <DepthPhoto>
-                  <Image
+                  {/* 4:5, not 16:9. These are full-length photographs of a
+                      garment; a landscape crop cut the piece in half on every
+                      laptop, which is the one screen where there is room to
+                      show it whole. */}
+                  <Photo
                     src={src}
                     alt={`${product.name}${images.length > 1 ? ` — photo ${i + 1} of ${images.length}` : ""}`}
                     fill
+                    sizes="(min-width: 1024px) 60vw, 100vw"
                     priority={i === 0}
-                    sizes="100vw"
-                    className="object-cover"
+                    vtName={i === 0 ? HERO_NAME : undefined}
                   />
                 </DepthPhoto>
               </div>

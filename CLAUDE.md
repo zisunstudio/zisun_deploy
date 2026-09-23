@@ -234,6 +234,23 @@ failure it stops asking for ten minutes. Without a key or credits it
 answers from rules alone. Any further customer-facing AI needs the same
 fences or the Anthropic bill is in strangers' hands.
 
+**Every catalogue photograph goes through `components/Photo.tsx`.**
+The pictures arrive as they are taken - a garden, a corridor, a street,
+different light - and shown raw they read as a camera roll. Three things did
+most of that damage and none was the photography: every picture faded in
+from the *same grey pixel*, every one sat on the *same flat pink*, and every
+one was centre-cropped, which takes the head off a full-length shot. `Photo`
+fixes all three in one place: the ground is the picture itself at 64px
+(~2KB, a variant next/image already makes) painted behind and softened, so
+the space is never empty and never grey and the photograph resolves out of
+its own colours; `focus` defaults to the upper third; the ratio is fixed so
+nothing shifts. A coloured mat *around* the picture was tried and removed -
+at card size it reads as a halo, an artifact rather than a frame. Add a
+photograph anywhere new and use this component; do not reach for `<Image>`.
+`DepthPhoto` is `absolute inset-0` and needs a sized parent, so inside it
+`Photo` takes `fill` - giving `Photo` its own ratio there collapsed the
+gallery to nothing and the main photograph vanished.
+
 **The generated pattern is a mark, never the fabric.** The "weave" on a
 product page, the home page's daily pattern, the tag and the "It's yours"
 keepsake are drawn by code from colours. Customer-facing words call it the
