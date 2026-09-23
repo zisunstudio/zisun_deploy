@@ -313,6 +313,22 @@ recomputed** - rates move by notification and an old invoice must keep its
 own numbers. The invoice *number* is taken when the order becomes real
 (prepaid PAID, or COD confirmed), never at creation, so an abandoned
 checkout does not burn a serial in a series meant to be consecutive.
+The slab is **configuration**: `GST_SLAB_THRESHOLD_PAISE`,
+`GST_RATE_AT_OR_BELOW_PCT` and `GST_RATE_ABOVE_PCT`. It moved on
+2025-09-22 from ₹1,000/5%/12% to ₹2,500/5%/18%, and this code shipped with
+the old numbers until the founder caught it - which is exactly why a rate
+is a variable round trip and never a deploy. Both live pieces are 5%.
+
+**`base_price` is always what the customer is charged, tax-inclusive.**
+Legal Metrology requires the MRP to be inclusive of all taxes, so an ex-tax
+price is something to *convert*, never to display. The console lets her type
+either ("GST included" / "Add GST to this"); `gst.selling_price()` converts
+once, at write time, and `base_price` keeps its meaning so checkout, locks
+and the gateway are untouched. `price_entered` remembers her own figure so
+the form shows it back - seeding the converted price would re-add GST to an
+already-converted price on the next save. A conversion that crosses the slab
+settles on the higher rate (₹2,400 ex-tax is ₹2,520, so 18%, so ₹2,832).
+
 The rate table and the HSN default are data, not logic; a CA changes them
 in one edit.
 

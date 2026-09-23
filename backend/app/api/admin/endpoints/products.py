@@ -34,6 +34,7 @@ from app.schemas.catalog import (
     ProductVariantResponse,
     ProductVariantUpdate,
 )
+from app.services import gst
 
 router = APIRouter()
 
@@ -125,7 +126,12 @@ async def admin_create_product(
     product = Product(
         name=data.name,
         description=data.description,
-        base_price=data.base_price,
+        # What she typed, and what will actually be charged. When she has
+        # entered a pre-tax figure these differ; base_price is always the
+        # inclusive one, so every downstream reader is unaffected.
+        base_price=gst.selling_price(data.base_price, includes_tax=data.price_includes_tax),
+        price_includes_tax=data.price_includes_tax,
+        price_entered=data.base_price,
         category_id=data.category_id,
         vendor_id=data.vendor_id,
         is_active=True,
@@ -185,7 +191,10 @@ async def admin_update_product(
     if data.description is not None:
         product.description = data.description
     if data.base_price is not None:
-        product.base_price = data.base_price
+        includes = data.price_includes_tax if data.price_includes_tax is not None else product.price_includes_tax
+        product.base_price = gst.selling_price(data.base_price, includes_tax=includes)
+        product.price_includes_tax = includes
+        product.price_entered = data.base_price
     if data.category_id is not None:
         product.category_id = data.category_id
     # Only the declarations actually submitted, so editing a price cannot blank

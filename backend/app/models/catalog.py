@@ -159,6 +159,12 @@ class Product(BaseModel):
     craft: Mapped[Optional[str]] = mapped_column(String(120))
     # HSN for the tax invoice. NULL = the apparel default in services/gst.py.
     hsn_code: Mapped[Optional[str]] = mapped_column(String(12))
+    # Whether `base_price` as she typed it already contained GST. base_price
+    # itself is ALWAYS what the customer is charged, tax-inclusive - this
+    # only records how she arrived at it, so the form shows her own number
+    # back. See services/gst.py selling_price().
+    price_includes_tax: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, server_default="true")
+    price_entered: Mapped[Optional[int]] = mapped_column(Integer)
     origin: Mapped[Optional[str]] = mapped_column(String(120))
     lining: Mapped[Optional[str]] = mapped_column(String(60))
     transparency: Mapped[Optional[str]] = mapped_column(String(40))

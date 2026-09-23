@@ -154,6 +154,19 @@ class Settings(BaseSettings):
     # Shipping: free when paid online; Cash on Delivery carries this charge
     # (paise). Added to the order total by the server - see services/pricing.
     COD_SHIPPING_FEE_PAISE: int = 9900
+
+    # ── GST ───────────────────────────────────────────────────────────────────
+    # Configuration, not code: the garment slab has moved before and will
+    # again, and a rate change must be a variable round trip rather than a
+    # deploy. The threshold is PER PIECE, on the unit price.
+    #
+    # Defaults follow the rationalisation in force from 22 September 2025:
+    # 5% at or below Rs 2,500 a piece, 18% above. Confirm with the business's
+    # accountant - an earlier regime used Rs 1,000 and 12%, and this code
+    # shipped with that by mistake.
+    GST_SLAB_THRESHOLD_PAISE: int = 250000
+    GST_RATE_AT_OR_BELOW_PCT: int = 5
+    GST_RATE_ABOVE_PCT: int = 18
     LM_NET_QUANTITY: str = "1 unit"
     # Consumer-care contact. Rule 6(1)(d) wants a name or designation plus a
     # reachable address, and the e-commerce rules want the same person named as

@@ -9,9 +9,12 @@ working out what was inside it.
 Two things decide the numbers:
 
 **The rate is per piece, not per order.** Ready-made garments are taxed at
-5% at or below a price threshold per piece and 12% above it. A ₹999 kurta
-and a ₹1,039 kurta in the same parcel carry different rates, so the rate is
-resolved per line from that line's unit price.
+one rate at or below a price threshold per piece and a higher one above it.
+Two garments in the same parcel either side of that line carry different
+rates, so the rate is resolved per line from that line's unit price. The
+threshold and both rates are configuration - they moved on 22 September 2025
+from ₹1,000/5%/12% to ₹2,500/5%/18%, and this file shipped with the old
+numbers until the founder caught it.
 
 **The split follows the place of supply.** Karnataka to Karnataka is CGST +
 SGST, each half the tax. Karnataka to anywhere else is IGST, the whole of
@@ -44,13 +47,28 @@ from typing import Iterable, Optional
 #: digits of the GSTIN and is what makes a sale intra- or inter-state.
 HOME_STATE_CODE = "29"
 
-#: Ready-made garments: 5% at or below this price per piece, 12% above it.
-#: Both the threshold and the rates are notification-driven and have moved
-#: before, which is why they are a table rather than numbers in a function.
-GARMENT_RATE_SLABS: tuple[tuple[int, int], ...] = (
-    (100000, 5),   # up to ₹1,000.00 per piece -> 5%
-    (10**12, 12),  # above -> 12%
-)
+#: Ready-made garments: one rate at or below a price per piece, another
+#: above it. All three numbers are notification-driven - they moved on
+#: 22 September 2025 from ₹1,000/5%/12% to ₹2,500/5%/18% - so they live in
+#: configuration and a change is a variable round trip, not a deploy.
+#: The defaults, also used when settings cannot be imported - this module is
+#: deliberately importable and testable without the app.
+SLAB_THRESHOLD_PAISE = 250000   # ₹2,500.00 per piece
+RATE_AT_OR_BELOW_PCT = 5
+RATE_ABOVE_PCT = 18
+
+
+def _slabs() -> tuple[tuple[int, int], ...]:
+    threshold, low, high = SLAB_THRESHOLD_PAISE, RATE_AT_OR_BELOW_PCT, RATE_ABOVE_PCT
+    try:
+        from app.core.config import settings  # noqa: PLC0415
+
+        threshold = settings.GST_SLAB_THRESHOLD_PAISE
+        low = settings.GST_RATE_AT_OR_BELOW_PCT
+        high = settings.GST_RATE_ABOVE_PCT
+    except Exception:  # noqa: BLE001
+        pass
+    return ((threshold, low), (10**12, high))
 
 #: Women's kurtas, co-ord sets and similar. Confirm per product with a CA;
 #: `products.hsn_code` overrides this when set.
@@ -79,10 +97,11 @@ def state_code(state: Optional[str]) -> Optional[str]:
 
 def rate_for(unit_price_paise: int) -> int:
     """The garment rate for one piece at this price, as a whole percent."""
-    for ceiling, rate in GARMENT_RATE_SLABS:
+    slabs = _slabs()
+    for ceiling, rate in slabs:
         if unit_price_paise <= ceiling:
             return rate
-    return GARMENT_RATE_SLABS[-1][1]
+    return slabs[-1][1]
 
 
 def split_inclusive(inclusive_paise: int, rate_pct: int) -> tuple[int, int]:
@@ -95,6 +114,37 @@ def split_inclusive(inclusive_paise: int, rate_pct: int) -> tuple[int, int]:
         return max(0, inclusive_paise), 0
     taxable = round(inclusive_paise * 100 / (100 + rate_pct))
     return taxable, inclusive_paise - taxable
+
+
+def add_tax(exclusive_paise: int, rate_pct: int) -> int:
+    """The tax-inclusive selling price for a price entered WITHOUT tax.
+
+    The customer-facing price in India is always tax-inclusive - Legal
+    Metrology requires the MRP to be inclusive of all taxes, and the
+    declaration on every product page says exactly that. So an exclusive
+    price is not something to display; it is something to convert. The
+    founder may think in either, and the shop shows one.
+
+    Note the rate is chosen from the *inclusive* price, because the slab
+    threshold is a retail price per piece. An exclusive ₹2,400 at 5% becomes
+    ₹2,520 inclusive, which is above the threshold - so the rate is resolved
+    on the result and the conversion repeated once. It converges: a second
+    pass cannot cross back, because a higher rate only raises the total.
+    """
+    if exclusive_paise <= 0:
+        return max(0, exclusive_paise)
+    inclusive = round(exclusive_paise * (100 + rate_pct) / 100)
+    settled = rate_for(inclusive)
+    if settled != rate_pct:
+        inclusive = round(exclusive_paise * (100 + settled) / 100)
+    return inclusive
+
+
+def selling_price(entered_paise: int, *, includes_tax: bool) -> int:
+    """What the customer is charged, whichever way the price was entered."""
+    if includes_tax:
+        return entered_paise
+    return add_tax(entered_paise, rate_for(entered_paise))
 
 
 def halve(tax_paise: int) -> tuple[int, int]:
@@ -174,7 +224,7 @@ def compute(
         ))
 
     if shipping_paise > 0:
-        rate = max((l.rate_pct for l in inv.lines), default=GARMENT_RATE_SLABS[-1][1])
+        rate = max((l.rate_pct for l in inv.lines), default=_slabs()[-1][1])
         taxable, tax = split_inclusive(shipping_paise, rate)
         inv.lines.append(TaxLine(
             description="Delivery",

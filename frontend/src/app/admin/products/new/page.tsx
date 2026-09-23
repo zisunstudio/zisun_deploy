@@ -81,6 +81,7 @@ export default function NewProductPage() {
         commodity_name: form.commodity_name.trim(),
         country_of_origin: form.country_of_origin.trim(),
         hsn_code: form.hsn_code.trim(),
+        price_includes_tax: form.price_includes_tax,
         manufacturer_name: form.manufacturer_name.trim(),
         manufacturer_address: form.manufacturer_address.trim(),
         // Blank stays out of the payload entirely, so an unfilled field is

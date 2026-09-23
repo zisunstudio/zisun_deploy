@@ -39,6 +39,8 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Customer order tracking: courier journey, checkpoints, no sign-in | `frontend/src/app/order/[id]/OrderTracking.tsx`, `backend/app/services/shiprocket.py` | Live |
 | COD fee read from the API, never a hard-coded constant | `backend/app/api/endpoints/checkout.py`, `frontend/src/lib/queries/policy.ts` | Live |
 | GST computed out of the inclusive price, per piece, split by place of supply | `backend/app/services/gst.py` | Live |
+| GST slab as configuration (₹2,500 / 5% / 18%), not code | `backend/app/core/config.py` | Live |
+| Price entered with or without GST; converted once, at write time | `backend/alembic/versions/0024_price_tax_mode.py`, `frontend/src/components/admin/ProductForm.tsx` | Live |
 | Tax invoice: consecutive serial per financial year, snapshotted on the order | `backend/app/services/invoicing.py`, `backend/alembic/versions/0023_gst.py` | Live |
 | Customer-visible tax breakdown on the order page | `frontend/src/app/order/[id]/OrderTracking.tsx` | Live |
 | Photographs downscaled in the browser before upload (2400px master) | `frontend/src/lib/downscale.ts` | Live |

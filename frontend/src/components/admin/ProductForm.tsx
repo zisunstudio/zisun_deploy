@@ -17,6 +17,8 @@ export interface ProductFormData {
   name: string;
   description: string;
   base_price_rupees: string; // user input in ₹, converted to paise on submit
+  /** Whether that price already contains GST. Customers always see inclusive. */
+  price_includes_tax: boolean;
   category_id: string;
   is_active: boolean;
 
@@ -109,7 +111,7 @@ interface Props {
 
 export function emptyProductForm(): ProductFormData {
   return {
-    name: "", description: "", base_price_rupees: "", category_id: "", is_active: true,
+    name: "", description: "", base_price_rupees: "", price_includes_tax: true, category_id: "", is_active: true,
     dimensions: "", net_quantity: "", commodity_name: "", country_of_origin: "", hsn_code: "",
     manufacturer_name: "", manufacturer_address: "",
     fabric_composition: "", fabric_gsm: "", weave: "",
@@ -292,6 +294,33 @@ export default function ProductForm({ data, onChange, categories, compact = fals
               required
             />
           </div>
+          {/* Does that number already include GST?
+              Customers always see a tax-inclusive price - Legal Metrology
+              requires the MRP to be inclusive of all taxes - so an ex-tax
+              figure is converted before it is ever shown, never displayed as
+              typed. This only records how she got there. */}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {[
+              { on: true, label: "GST included" },
+              { on: false, label: "Add GST to this" },
+            ].map((opt) => (
+              <button
+                key={String(opt.on)}
+                type="button"
+                onClick={() => onChange({ ...data, price_includes_tax: opt.on })}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  data.price_includes_tax === opt.on ? "bg-ink border-ink text-white" : "bg-white border-gray-300 text-gray-700"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-500 mt-1.5">
+            {data.price_includes_tax
+              ? "The customer pays exactly this. GST is worked out from inside it."
+              : "GST will be added and the customer will see the higher figure — that is the price they pay."}
+          </p>
           {/* The prices this label actually uses, one tap each. Typing is
               still there for anything else. */}
           <div className="mt-2 flex flex-wrap gap-1.5">

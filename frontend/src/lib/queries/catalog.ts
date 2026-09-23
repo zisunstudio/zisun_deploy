@@ -119,6 +119,9 @@ export interface GarmentAttributes {
 }
 
 export interface Product {
+  /** How the founder typed the price, and whether it contained GST. */
+  price_entered?: number | null;
+  price_includes_tax?: boolean | null;
   id: string;
   name: string;
   description: string | null;

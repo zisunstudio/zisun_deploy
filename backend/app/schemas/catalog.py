@@ -108,6 +108,11 @@ class ProductBase(BaseModel):
     name: str = Field(..., min_length=1)
     description: Optional[str] = None
     base_price: int = Field(..., ge=0)
+    # Whether the price above already contains GST. False means she typed a
+    # pre-tax figure and the shop converts it - the customer-facing price in
+    # India is always inclusive (Legal Metrology requires the MRP to be), so
+    # an exclusive price is converted, never displayed.
+    price_includes_tax: bool = True
     category_id: Optional[uuid.UUID] = None
     vendor_id: Optional[str] = None
 
@@ -682,6 +687,8 @@ class AdminProductDetail(ProductResponse):
     compare_at_price: Optional[int] = None
     offer_ends_at: Optional[datetime] = None
     hsn_code: Optional[str] = None
+    price_includes_tax: Optional[bool] = None
+    price_entered: Optional[int] = None
 
 
 class ProductListResponse(BaseModel):

@@ -29,6 +29,7 @@ export default function EditProductPage() {
     commodity_name: "",
     country_of_origin: "",
     hsn_code: "",
+    price_includes_tax: true,
     manufacturer_name: "",
     manufacturer_address: "",
      fabric_composition: "",
@@ -90,7 +91,11 @@ export default function EditProductPage() {
     setForm({
       name: product.name ?? "",
       description: product.description ?? "",
-      base_price_rupees: String(product.base_price / 100),
+      // Show her the figure she typed. `base_price` is always the
+      // tax-inclusive selling price; when she entered a pre-tax number those
+      // differ, and seeding the converted one would silently re-add GST to
+      // an already-converted price on the next save.
+      base_price_rupees: String((product.price_entered ?? product.base_price) / 100),
       category_id: product.category?.id ?? "",
       is_active: product.is_active ?? true,
       // Read back from the admin detail response, which exposes the stored
@@ -101,6 +106,7 @@ export default function EditProductPage() {
       commodity_name: product.commodity_name ?? "",
       country_of_origin: product.country_of_origin ?? "",
       hsn_code: product.hsn_code ?? "",
+      price_includes_tax: product.price_includes_tax ?? true,
       manufacturer_name: product.manufacturer_name ?? "",
       manufacturer_address: product.manufacturer_address ?? "",
       // Numbers and booleans become strings here: an empty input has to mean
@@ -173,6 +179,7 @@ export default function EditProductPage() {
         commodity_name: form.commodity_name.trim(),
         country_of_origin: form.country_of_origin.trim(),
         hsn_code: form.hsn_code.trim(),
+        price_includes_tax: form.price_includes_tax,
         manufacturer_name: form.manufacturer_name.trim(),
         manufacturer_address: form.manufacturer_address.trim(),
         fabric_composition: form.fabric_composition.trim(),
