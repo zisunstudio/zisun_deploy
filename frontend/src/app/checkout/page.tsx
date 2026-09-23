@@ -532,7 +532,7 @@ export default function CheckoutPage() {
                 // not how anyone should feel while handing over money.
                 note={codOverLimit || (pin && !pin.cod_available)
                   ? "We will confirm on WhatsApp before packing."
-                  : `The courier charges ${formatPrice(codShippingPaise)} to collect cash at the door, and that is what it is. We will confirm on WhatsApp before packing.`}
+                  : `The courier charges ${formatPrice(codShippingPaise)} to collect cash at the door, and we pass it on at cost. We will confirm on WhatsApp before packing.`}
               />
             </div>
             <Total total={totalPaise + shippingPaise} shipping={shippingPaise} />
