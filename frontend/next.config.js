@@ -40,6 +40,20 @@ const nextConfig = {
         hostname: "zisun-media.fly.storage.tigris.dev",
       },
     ],
+    // AVIF first, WebP second. A premium fashion photograph at q=80 in AVIF is
+    // roughly a fortieth of the source JPEG with no visible loss; the source
+    // files here are 8-11MB straight off a phone.
+    formats: ["image/avif", "image/webp"],
+    // A product photograph does not change. The default was 60 SECONDS, so
+    // every optimized variant carried `max-age=60, must-revalidate` and every
+    // returning visitor re-downloaded the lot. The URL already carries the
+    // width and quality, and a re-uploaded photograph gets a new key, so a
+    // year is safe and correct.
+    minimumCacheTTL: 60 * 60 * 24 * 365,
+    // The widths actually used by the layout. Trimming the default ladder
+    // means fewer variants to generate and fewer cache misses.
+    deviceSizes: [360, 414, 640, 828, 1080, 1200, 1920],
+    imageSizes: [64, 128, 236, 256, 384],
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
