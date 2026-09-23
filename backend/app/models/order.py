@@ -1,7 +1,9 @@
 import uuid
 import enum
 from typing import Optional, List
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum, JSON
+from decimal import Decimal
+
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum, JSON, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 
@@ -181,6 +183,14 @@ class Address(BaseModel):
     state: Mapped[str] = mapped_column(String(100), nullable=False)
     pincode: Mapped[str] = mapped_column(String(20), nullable=False)
     is_default: Mapped[bool] = mapped_column(default=False, nullable=False)
+    # Where she said she is, if she offered it. Never a replacement for the
+    # written address - a courier drives to the address - but a map pin is
+    # what saves the delivery when the bell goes unanswered.
+    latitude: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6))
+    longitude: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6))
+    # Metres of GPS uncertainty the browser reported: a 2km fix is a cell
+    # tower and worth nothing to a delivery person.
+    location_accuracy_m: Mapped[Optional[int]] = mapped_column(Integer)
 
     user: Mapped["User"] = relationship("User", back_populates="addresses")
 

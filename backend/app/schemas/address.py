@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from typing import Optional, List
 from datetime import datetime
 import uuid
@@ -55,6 +55,13 @@ class AddressCreate(BaseModel):
     city: str
     state: str
     pincode: str
+    # Where she said she is, if she tapped "use my location". Bounded to
+    # India's box so a stray or spoofed reading is dropped rather than shown
+    # to a delivery person as a fact. Never required: an address without a
+    # pin is the normal case and must always go through.
+    latitude: Optional[float] = Field(None, ge=6.0, le=37.5)
+    longitude: Optional[float] = Field(None, ge=68.0, le=97.5)
+    location_accuracy_m: Optional[int] = Field(None, ge=0, le=100000)
 
     @field_validator("state")
     @classmethod

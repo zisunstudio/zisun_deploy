@@ -22,7 +22,10 @@ export interface OrderDetailShape {
   customer_name: string | null;
   customer_phone: string | null;
   customer_email: string | null;
-  address: { line1: string; line2: string | null; city: string; state: string; pincode: string } | null;
+  address: {
+    line1: string; line2: string | null; city: string; state: string; pincode: string;
+    latitude?: number | null; longitude?: number | null; location_accuracy_m?: number | null;
+  } | null;
   detailed_items: Array<{
     quantity: number; unit_price: number; product_name: string | null;
     sku: string | null; size: string | null; colour: string | null; image_url: string | null;
@@ -113,6 +116,24 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           </address>
         ) : (
           <p className="text-sm text-gray-500">No address on this order.</p>
+        )}
+        {/* The pin she shared, if she did. A courier drives to the written
+            address; this is what saves the delivery when the bell goes
+            unanswered. The accuracy is shown so a 900m fix is not mistaken
+            for a doorstep. */}
+        {a?.latitude != null && a?.longitude != null && (
+          <p className="mt-1.5 text-sm">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${a.latitude},${a.longitude}`}
+              target="_blank" rel="noopener noreferrer"
+              className="text-burgundy underline underline-offset-2"
+            >
+              Open her pinned location
+            </a>
+            {!!a.location_accuracy_m && (
+              <span className="ml-2 text-xs text-gray-500">±{a.location_accuracy_m}m</span>
+            )}
+          </p>
         )}
         {data.customer_phone && (
           <p className="mt-1.5 text-sm">

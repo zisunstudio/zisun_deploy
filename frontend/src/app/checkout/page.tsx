@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Loader2, MessageCircle, ShieldCheck, Truck } from "lucide-react";
+import { ArrowLeft, Check, Loader2, MapPin, MessageCircle, ShieldCheck, Truck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -53,6 +53,10 @@ interface Serviceability {
   cod_available: boolean;
   estimated_days: number | null;
   source: string;
+  /** What the pincode itself knows — India Post, free and authoritative. */
+  city?: string | null;
+  state?: string | null;
+  localities?: string[];
 }
 
 export default function CheckoutPage() {
@@ -80,11 +84,16 @@ export default function CheckoutPage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
   const [pin, setPin] = useState<Serviceability | null>(null);
+  // Shared only if she taps. Never asked for on load: a permission prompt
+  // nobody invited is the fastest way to be refused for good.
+  const [coords, setCoords] = useState<{ lat: number; lng: number; acc: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [checkingPin, setCheckingPin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    name: "", phone: "", line1: "", line2: "", city: "", state: "Karnataka", pincode: "",
+    name: "", phone: "", email: "", line1: "", line2: "", city: "", state: "Karnataka", pincode: "",
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -95,7 +104,7 @@ export default function CheckoutPage() {
     if (item) setExpress(item);
     const buyer = recallBuyer();
     if (buyer) {
-      setForm({ ...buyer, line2: buyer.line2 ?? "" });
+      setForm((f) => ({ ...f, ...buyer, email: buyer.email ?? "", line2: buyer.line2 ?? "" }));
       setRemembered(true);
     }
     // The fastest honest path: a returning buyer on Buy now lands on Pay,
@@ -172,7 +181,22 @@ export default function CheckoutPage() {
     let cancelled = false;
     setCheckingPin(true);
     api.get(`/checkout/pincode/${form.pincode}/check`)
-      .then((r) => { if (!cancelled) setPin(r.data); })
+      .then((r) => {
+        if (cancelled) return;
+        setPin(r.data);
+        // The pincode is authoritative for city and state, so stop asking
+        // her for what it already says. A wrong city for a PIN is a parcel
+        // the courier returns - and it is an honest mistake to make from a
+        // dropdown. Only ever fills a blank or corrects a mismatch; typing
+        // over it afterwards still wins, because she may know better than
+        // the district name.
+        const { city, state } = r.data ?? {};
+        setForm((f) => ({
+          ...f,
+          city: city && !f.city.trim() ? city : f.city,
+          state: state && INDIAN_STATES.includes(state) ? state : f.state,
+        }));
+      })
       .catch(() => { if (!cancelled) setPin(null); })
       .finally(() => { if (!cancelled) setCheckingPin(false); });
     return () => { cancelled = true; };
@@ -205,11 +229,13 @@ export default function CheckoutPage() {
         items: items.map((i) => ({ variant_id: i.id, quantity: i.quantity })),
         address: {
           line1: form.line1.trim(),
+          ...(coords ? { latitude: coords.lat, longitude: coords.lng, location_accuracy_m: coords.acc } : {}),
           line2: form.line2.trim() || null,
           city: form.city.trim(),
           state: form.state,
           pincode: form.pincode,
         },
+        email: form.email.trim() || null,
         payment_method: paymentMethod,
         idempotency_key: `zisun-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         // Where she came from, kept on the order itself: events age out of
@@ -454,10 +480,74 @@ export default function CheckoutPage() {
                   <input className={`${input} rounded-l-none`} value={form.phone} onChange={set("phone")} inputMode="numeric" maxLength={10} autoComplete="tel-national" />
                 </div>
               </Field>
+              <Field label="Email (optional)" className="col-span-2">
+                <input className={input} type="email" value={form.email} onChange={set("email")} placeholder="For your receipt" autoComplete="email" inputMode="email" />
+              </Field>
               <Field label="Address" className="col-span-2"><input className={input} value={form.line1} onChange={set("line1")} placeholder="House / flat, street" autoComplete="address-line1" /></Field>
               <Field label="Landmark (optional)" className="col-span-2"><input className={input} value={form.line2} onChange={set("line2")} autoComplete="address-line2" /></Field>
               <Field label="City"><input className={input} value={form.city} onChange={set("city")} autoComplete="address-level2" /></Field>
               <Field label="Pincode"><input className={input} value={form.pincode} onChange={set("pincode")} inputMode="numeric" maxLength={6} autoComplete="postal-code" /></Field>
+
+              {/* The localities under this pincode, as taps. "Indiranagar"
+                  spelled three ways is three addresses to a courier; this
+                  makes it one, and saves her typing it at all. */}
+              {(pin?.localities?.length ?? 0) > 0 && !form.line2.trim() && (
+                <div className="col-span-2 -mt-1">
+                  <p className="text-[11px] text-muted mb-1.5">Area</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pin!.localities!.slice(0, 6).map((l) => (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, line2: l.trim() }))}
+                        className="px-2.5 py-1 rounded-full border border-line text-xs text-ink bg-white"
+                      >
+                        {l.trim()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* One tap, and only if she offers. The written address is what
+                  the courier drives to; the pin is what saves the delivery
+                  when the bell goes unanswered. */}
+              <div className="col-span-2">
+                {coords ? (
+                  <p className="text-[12px] text-moss flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" /> Location shared &mdash; the delivery person can find you
+                    <button type="button" onClick={() => setCoords(null)} className="ml-1 text-muted underline underline-offset-2">remove</button>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={locating}
+                    onClick={() => {
+                      setLocationError(null);
+                      if (!navigator.geolocation) { setLocationError("This browser cannot share a location."); return; }
+                      setLocating(true);
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setLocating(false);
+                          const acc = Math.round(pos.coords.accuracy ?? 0);
+                          // A fix coarser than a kilometre is a cell tower,
+                          // not a doorstep. Showing that to a delivery person
+                          // as a pin is worse than showing nothing.
+                          if (acc > 1000) { setLocationError("Your phone could not place you accurately. The written address is what we will use."); return; }
+                          setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc });
+                        },
+                        () => { setLocating(false); setLocationError("No location shared — the written address is enough."); },
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+                      );
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[13px] text-burgundy underline underline-offset-4"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    {locating ? "Finding you…" : "Share my location to help the delivery"}
+                  </button>
+                )}
+                {locationError && <p className="mt-1 text-[11px] text-muted">{locationError}</p>}
+              </div>
               <Field label="State" className="col-span-2">
                 <select className={input} value={form.state} onChange={set("state")}>
                   {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}

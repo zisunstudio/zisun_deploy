@@ -100,6 +100,9 @@ async def check_pincode(pincode: str, cod: bool = True):
         redis = None
 
     result = await check_serviceability(pincode, cod=cod, redis=redis)
+    from app.services.pincode import resolve as resolve_pincode  # noqa: PLC0415
+
+    place = await resolve_pincode(pincode, redis=redis)
     return {
         "pincode": pincode,
         "serviceable": result.serviceable,
@@ -110,6 +113,12 @@ async def check_pincode(pincode: str, cod: bool = True):
         # The fee the API will actually charge, so the page can never quote a
         # different number from the one on the invoice.
         "cod_fee_paise": settings.COD_SHIPPING_FEE_PAISE,
+        # What the pincode already tells us. The form stops asking for a city
+        # and a state it can know: a wrong city for a PIN is a parcel the
+        # courier returns, and it is the customer's honest mistake to make.
+        "city": place.city,
+        "state": place.state,
+        "localities": place.localities,
     }
 
 
@@ -356,6 +365,13 @@ async def guest_checkout(
         city=body.address.city,
         state=body.address.state,
         pincode=body.address.pincode,
+        # Only when both arrived and the reading was worth keeping. A fix
+        # coarser than a kilometre is a cell tower, not a doorstep, and
+        # showing it to a delivery person as a pin would be worse than
+        # showing nothing.
+        latitude=body.address.latitude if body.address.longitude is not None else None,
+        longitude=body.address.longitude if body.address.latitude is not None else None,
+        location_accuracy_m=body.address.location_accuracy_m,
         is_default=True,
     )
     db.add(address)

@@ -143,6 +143,10 @@ class AdminAddressDetail(BaseModel):
     city: str
     state: str
     pincode: str
+    # Only shown when the customer chose to share it.
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    location_accuracy_m: Optional[int] = None
 
     class Config:
         from_attributes = True

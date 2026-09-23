@@ -50,6 +50,8 @@ export function clearExpressItem(): void {
 export interface Buyer {
   name: string;
   phone: string;
+  /** Optional: where the receipt goes. Older saved buyers have none. */
+  email?: string;
   line1: string;
   line2: string;
   city: string;
