@@ -440,6 +440,28 @@ Each of these produced a green build or a healthy-looking deploy:
   until the tick is clicked; the founder filled a row, hit Create, and was
   told she had no variants. Anything that keeps local draft state must expose
   a flush the parent calls at submit (`VariantEditorHandle.flushDraft`).
+- **`next/image` silently serves the original when `sharp` is missing.**
+  Next 14 needs sharp to optimize; it was in neither `package.json` nor the
+  Dockerfile, so every `_next/image` request returned the source JPEG
+  unresized — byte-identical at `w=256`, `w=640` and `w=1200`. The home page
+  shipped **48.8MB** of images and its LCP on a Pixel 7 was **14.9s**. With
+  sharp installed the same photograph is 13KB at `w=256`. `minimumCacheTTL`
+  also defaults to **60 seconds**, so every optimized variant carried
+  `max-age=60, must-revalidate` and returning visitors re-downloaded
+  everything; it is a year now, which is safe because the URL carries the
+  width and quality and a re-uploaded photograph gets a new key.
+- **Changing `POSTGRES_PORT` and `DB_PGBOUNCER_MODE` together breaks the
+  database mid-rollout.** Moving to the transaction pooler (`:6543`) needs
+  `DB_PGBOUNCER_MODE=1` to disable statement caching, and during the rollout
+  requests hit a container using `:6543` *without* the guard —
+  `DuplicatePreparedStatementError` on live traffic. Set
+  `DB_PGBOUNCER_MODE=1` first, wait for that deploy to finish completely,
+  and only then change the port. Reverting is the same two steps backwards.
+  Measured on 2026-09-23: a bare `SELECT 1` costs ~890ms because Supabase is
+  in `ap-southeast-2` (Sydney) while the app is in `asia-southeast1`
+  (Singapore), and `DB_POOL_SIZE=1` means concurrent requests open a fresh
+  TLS connection across that ocean. `/health` reports `timings_ms` for the
+  database and Redis so this is measurable rather than guessed at.
 - **Supabase's direct host is IPv6-only.** Use the pooler (IPv4). The app runs
   on the transaction pooler `:6543` with `DB_PGBOUNCER_MODE=1`, which disables
   statement caching — without it asyncpg fails intermittently, under

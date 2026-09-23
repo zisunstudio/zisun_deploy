@@ -33,6 +33,9 @@ string, and every component, from `9a0585c` to `HEAD`).
 | The Journal: articles, Article JSON-LD, sitemap, llms.txt | `frontend/src/app/journal/page.tsx`, `backend/app/api/endpoints/journal.py` | Needs data |
 | Journal pipeline: ideas, Claude draft from facts only, approve, publish | `backend/app/api/admin/endpoints/journal.py`, `frontend/src/app/admin/journal/page.tsx` | Live |
 | Markdown rendered without any raw-HTML path | `frontend/src/lib/markdown.tsx` | Live |
+| Image optimization: sharp, AVIF/WebP, year-long cache (48.8MB → 265KB per page) | `frontend/next.config.js` | Live |
+| Photographs downscaled in the browser before upload (2400px master) | `frontend/src/lib/downscale.ts` | Live |
+| Dependency round-trip timings on /health | `backend/app/api/endpoints/health.py` | Live |
 | Per-product journey: shown → opened → bag/buy → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |
 | One money definition: collected vs committed, never added | `backend/app/services/metrics.py` | Live |
 | Prepaid payment health: paid / failed / walked away / still trying, and webhook mismatches | `backend/app/services/metrics.py`, `frontend/src/app/admin/page.tsx` | Live |
