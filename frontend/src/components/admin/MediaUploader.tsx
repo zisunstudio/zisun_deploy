@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { Upload, X, GripVertical, Loader2 } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
+import { downscaleImage, mb } from "@/lib/downscale";
 
 export interface MediaItem {
   id: string;
@@ -60,6 +61,7 @@ export default function MediaUploader({ productId, media, onChange, variants = [
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   // drag-reorder state
   const dragIdx = useRef<number | null>(null);
@@ -76,21 +78,28 @@ export default function MediaUploader({ productId, media, onChange, variants = [
     setError(null);
     setUploading(true);
     try {
+      // 0. Shrink it here, before it leaves the phone. An 8 MB camera file
+      //    is uploaded over her mobile data, stored forever, and downloaded
+      //    and decoded again by the image optimizer the first time each width
+      //    is asked for. A 2400px master is twice the widest screen.
+      const shrunk = await downscaleImage(file);
+      if (shrunk.resized) setNote(`${mb(shrunk.before)} → ${mb(shrunk.after)}`);
+
       // 1. Get presigned URL
       const urlRes = await adminApi.get(`/products/${productId}/media/upload-url`, {
-        params: { content_type: file.type },
+        params: { content_type: shrunk.contentType },
       });
       const { upload_url, cdn_url, key } = urlRes.data;
 
-      // 2. PUT directly to R2 (or dev placeholder)
+      // 2. PUT directly to object storage
       await fetch(upload_url, {
         method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+        body: shrunk.file,
+        headers: { "Content-Type": shrunk.contentType },
       });
 
       // 3. Confirm upload → creates ProductMedia record
-      const mediaType = file.type.startsWith("video/") ? "VIDEO" : "IMAGE";
+      const mediaType = shrunk.contentType.startsWith("video/") ? "VIDEO" : "IMAGE";
       const confirmRes = await adminApi.post(`/products/${productId}/media/confirm`, {
         key,
         cdn_url,
@@ -186,6 +195,8 @@ export default function MediaUploader({ productId, media, onChange, variants = [
       </div>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
+      {/* Quiet confirmation that the photograph was shrunk before upload. */}
+      {note && !error && <p className="text-xs text-gray-500">Resized before upload: {note}</p>}
 
       {/* Thumbnail grid with drag-reorder */}
       {media.length > 0 && (

@@ -1,5 +1,6 @@
 """Enhanced health check — DB, Redis, Celery heartbeat."""
 from datetime import datetime, timezone
+from time import perf_counter
 from fastapi import APIRouter
 from sqlalchemy import text
 from app.core.config import settings
@@ -18,22 +19,31 @@ async def health_check():
         "launch_mode": settings.LAUNCH_MODE or "normal",
         "checkout_enabled": settings.checkout_enabled,
         "components": {},
+        # Round-trip time to each dependency, in milliseconds. Cheap, and the
+        # only way to tell "the app is slow" from "the database is a continent
+        # away" without guessing: the app runs in Singapore and Supabase is in
+        # ap-southeast-2 (Sydney), so every query crosses ~100ms of ocean.
+        "timings_ms": {},
     }
 
     # DB check
+    _t0 = perf_counter()
     try:
         async with AsyncSessionLocal() as db:
             await db.execute(text("SELECT 1"))
         status["components"]["database"] = "ok"
+        status["timings_ms"]["database"] = round((perf_counter() - _t0) * 1000)
     except Exception as e:
         status["components"]["database"] = f"degraded: {e}"
         status["status"] = "degraded"
 
     # Redis check
+    _t1 = perf_counter()
     try:
         redis = await get_redis_client()
         await redis.ping()
         status["components"]["redis"] = "ok"
+        status["timings_ms"]["redis"] = round((perf_counter() - _t1) * 1000)
     except Exception as e:
         status["components"]["redis"] = f"degraded: {e}"
         status["status"] = "degraded"
