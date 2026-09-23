@@ -1,6 +1,7 @@
 "use client";
 
 import { API_V1 } from "@/lib/apiBase";
+import { attributionFields, isReturning, visitorId } from "@/lib/attribution";
 
 type AnalyticsEvent = {
   event_type: string;
@@ -52,7 +53,14 @@ function flush() {
 }
 
 export function trackEvent(event_type: string, properties: Record<string, unknown> = {}) {
-  _queue.push({ event_type, session_id: sessionId(), properties });
+  // Every event carries where this visitor came from and whether she has been
+  // here before. Without it the funnel could say what happened but never for
+  // whom, so no channel could be judged by anything except raw traffic.
+  _queue.push({
+    event_type,
+    session_id: sessionId(),
+    properties: { ...properties, ...attributionFields(), visitor: visitorId(), returning: isReturning() },
+  });
   if (_timer) clearTimeout(_timer);
   _timer = setTimeout(flush, 10_000);
 }

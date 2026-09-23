@@ -63,11 +63,22 @@ const FIXTURES = [
   // like a tidy page - which is the whole reason this harness checks for one.
   [/\/dashboard(\?|$)/, {
     meta: { window_days: 30, generated_at: "2026-09-22T18:30:00+05:30", checkout_enabled: false, launch_mode: "browse", events_recorded: 53, errors: [] },
-    week: { sessions: 41, sessions_previous: 22, opens: 12, opens_previous: 7, bag_adds: 1, bag_adds_previous: 0, enquiries: 0, enquiries_previous: 0, ordered: 0, revenue_paise: 0 },
+    week: { sessions: 41, sessions_previous: 22, opens: 12, opens_previous: 7, bag_adds: 1, bag_adds_previous: 0, enquiries: 2, enquiries_previous: 0, orders: 2, revenue_paise: 112400, committed_paise: 122300, whatsapp_marked_ordered: 0, whatsapp_marked_revenue_paise: 0 },
     whatsapp: { enquiries_window: 0, ordered_window: 0, revenue_window_paise: 0, conversion: null, unanswered: 0 },
     attention_items: [],
     insight: null,
-    commerce: { orders_all_time: 0, orders_window: 0, revenue_window_paise: 0, by_payment_method: [], by_status: [], customers: {}, contribution_margin: null, contribution_margin_blocked_on: [] },
+    commerce: {
+      orders_all_time: 3, orders_window: 3, revenue_window_paise: 112400,
+      by_payment_method: {}, by_status: { PAID: 1, PAYMENT_PENDING: 2 }, customers: 2,
+      contribution_margin: null, contribution_margin_blocked_on: [],
+      money: { collected_paise: 112400, committed_paise: 122300, lost_paise: 216300, refunded_paise: 0, orders: 3, by_kind: { paid: 1, cod_placed: 1, payment_abandoned: 1 } },
+      payment: { attempted: 4, succeeded: 1, failed: 1, abandoned: 1, in_flight: 1, success_rate: 33.3, abandon_rate: 33.3, mismatched: 1 },
+    },
+    acquisition: { partial: true, by_source: [
+      { source: "instagram", orders: 2, collected_paise: 112400, committed_paise: 122300, sessions: 31, visitors: 27, conversion: 6.5 },
+      { source: "direct", orders: 0, collected_paise: 0, committed_paise: 0, sessions: 8, visitors: 7, conversion: 0 },
+      { source: "not recorded", orders: 1, collected_paise: 103900, committed_paise: 0, sessions: 0, visitors: 0, conversion: null },
+    ] },
     attention: {
       sessions: 41, sessions_previous: 22,
       funnel: [
@@ -83,7 +94,7 @@ const FIXTURES = [
       products: [{
         id: "p1", name: "Rich Wine Dabu Cotton Bandhani-Inspired Kurta Set with Dupatta & Palazzo", shelf_rank: null,
         impressions: 40, views: 12, views_from_cards: 9, add_to_cart: 1, buy_now: 0, checkout_initiated: 0, intent: 1,
-        enquiries: 0, ordered: 0, ctr: 22.5, cart_rate: 8.3, attention: 3.4, stock_left: 28, lowest_variant: null,
+        whatsapp_clicks: 0, whatsapp_marked_ordered: 0, orders: 1, units_sold: 1, revenue_paise: 112400, buy_rate: 8.3, ctr: 22.5, cart_rate: 8.3, attention: 3.4, stock_left: 28, lowest_variant: null,
         journey: [
           { key: "impressions", label: "Shown", count: 40 }, { key: "views", label: "Opened", count: 12 },
           { key: "intent", label: "Bag or buy now", count: 1 }, { key: "checkout", label: "Checkout started", count: 0 },

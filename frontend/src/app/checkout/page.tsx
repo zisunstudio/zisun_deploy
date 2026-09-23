@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Loader2, MessageCircle, ShieldCheck, Truck } from "lucide-react";
@@ -10,6 +10,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/lib/queries/catalog";
 import { trackEvent } from "@/lib/queries/analytics";
+import { attributionFields } from "@/lib/attribution";
 import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
 import { recordEnquiry } from "@/lib/enquiry";
 import { INDIAN_STATES } from "@/lib/india";
@@ -140,6 +141,24 @@ export default function CheckoutPage() {
   const shippingPaise = paymentMethod === "COD" ? codShippingPaise : 0;
   const totalPaise = Math.round(totalRupees * 100);
 
+  // Reaching checkout with something in the bag is its own step. Until now
+  // the first thing recorded here was `checkout_initiated`, which fires only
+  // *after* the order POST succeeds - so everyone who arrived, read the
+  // total and left was indistinguishable from someone who never came. The
+  // gap between this and checkout_initiated is the form itself: shipping
+  // cost, the address fields, the COD fee.
+  const seenCheckout = useRef(false);
+  useEffect(() => {
+    if (!ready || seenCheckout.current || items.length === 0) return;
+    seenCheckout.current = true;
+    trackEvent("checkout_viewed", {
+      items: items.length,
+      units: items.reduce((s, i) => s + i.quantity, 0),
+      amount: totalPaise,
+      express,
+    });
+  }, [ready, items, totalPaise, express]);
+
   // Serviceability, once the pincode is complete. Fails open by design on the
   // API side, so a Shiprocket outage never blocks a sale.
   useEffect(() => {
@@ -187,6 +206,10 @@ export default function CheckoutPage() {
         },
         payment_method: paymentMethod,
         idempotency_key: `zisun-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        // Where she came from, kept on the order itself: events age out of
+        // usefulness, an order is permanent, and revenue by channel is the
+        // only version of this question worth answering.
+        ...attributionFields(),
       });
       const { order_id, razorpay_order_id, razorpay_key_id, total_amount } = res.data;
       trackEvent("checkout_initiated", { order_id, payment_method: paymentMethod, amount: total_amount });
@@ -216,8 +239,34 @@ export default function CheckoutPage() {
         // The webhook is what marks this order PAID. This handler only moves
         // the customer along; if the tab dies here the order still completes.
         handler: () => finish(order_id),
-        modal: { ondismiss: () => { setPlacing(false); showToast("Payment cancelled — your bag is safe", "info"); } },
+        // Closing the sheet is a decision, not a failure. Recorded separately
+        // so "payment problems" and "changed her mind" never share a number.
+        modal: {
+          ondismiss: () => {
+            setPlacing(false);
+            trackEvent("payment_dismissed", { order_id, amount: total_amount });
+            showToast("Payment cancelled — your bag is safe", "info");
+          },
+        },
       });
+      // A declined card used to be completely invisible: no handler, no event,
+      // and the order simply rested in PAYMENT_PENDING looking identical to an
+      // abandoned one. Razorpay's reason codes are the only place the *why*
+      // exists, and they are the difference between "our gateway is broken"
+      // and "her bank said no".
+      rzp.on("payment.failed", (resp: { error?: Record<string, string> }) => {
+        const e = resp?.error ?? {};
+        trackEvent("payment_failed", {
+          order_id,
+          amount: total_amount,
+          reason: e.reason ?? null,
+          code: e.code ?? null,
+          step: e.step ?? null,
+          source: e.source ?? null,
+          description: e.description ?? null,
+        });
+      });
+      trackEvent("payment_sheet_opened", { order_id, amount: total_amount });
       rzp.open();
     } catch (e: any) {
       const detail = e?.response?.data?.detail;

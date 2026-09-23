@@ -33,7 +33,12 @@ string, and every component, from `9a0585c` to `HEAD`).
 | The Journal: articles, Article JSON-LD, sitemap, llms.txt | `frontend/src/app/journal/page.tsx`, `backend/app/api/endpoints/journal.py` | Needs data |
 | Journal pipeline: ideas, Claude draft from facts only, approve, publish | `backend/app/api/admin/endpoints/journal.py`, `frontend/src/app/admin/journal/page.tsx` | Live |
 | Markdown rendered without any raw-HTML path | `frontend/src/lib/markdown.tsx` | Live |
-| Per-product journey: shown → opened → bag/buy → checkout → asked → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |
+| Per-product journey: shown → opened → bag/buy → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |
+| One money definition: collected vs committed, never added | `backend/app/services/metrics.py` | Live |
+| Prepaid payment health: paid / failed / walked away / still trying, and webhook mismatches | `backend/app/services/metrics.py`, `frontend/src/app/admin/page.tsx` | Live |
+| Payment instrumentation: sheet opened, failed (with gateway reason), dismissed, checkout viewed | `frontend/src/app/checkout/page.tsx` | Live |
+| First-touch attribution on every event and every order | `frontend/src/lib/attribution.ts`, `backend/alembic/versions/0021_order_attribution.py` | Live |
+| Acquisition panel: visits, people and money by channel | `frontend/src/app/admin/page.tsx` | Needs data |
 | Console session refreshes like the storefront's (no more "token expired" mid-form) | `frontend/src/lib/api.ts`, `frontend/src/lib/adminApi.ts` | Live |
 | One variant row per size and colour; repeats flagged in inventory | `backend/app/api/admin/endpoints/products.py`, `frontend/src/app/admin/inventory/page.tsx` | Live |
 | Read-back invariant enforced by test | `backend/tests/unit/test_admin_readback.py` | Live |

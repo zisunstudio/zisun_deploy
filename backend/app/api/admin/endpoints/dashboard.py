@@ -37,9 +37,9 @@ from app.models.analytics import AnalyticsEvent
 from app.models.catalog import Product, ProductMedia, ProductVariant
 from app.models.coupon import Coupon
 from app.models.enquiry import EnquiryStatus, WhatsAppEnquiry
-from app.models.order import Order, OrderStatus, PaymentMethod
+from app.models.order import Order, OrderItem, OrderStatus, Payment, PaymentMethod, PaymentStatus
 from app.models.user import User, UserRole
-from app.services import ai
+from app.services import ai, metrics
 from app.services.shelf import (
     EVENT_WEIGHTS,
     WINDOW_DAYS,
@@ -182,6 +182,20 @@ def _worst_step(journey: list[dict]) -> dict | None:
     return worst
 
 
+def _count_via(via: str):
+    """Count add_to_cart events whose properties say how they were made.
+
+    Buy now has never been its own event type; ProductView sends
+    `add_to_cart` with `via: "buy_now"`. A dashboard column that counted an
+    event called "buy_now" was therefore always zero, and every buy-now
+    shopper was silently filed as an ordinary bag add.
+    """
+    return sa.func.count(sa.case((sa.and_(
+        AnalyticsEvent.event_type == "add_to_cart",
+        AnalyticsEvent.properties.op("->>")("via") == via,
+    ), AnalyticsEvent.id)))
+
+
 def _count_of(event_type: str):
     return sa.func.count(sa.case((AnalyticsEvent.event_type == event_type, AnalyticsEvent.id)))
 
@@ -262,7 +276,27 @@ async def compute_dashboard(days: int = 30) -> dict:
                    sa.func.count(sa.case((WhatsAppEnquiry.status == EnquiryStatus.ORDERED.value, WhatsAppEnquiry.id))))
             .where(WhatsAppEnquiry.created_at >= since, WhatsAppEnquiry.product_id.isnot(None))
             .group_by(WhatsAppEnquiry.product_id)),
-        revenue=_one(select(sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0)).where(Order.created_at >= since)),
+        # Raw rows, classified in services/metrics.py. The old query summed
+        # every order in the window whatever its status, so an abandoned
+        # prepaid attempt and a cancelled order both counted as revenue.
+        order_rows=_all(select(Order.id, Order.status, Order.payment_method, Order.total_amount, Order.created_at)
+                        .where(Order.created_at >= since)),
+        captured=_all(select(Payment.order_id).where(Payment.status == PaymentStatus.CAPTURED)),
+        # Orders by where they came from. Nothing recorded a source until
+        # 0021, so older orders answer "not recorded" rather than "direct" -
+        # calling an unknown source direct would quietly credit the channel
+        # that needs no credit.
+        orders_by_source=_all(
+            select(Order.source, Order.status, Order.payment_method, Order.total_amount, Order.created_at)
+            .where(Order.created_at >= since)),
+        # Sessions and visitors per source, so a channel can be judged on
+        # what it converts and not only on what it sends.
+        sessions_by_source=_all(
+            select(AnalyticsEvent.properties.op("->>")("source").label("src"),
+                   sa.func.count(sa.distinct(AnalyticsEvent.session_id)),
+                   sa.func.count(sa.distinct(AnalyticsEvent.properties.op("->>")("visitor"))))
+            .where(AnalyticsEvent.created_at >= since, AnalyticsEvent.session_id.isnot(None))
+            .group_by("src")),
         by_method=_all(select(Order.payment_method, sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
                        .where(Order.created_at >= since).group_by(Order.payment_method)),
         by_status=_all(select(Order.status, sa.func.count(Order.id)).group_by(Order.status)),
@@ -281,18 +315,38 @@ async def compute_dashboard(days: int = 30) -> dict:
                 # The rest of the journey. Without these the per-product view
                 # stopped at the bag and could not say whether anyone went on
                 # to check out - which is exactly where the money is lost.
-                _count_of("buy_now").label("buy_now"),
-                _count_of("checkout_initiated").label("checkout_initiated"),
+                # Buy now is NOT its own event: the storefront sends
+                # add_to_cart with properties.via = "buy_now". Counting an
+                # event named buy_now returned zero for every piece.
+                _count_via("buy_now").label("buy_now"),
                 sa.func.coalesce(attention_sq.c.score, 0.0).label("attention"),
             )
             .select_from(Product)
             .outerjoin(AnalyticsEvent, sa.and_(
-                AnalyticsEvent.event_type.in_(["product_impression", "product_viewed", "add_to_cart", "buy_now", "checkout_initiated"]),
+                AnalyticsEvent.event_type.in_(["product_impression", "product_viewed", "add_to_cart"]),
                 AnalyticsEvent.created_at >= since, product_id_matches(Product.id)))
             .outerjoin(attention_sq, attention_sq.c.product_id == sa.cast(Product.id, sa.Text))
             .where(live_products)
             .group_by(Product.id, Product.name, Product.shelf_rank, attention_sq.c.score)
             .order_by(sa.desc("attention"), sa.desc("views"))),
+        # Per-product orders, from the orders themselves. `checkout_initiated`
+        # carries an order_id and no product_id, so the per-product count read
+        # from events was always zero. order_items is authoritative anyway: it
+        # survives an ad-blocker, and it knows the money.
+        ordered_by_product=_all(
+            select(
+                ProductVariant.product_id,
+                sa.func.count(sa.distinct(Order.id)).label("orders"),
+                sa.func.coalesce(sa.func.sum(OrderItem.quantity), 0).label("units"),
+                sa.func.coalesce(sa.func.sum(
+                    sa.case((Order.status.in_([OrderStatus.PAID, OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.DELIVERED]),
+                             OrderItem.unit_price * OrderItem.quantity), else_=0)), 0).label("revenue"),
+            )
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .join(ProductVariant, ProductVariant.id == OrderItem.product_variant_id)
+            .where(Order.created_at >= since, Order.status.notin_([OrderStatus.CANCELLED, OrderStatus.FAILED_PAYMENT]))
+            .group_by(ProductVariant.product_id)),
         # Stock per product: total left and the emptiest size/colour, so a
         # wanted piece that is about to run out can be named.
         stock=_all(
@@ -320,8 +374,24 @@ async def compute_dashboard(days: int = 30) -> dict:
     orders_total = int(totals.orders_total or 0) if totals else 0
     customers = int(totals.customers or 0) if totals else 0
     events_total = int(totals.events_total or 0) if totals else 0
-    orders_window = int(r["revenue"][0] or 0) if r["revenue"] else 0
-    revenue_window_checkout = int(r["revenue"][1] or 0) if r["revenue"] else 0
+    # One definition of money, in two columns that are never added together:
+    # collected (it is in) and committed (a real order still owes it).
+    _rows = [
+        {"id": oid, "status": st, "payment_method": pm, "total_amount": amt,
+         "minutes_old": (now - created).total_seconds() / 60 if created else None}
+        for oid, st, pm, amt, created in (r["order_rows"] or [])
+    ]
+    _captured = {row[0] for row in (r["captured"] or [])}
+    _money = metrics.summarise(_rows)
+    # The same definition, cut to this week, from the rows already fetched -
+    # no extra query. The week panel's `revenue_paise` measures WhatsApp
+    # enquiries the founder ticked by hand, which is a different thing from
+    # money and must never sit under the same word.
+    _week_cut = [x for x in _rows if (x["minutes_old"] or 0) <= 7 * 24 * 60]
+    _week_money = metrics.summarise(_week_cut)
+    _pay = metrics.payment_health(_rows, captured_order_ids=_captured)
+    orders_window = _money.orders
+    revenue_window_checkout = _money.collected_paise
     by_method = {str(getattr(m, "value", m)): {"orders": int(c or 0), "revenue": int(v or 0)} for m, c, v in (r["by_method"] or [])}
     by_status = {str(getattr(s_, "value", s_)): int(c or 0) for s_, c in (r["by_status"] or [])}
     step_counts = {et: int(c or 0) for et, c in (r["steps"] or [])}
@@ -341,33 +411,50 @@ async def compute_dashboard(days: int = 30) -> dict:
         if d["lowest"] is None or int(st or 0) < d["lowest"]["stock"]:
             d["lowest"] = {"size": size or "", "colour": colour or "", "stock": int(st or 0)}
 
+    ordered_by_product = {
+        str(pid): {"orders": int(o or 0), "units": int(u or 0), "revenue": int(rev or 0)}
+        for pid, o, u, rev in (r["ordered_by_product"] or [])
+    }
     products_attention = []
     for p in (r["products"] or []):
         pid = str(p.id)
         enq, enq_ordered = enq_by_product.get(pid, (0, 0))
         st = stock_by_product.get(pid, {"left": 0, "lowest": None})
         impressions, views, from_cards, bags = int(p.impressions or 0), int(p.views or 0), int(p.views_from_cards or 0), int(p.add_to_cart or 0)
-        buy_now, checkout = int(p.buy_now or 0), int(p.checkout_initiated or 0)
+        buy_now = int(p.buy_now or 0)
+        ord_row = ordered_by_product.get(pid, {"orders": 0, "units": 0, "revenue": 0})
         # The whole journey for this piece, and the single place it leaks
         # most. "Shown 40, opened 12, bag 1" is the sentence she needs; a
         # column of numbers is not. Intent is bag OR buy now - buy now skips
         # the bag entirely, so counting only the bag lost those shoppers.
-        intent = bags + buy_now
+        # `bags` already includes buy-now presses (they are add_to_cart with
+        # via=buy_now), so intent is bags, not bags + buy_now - adding them
+        # double-counted every buy-now shopper.
+        intent = bags
         journey = [
             {"key": "impressions", "label": "Shown", "count": impressions},
             {"key": "views", "label": "Opened", "count": views},
             {"key": "intent", "label": "Bag or buy now", "count": intent},
-            {"key": "checkout", "label": "Checkout started", "count": checkout},
-            {"key": "enquiries", "label": "Asked on WhatsApp", "count": enq},
-            {"key": "ordered", "label": "Ordered", "count": enq_ordered},
+            {"key": "ordered", "label": "Ordered", "count": int(ord_row["orders"])},
         ]
         gap = _worst_step(journey)
         products_attention.append({
             "journey": journey, "gap": gap,
-            "buy_now": buy_now, "checkout_initiated": checkout, "intent": intent,
+            "buy_now": buy_now, "intent": intent,
+            "orders": int(ord_row["orders"]), "units_sold": int(ord_row["units"]),
+            "revenue_paise": int(ord_row["revenue"]),
+            # Of the people who opened it, how many bought. The one rate that
+            # answers "is this piece actually selling", as opposed to being
+            # looked at - `attention` measures interest and nothing else.
+            "buy_rate": _rate(int(ord_row["orders"]), views),
             "id": pid, "name": p.name, "shelf_rank": p.shelf_rank,
             "impressions": impressions, "views": views, "views_from_cards": from_cards,
-            "add_to_cart": bags, "enquiries": enq, "ordered": enq_ordered,
+            # Named for what they are. `enquiries` were WhatsApp *button
+            # clicks* - the site cannot know a message was ever sent - and
+            # `ordered` was the founder ticking an enquiry by hand. Sitting
+            # unlabelled beside real orders they read as verified sales.
+            "add_to_cart": bags,
+            "whatsapp_clicks": enq, "whatsapp_marked_ordered": enq_ordered,
             # ctr only from card-sourced opens; None when there is nothing to
             # compare (older events carry no source), never a number over 100%.
             "ctr": _rate(min(from_cards, impressions), impressions) if from_cards else None,
@@ -375,6 +462,28 @@ async def compute_dashboard(days: int = 30) -> dict:
             "attention": round(float(p.attention or 0.0), 2),
             "stock_left": st["left"], "lowest_variant": st["lowest"],
         })
+    # ── Acquisition: what each channel sends, and what it is worth ──────────
+    by_source: dict[str, dict] = {}
+    for src, st, pm, amt, created in (r["orders_by_source"] or []):
+        key = (src or "not recorded").lower()
+        row = by_source.setdefault(key, {"source": key, "orders": 0, "collected_paise": 0, "committed_paise": 0, "sessions": 0, "visitors": 0})
+        kind = metrics.classify(st, pm, minutes_old=(now - created).total_seconds() / 60 if created else None)
+        if kind in ("paid", "delivered"):
+            row["orders"] += 1
+            row["collected_paise"] += int(amt or 0)
+        elif kind == "cod_placed":
+            row["orders"] += 1
+            row["committed_paise"] += int(amt or 0)
+    for src, sessions, visitors in (r["sessions_by_source"] or []):
+        key = (src or "not recorded").lower()
+        row = by_source.setdefault(key, {"source": key, "orders": 0, "collected_paise": 0, "committed_paise": 0, "sessions": 0, "visitors": 0})
+        row["sessions"], row["visitors"] = int(sessions or 0), int(visitors or 0)
+    for row in by_source.values():
+        # Orders per hundred sessions. None, not zero, when a channel has sent
+        # no session yet - an unmeasured channel is not a bad one.
+        row["conversion"] = _rate(row["orders"], row["sessions"]) if row["sessions"] else None
+    acquisition = sorted(by_source.values(), key=lambda x: (-(x["collected_paise"] + x["committed_paise"]), -x["sessions"]))
+
     products_by_views = sorted(({"id": p["id"], "name": p["name"], "views": p["views"]} for p in products_attention), key=lambda p: -p["views"])
     by_size = sorted(({"size": s_ or "One size", "variants": int(v or 0), "units": int(u or 0)} for s_, v, u in (r["by_size"] or [])), key=lambda x: -x["units"])
     low_stock = [{"product": nm, "size": s_ or "", "colour": c or "", "sku": sku, "stock": int(st or 0)} for nm, s_, c, sku, st in (r["low_stock"] or [])]
@@ -382,6 +491,32 @@ async def compute_dashboard(days: int = 30) -> dict:
 
     # ── Needs attention: things she can act on, most urgent first ──
     items: list[dict] = []
+
+    # Money first. A payment that failed at the gateway is the shop's problem
+    # and is fixable; a customer who closed the sheet is not. Nothing here
+    # fires on a single order - one decline is a bank, not a fault.
+    if _pay.mismatched:
+        items.append({
+            "severity": "critical",
+            "title": f"{_pay.mismatched} {'order has' if _pay.mismatched == 1 else 'orders have'} a captured payment but are not marked paid",
+            "body": "The gateway took the money and the webhook never landed, so the order looks unpaid and will not be packed. Check the Razorpay dashboard against these orders.",
+            "href": "/admin/reconciliation",
+        })
+    if _pay.failed >= 2 and (_pay.success_rate is not None and _pay.success_rate < 70):
+        items.append({
+            "severity": "critical",
+            "title": f"{_pay.failed} prepaid payments failed at the gateway ({_pay.success_rate}% succeed)",
+            "body": "A failure at the gateway is not a change of mind - these customers tried to pay and could not. Check the failure reasons before spending anything on traffic.",
+            "href": "/admin/orders?status=FAILED_PAYMENT",
+        })
+    elif _pay.abandoned >= 3 and (_pay.abandon_rate or 0) >= 50:
+        items.append({
+            "severity": "warn",
+            "title": f"{_pay.abandoned} shoppers opened the payment sheet and left",
+            "body": "They reached the last step with the total in front of them. That is usually the total itself - shipping, the COD fee, or a delivery date that reads too far away.",
+            "href": "/admin/orders",
+        })
+
     if n("unanswered"):
         items.append({"severity": "critical", "title": f"{n('unanswered')} WhatsApp {'enquiry has' if n('unanswered') == 1 else 'enquiries have'} waited over a day for a reply", "body": "A reply within the hour is what turns an enquiry into an order.", "href": "/admin/enquiries"})
     wanted_and_low = [p for p in products_attention if p["views"] >= 10 and p["lowest_variant"] and p["lowest_variant"]["stock"] <= 2]
@@ -426,7 +561,14 @@ async def compute_dashboard(days: int = 30) -> dict:
             "opens": n("opens_week"), "opens_previous": n("opens_prev_week"),
             "bag_adds": n("bags_week"), "bag_adds_previous": n("bags_prev_week"),
             "enquiries": n("enquiries_week"), "enquiries_previous": n("enquiries_prev_week"),
-            "ordered": n("ordered_week"), "revenue_paise": n("revenue_week"),
+            # Real orders, this week, one definition (services/metrics.py).
+            "orders": _week_money.orders,
+            "revenue_paise": _week_money.collected_paise,
+            "committed_paise": _week_money.committed_paise,
+            # Self-reported: enquiries the founder ticked "ordered" by hand.
+            # Kept, named for what it is, and never added to the above.
+            "whatsapp_marked_ordered": n("ordered_week"),
+            "whatsapp_marked_revenue_paise": n("revenue_week"),
         },
         "whatsapp": {
             "enquiries_window": enquiries_window, "ordered_window": ordered_window,
@@ -436,7 +578,11 @@ async def compute_dashboard(days: int = 30) -> dict:
         "attention_items": items,
         "insight": insight,
         "commerce": {
-            "orders_all_time": orders_total, "orders_window": orders_window, "revenue_window_paise": revenue_window_checkout,
+            "orders_all_time": orders_total, "orders_window": orders_window,
+            # Kept as the collected figure so older readers of this key are
+            # not silently handed a larger, unearned number.
+            "revenue_window_paise": revenue_window_checkout,
+            **metrics.as_dict(_money, _pay),
             "by_payment_method": by_method, "by_status": by_status, "customers": customers,
             "contribution_margin": None,
             "contribution_margin_blocked_on": ["cost per garment", "shipping cost per parcel", "payment gateway fee", "RTO reserve"],
@@ -448,6 +594,13 @@ async def compute_dashboard(days: int = 30) -> dict:
             "never_viewed": [p for p in products_by_views if p["views"] == 0],
             "products": products_attention,
             "ranking": {"window_days": WINDOW_DAYS, "half_life_days": round(half_life_days(), 1), "weights": EVENT_WEIGHTS},
+        },
+        "acquisition": {
+            "by_source": acquisition,
+            # True until the storefront carrying attribution has been live
+            # long enough for the window to be all-attributed. Until then the
+            # console says so rather than showing a misleading split.
+            "partial": any(x["source"] == "not recorded" and x["orders"] > 0 for x in acquisition),
         },
         "inventory": {"units": sum(x["units"] for x in by_size), "variants": sum(x["variants"] for x in by_size),
                       "by_size": by_size, "low_stock": low_stock, "low_stock_threshold": LOW_STOCK_THRESHOLD},
@@ -476,10 +629,26 @@ async def _brief_facts() -> dict:
     prev_week_start = now - timedelta(days=14)
 
     def orders_since(since):
-        return _one(
-            select(sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
-            .where(Order.created_at >= since, Order.status != OrderStatus.CANCELLED)
+        """Real orders and money actually collected.
+
+        This counted everything but CANCELLED, so a prepaid order abandoned
+        at the payment sheet was reported to the founder as a sale. The
+        board and the brief now share one definition (services/metrics.py):
+        a COD order resting in PAYMENT_PENDING is real, a prepaid one is not,
+        and COD cash is collected only on delivery.
+        """
+        return _all(
+            select(Order.id, Order.status, Order.payment_method, Order.total_amount, Order.created_at)
+            .where(Order.created_at >= since)
         )
+
+    def _rollup(rows) -> tuple[int, int]:
+        summary = metrics.summarise([
+            {"status": st, "payment_method": pm, "total_amount": amt,
+             "minutes_old": (now - created).total_seconds() / 60 if created else None}
+            for _, st, pm, amt, created in (rows or [])
+        ])
+        return summary.orders, summary.collected_paise
 
     def sessions_between(a, b):
         return _scalar(
@@ -525,8 +694,8 @@ async def _brief_facts() -> dict:
         enq_ordered=_scalar(select(sa.func.count(WhatsAppEnquiry.id)).where(WhatsAppEnquiry.created_at >= week_start, WhatsAppEnquiry.status == EnquiryStatus.ORDERED.value)),
         enq_unanswered=_scalar(select(sa.func.count(WhatsAppEnquiry.id)).where(WhatsAppEnquiry.status == EnquiryStatus.NEW.value, WhatsAppEnquiry.created_at < now - timedelta(hours=24))),
     )
-    today = r["today"] or (0, 0)
-    week = r["week"] or (0, 0)
+    today = _rollup(r["today"])
+    week = _rollup(r["week"])
     return {
         "as_of": now.isoformat(),
         "errors": errors,

@@ -261,6 +261,14 @@ class GuestCheckoutRequest(BaseModel):
     payment_method: PaymentMethod = PaymentMethod.COD
     coupon_code: Optional[str] = Field(default=None, max_length=50)
     idempotency_key: Optional[str] = Field(default=None, max_length=100)
+    # Where she came from, as the storefront first saw it. Bounded and
+    # optional: an order from someone who blocks analytics still saves, and
+    # nothing here is trusted for anything but counting.
+    source: Optional[str] = Field(default=None, max_length=60)
+    medium: Optional[str] = Field(default=None, max_length=60)
+    campaign: Optional[str] = Field(default=None, max_length=120)
+    content: Optional[str] = Field(default=None, max_length=120)
+    referrer_domain: Optional[str] = Field(default=None, max_length=200)
 
 
 @router.post(
@@ -339,6 +347,11 @@ async def guest_checkout(
         coupon_code=body.coupon_code,
         idempotency_key=body.idempotency_key,
     )
+    # Attribution is written after the order exists so a malformed value can
+    # never stop a sale: worst case the order is simply un-sourced.
+    for field in ("source", "medium", "campaign", "content", "referrer_domain"):
+        value = (getattr(body, field, None) or "").strip().lower() or None
+        setattr(order, field, value)
     await db.commit()
 
     return {

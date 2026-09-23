@@ -168,6 +168,42 @@ width with a faked session and exits non-zero on any horizontal overflow —
 run it before calling a console change done. It lived in `scratchpad/` and
 was lost three times to a wipe; it is in the repo now.
 
+**Money has one definition, and `PAYMENT_PENDING` has two meanings.**
+`app/services/metrics.py` classifies every order by status *and* payment
+method, because a COD order rests in PAYMENT_PENDING by design while a
+RAZORPAY one resting there is a customer who never paid. Money is reported
+as **collected** (prepaid PAID, or COD actually DELIVERED - cash exists only
+once the courier hands it over) and **committed** (COD placed but not yet
+delivered). They are never added into one "revenue". Three definitions used
+to coexist: `commerce.revenue_window_paise` summed every order whatever its
+status, `week.revenue_paise` summed everything but CANCELLED, and the
+console then *added a 7-day figure to a 30-day one* and threw hand-marked
+WhatsApp enquiries on top. On a realistic set of eight orders that reported
+₹9,310 where ₹2,580 had arrived.
+
+**A WhatsApp tap is not a conversation, and a hand-tick is not an order.**
+`recordEnquiry` fires on *click*; the site cannot know a message was ever
+sent. The payload says `whatsapp_clicks` and `whatsapp_marked_ordered`
+(the founder ticking an enquiry by hand) and neither may sit unlabelled
+beside real orders or be added to them.
+
+**Buy now is not an event.** The storefront sends `add_to_cart` with
+`properties.via = "buy_now"`. A dashboard column counting an event named
+`buy_now` was always zero, and `intent = bags + buy_now` double-counted
+every buy-now shopper once the count was fixed. Per-product *orders* come
+from `order_items`, never from `checkout_initiated` - that event carries an
+`order_id` and no `product_id`, so per-product checkout was structurally
+zero too.
+
+**Where a visitor came from is captured once, and it is a first touch.**
+`frontend/src/lib/attribution.ts` reads UTM tags and the referring domain on
+the first page of a visit (one internal click and they are gone), keeps them
+in localStorage, and attaches them to every event and to the order itself
+(migration 0021). First touch wins - the post that introduced ZISUN gets the
+credit, not the direct visit a week later. Only the referrer's *domain* is
+stored, never the full URL, which can carry a search query. Orders placed
+before this shipped report "not recorded", never "direct".
+
 **The analytics board is one endpoint, computed concurrently and kept warm.**
 `compute_dashboard()` runs every panel's query at once on its own session
 (the database is a continent away; nine in a row cost ~20s, nine at once
@@ -370,6 +406,13 @@ Each of these produced a green build or a healthy-looking deploy:
   that is the argument that makes Railway fetch the branch first. The
   scratchpad's `deploy-web.sh` does. Always check the deployment's
   `meta.commitHash` matches `git rev-parse HEAD` before believing a deploy.
+- **`.astext` is JSONB-only and raises while the query is *built*.**
+  `analytics_events.properties` is plain `JSON`. `.astext` throws an
+  AttributeError at construction - not a SQL error a database would catch,
+  and invisible to any fixture-backed screenshot - taking the whole board
+  down at the first real request. Use `.op("->>")("key")`, which is valid
+  for json and jsonb alike. `product_id_matches` documents it and
+  `test_metrics.py` compiles every property lookup.
 - **A React error boundary makes a crash look like a tidy page.** The
   boundary catches the throw, so Playwright's `pageerror` never fires and
   the screenshot shows a neat "Something went wrong" panel. The console

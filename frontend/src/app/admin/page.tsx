@@ -22,7 +22,9 @@ import { Page, Card, Button, Pill, StockBadge, Swatch, Sku, TableScroll, LinkBut
 type Funnel = { key: string; label: string; count: number };
 type ProductRow = {
   id: string; name: string; shelf_rank: number | null; impressions: number; views: number; views_from_cards: number;
-  add_to_cart: number; enquiries: number; ordered: number; ctr: number | null; cart_rate: number | null; attention: number;
+  add_to_cart: number; whatsapp_clicks: number; whatsapp_marked_ordered: number;
+  ctr: number | null; cart_rate: number | null; attention: number;
+  orders?: number; units_sold?: number; revenue_paise?: number; buy_rate?: number | null;
   buy_now?: number; checkout_initiated?: number; intent?: number;
   /** The whole path for this piece, in order, so the drop-off is visible. */
   journey?: Array<{ key: string; label: string; count: number }>;
@@ -32,11 +34,19 @@ type ProductRow = {
 };
 type Dash = {
   meta: { window_days: number; checkout_enabled: boolean; launch_mode: string; events_recorded: number; errors?: string[]; generated_at?: string };
-  week: { sessions: number; sessions_previous: number; opens: number; opens_previous: number; bag_adds: number; bag_adds_previous: number; enquiries: number; enquiries_previous: number; ordered: number; revenue_paise: number };
+  week: { sessions: number; sessions_previous: number; opens: number; opens_previous: number; bag_adds: number; bag_adds_previous: number; enquiries: number; enquiries_previous: number; orders: number; revenue_paise: number; committed_paise: number; whatsapp_marked_ordered: number; whatsapp_marked_revenue_paise: number };
   whatsapp: { enquiries_window: number; ordered_window: number; revenue_window_paise: number; conversion: number | null; unanswered: number };
   attention_items: Array<{ severity: "critical" | "warn" | "info"; title: string; body: string; href: string | null }>;
   insight: string | null;
-  commerce: { orders_all_time: number; orders_window: number; revenue_window_paise: number; by_payment_method: Record<string, { orders: number; revenue: number }>; by_status: Record<string, number>; customers: number; contribution_margin: number | null; contribution_margin_blocked_on: string[] };
+  commerce: {
+    orders_all_time: number; orders_window: number; revenue_window_paise: number;
+    by_payment_method: Record<string, { orders: number; revenue: number }>; by_status: Record<string, number>;
+    customers: number; contribution_margin: number | null; contribution_margin_blocked_on: string[];
+    /** One definition of money: collected is in, committed is owed. Never added. */
+    money: { collected_paise: number; committed_paise: number; lost_paise: number; refunded_paise: number; orders: number; by_kind: Record<string, number> };
+    payment: { attempted: number; succeeded: number; failed: number; abandoned: number; in_flight: number; success_rate: number | null; abandon_rate: number | null; mismatched: number };
+  };
+  acquisition?: { by_source: Array<{ source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null }>; partial: boolean };
   attention: { sessions: number; sessions_previous?: number; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
   inventory: { units: number; variants: number; by_size: { size: string; variants: number; units: number }[]; low_stock: { product: string; size: string; colour?: string; sku: string; stock: number }[]; low_stock_threshold: number };
 };
@@ -127,7 +137,7 @@ function Brief() {
 function Journey({ p }: { p: ProductRow }) {
   const steps = p.journey ?? [];
   if (steps.length === 0) {
-    return <p className="mt-1 text-xs text-gray-500 tabular-nums">{p.impressions} shown · {p.views} opened · {p.add_to_cart} bagged · {p.enquiries} asked</p>;
+    return <p className="mt-1 text-xs text-gray-500 tabular-nums">{p.impressions} shown · {p.views} opened · {p.add_to_cart} bagged · {p.whatsapp_clicks} WhatsApp taps</p>;
   }
   const top = steps[0]?.count ?? 0;
   const anyone = steps.some((s) => s.count > 0);
@@ -178,7 +188,7 @@ export default function AdminAnalytics() {
     );
   }
 
-  const { meta, week, whatsapp, attention_items, insight, commerce, attention, inventory } = data;
+  const { meta, week, whatsapp, attention_items, insight, commerce, attention, inventory, acquisition } = data;
   const browse = !meta.checkout_enabled;
   const products = attention.products ?? [];
   const top = [...products].sort((a, b) => b.views - a.views || b.add_to_cart - a.add_to_cart).slice(0, 3);
@@ -200,9 +210,14 @@ export default function AdminAnalytics() {
         <Stat label="Visits" value={week.sessions.toLocaleString("en-IN")} note="this week" trend={<Trend now={week.sessions} before={week.sessions_previous} />} empty={week.sessions === 0} />
         <Stat label="Product opens" value={week.opens.toLocaleString("en-IN")} note="this week" trend={<Trend now={week.opens} before={week.opens_previous} />} empty={week.opens === 0} />
         <Stat label="Added to bag" value={week.bag_adds.toLocaleString("en-IN")} note="this week" trend={<Trend now={week.bag_adds} before={week.bag_adds_previous} />} empty={week.bag_adds === 0} />
-        <Stat label="WhatsApp enquiries" value={week.enquiries.toLocaleString("en-IN")} note={whatsapp.unanswered ? `${whatsapp.unanswered} waiting for a reply` : "this week"} trend={<Trend now={week.enquiries} before={week.enquiries_previous} />} empty={week.enquiries === 0} />
-        <Stat label="Orders" value={(week.ordered + (browse ? 0 : commerce.orders_window)).toLocaleString("en-IN")} note={browse ? "marked ordered on WhatsApp" : "this week"} empty={week.ordered + commerce.orders_window === 0} />
-        <Stat label="Revenue" value={rupees(week.revenue_paise + (browse ? 0 : commerce.revenue_window_paise))} note={whatsapp.conversion != null ? `${pct(whatsapp.conversion)} of enquiries ordered (${meta.window_days} days)` : "from marked orders"} empty={week.revenue_paise === 0 && commerce.revenue_window_paise === 0} />
+        {/* A click on a WhatsApp button. The site cannot see whether a
+            message was ever sent, so it must never be called a conversation. */}
+        <Stat label="WhatsApp taps" value={week.enquiries.toLocaleString("en-IN")} note={whatsapp.unanswered ? `${whatsapp.unanswered} waiting for a reply` : "opened a chat this week"} trend={<Trend now={week.enquiries} before={week.enquiries_previous} />} empty={week.enquiries === 0} />
+        {/* Orders and revenue are this week only. They used to add a 7-day
+            figure to a 30-day one - the same orders counted twice - and add
+            hand-marked WhatsApp enquiries to real orders on top. */}
+        <Stat label="Orders" value={week.orders.toLocaleString("en-IN")} note="this week" empty={week.orders === 0} />
+        <Stat label="Collected" value={rupees(week.revenue_paise)} note="money in, this week" empty={week.revenue_paise === 0} />
       </div>
 
       {/* One sentence she can act on */}
@@ -234,6 +249,65 @@ export default function AdminAnalytics() {
         )}
       </Section>
 
+      {/* Payment: the one place a shop's own fault is separable from a
+          customer's decision. Hidden entirely until someone has tried to pay,
+          because an empty payment panel is noise on a phone. */}
+      {commerce.payment.attempted > 0 && (
+        <Section title="Prepaid payments" hint={`${meta.window_days} days. COD never touches a gateway, so it cannot fail at one.`}>
+          <Card>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Stat label="Paid" value={commerce.payment.succeeded} note={commerce.payment.success_rate != null ? `${commerce.payment.success_rate}% of settled` : undefined} />
+              <Stat label="Failed" value={commerce.payment.failed} note="the gateway said no" empty={commerce.payment.failed === 0} />
+              <Stat label="Walked away" value={commerce.payment.abandoned} note="sheet opened, not paid" empty={commerce.payment.abandoned === 0} />
+              <Stat label="Still trying" value={commerce.payment.in_flight} note="opened just now" empty={commerce.payment.in_flight === 0} />
+            </div>
+            {commerce.payment.mismatched > 0 && (
+              <div className="mt-3 rounded-lg bg-red-50 border border-red-100 px-3 py-2.5">
+                <p className="text-xs font-semibold text-red-800">
+                  {commerce.payment.mismatched} {commerce.payment.mismatched === 1 ? "order has" : "orders have"} money at the gateway but are not marked paid.
+                </p>
+                <p className="text-[11px] text-red-700 mt-0.5">The webhook is the only thing that marks an order paid. If it never landed, the customer paid and nothing will be packed.</p>
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-gray-500">
+              &ldquo;Failed&rdquo; is the bank or the gateway refusing. &ldquo;Walked away&rdquo; is the sheet opened and closed. They are different problems and only the first is ours to fix.
+            </p>
+          </Card>
+        </Section>
+      )}
+
+      {/* Where they came from. Nothing recorded this before 2026-09-23, so
+          the panel says what it cannot yet see rather than implying a split. */}
+      {acquisition && acquisition.by_source.length > 0 && (
+        <Section title="Where they came from" hint={`${meta.window_days} days, credited to the first visit.`}>
+          <Card padded={false}>
+            <ul className="divide-y divide-gray-100">
+              {acquisition.by_source.slice(0, 8).map((s) => (
+                <li key={s.source} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 capitalize">{s.source}</p>
+                    <p className="text-[11px] text-gray-500 tabular-nums">
+                      {s.sessions.toLocaleString("en-IN")} {s.sessions === 1 ? "visit" : "visits"}
+                      {s.visitors > 0 && <> · {s.visitors.toLocaleString("en-IN")} {s.visitors === 1 ? "person" : "people"}</>}
+                      {s.conversion != null && <> · {pct(s.conversion)} ordered</>}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold tabular-nums text-gray-900">{s.orders}</p>
+                    <p className="text-[11px] text-gray-500 tabular-nums">{rupees(s.collected_paise + s.committed_paise)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {acquisition.partial && (
+              <p className="px-4 py-2.5 text-[11px] text-gray-500 border-t border-gray-100">
+                Orders placed before the site started recording a source show as &ldquo;not recorded&rdquo;. They are not direct visits &mdash; they are simply unknown.
+              </p>
+            )}
+          </Card>
+        </Section>
+      )}
+
       {/* What women are looking at */}
       <Section title="What women are looking at" hint={`The ${meta.window_days}-day leaders by opens.`}>
         {top.length === 0 ? <Card><p className="text-sm text-gray-500">No products yet.</p></Card> : (
@@ -244,7 +318,7 @@ export default function AdminAnalytics() {
                   <p className="font-semibold text-gray-900 leading-snug"><span className="text-gray-400 tabular-nums mr-1.5">#{i + 1}</span>{p.name}</p>
                   {p.shelf_rank != null && <Pill tone="neutral">Pinned</Pill>}
                 </div>
-                <p className="mt-2 text-sm text-gray-700 tabular-nums">{p.views} opens · {p.add_to_cart} bags · {p.enquiries} {p.enquiries === 1 ? "enquiry" : "enquiries"}{p.ordered ? ` · ${p.ordered} ordered` : ""}</p>
+                <p className="mt-2 text-sm text-gray-700 tabular-nums">{p.views} opens · {p.add_to_cart} bags · {p.whatsapp_clicks} WhatsApp {p.whatsapp_clicks === 1 ? "tap" : "taps"}{p.orders ? ` · ${p.orders} ordered` : ""}</p>
                 {p.lowest_variant && (
                   <p className={`mt-1 text-xs ${p.lowest_variant.stock <= 2 ? "text-red-700 font-medium" : "text-gray-500"}`}>
                     {p.stock_left} left{p.lowest_variant.stock <= 2 ? ` — ${p.lowest_variant.stock} in ${[p.lowest_variant.size, p.lowest_variant.colour].filter(Boolean).join(" / ") || "one size"}` : ""}
@@ -302,7 +376,7 @@ export default function AdminAnalytics() {
             <Card padded={false} className="hidden sm:block">
               <TableScroll minWidth={760}>
                 <table className="w-full">
-                  <thead className="border-b border-gray-100"><tr>{["#", "Product", "Shown", "Opened", "Bag / buy", "Checkout", "Asked", "Ordered", "Biggest drop"].map((h, i) => <th key={i} className={`${th} ${i >= 2 && i < 8 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+                  <thead className="border-b border-gray-100"><tr>{["#", "Product", "Shown", "Opened", "Bag / buy", "WhatsApp", "Ordered", "Sold", "Biggest drop"].map((h, i) => <th key={i} className={`${th} ${i >= 2 && i < 8 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((p, i) => (
                       <tr key={p.id} className="hover:bg-gray-50">
@@ -311,9 +385,9 @@ export default function AdminAnalytics() {
                         <td className={`${td} text-right tabular-nums`}>{p.impressions}</td>
                         <td className={`${td} text-right tabular-nums`}>{p.views}</td>
                         <td className={`${td} text-right tabular-nums`}>{p.intent ?? p.add_to_cart}</td>
-                        <td className={`${td} text-right tabular-nums`}>{p.checkout_initiated ?? 0}</td>
-                        <td className={`${td} text-right tabular-nums`}>{p.enquiries}</td>
-                        <td className={`${td} text-right tabular-nums`}>{p.ordered}</td>
+                        <td className={`${td} text-right tabular-nums`}>{rupees(p.revenue_paise ?? 0)}</td>
+                        <td className={`${td} text-right tabular-nums`}>{p.whatsapp_clicks}</td>
+                        <td className={`${td} text-right tabular-nums`}>{p.orders ?? 0}</td>
                         <td className={`${td} text-xs text-gray-600`}>
                           {p.gap
                             ? <>{p.gap.lost} lost at <span className="font-medium text-gray-900">{p.gap.to.toLowerCase()}</span> <span className="text-gray-400 tabular-nums">({p.gap.from_count}→{p.gap.to_count})</span></>
@@ -357,8 +431,10 @@ export default function AdminAnalytics() {
       {!browse && (
         <Section title="Checkout orders" hint="All time, by status and payment method.">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Stat label="Collected" value={rupees(commerce.money.collected_paise)} note="prepaid paid, COD delivered" empty={commerce.money.collected_paise === 0} />
+            <Stat label="Owed" value={rupees(commerce.money.committed_paise)} note="COD placed, not yet delivered" empty={commerce.money.committed_paise === 0} />
+            <Stat label="Lost at payment" value={rupees(commerce.money.lost_paise)} note="abandoned or failed" empty={commerce.money.lost_paise === 0} />
             {Object.entries(commerce.by_status).map(([s, n]) => <Stat key={s} label={s.replace(/_/g, " ")} value={n} />)}
-            {Object.entries(commerce.by_payment_method).map(([m, v]) => <Stat key={m} label={m} value={rupees(v.revenue)} note={`${v.orders} orders`} />)}
           </div>
         </Section>
       )}

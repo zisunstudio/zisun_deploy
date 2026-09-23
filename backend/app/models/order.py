@@ -62,6 +62,14 @@ class Order(BaseModel):
     address_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("addresses.id"), nullable=False)
     razorpay_order_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
     idempotency_key: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
+
+    # Where this order came from, captured as a first touch by the storefront
+    # (lib/attribution.ts) and kept beside the money. Null = not stated.
+    source: Mapped[Optional[str]] = mapped_column(String(60), index=True)
+    medium: Mapped[Optional[str]] = mapped_column(String(60))
+    campaign: Mapped[Optional[str]] = mapped_column(String(120))
+    content: Mapped[Optional[str]] = mapped_column(String(120))
+    referrer_domain: Mapped[Optional[str]] = mapped_column(String(200))
     region: Mapped[Optional[str]] = mapped_column(String(100))
     payment_method: Mapped[PaymentMethod] = mapped_column(
         Enum(PaymentMethod, name="paymentmethod"),
