@@ -336,6 +336,8 @@ class LegalMetrologyFields(BaseModel):
         return v
     dimensions: Optional[str] = Field(None, max_length=255)
     country_of_origin: Optional[str] = Field(None, max_length=120)
+    # HSN for the tax invoice. Blank = the apparel default in services/gst.py.
+    hsn_code: Optional[str] = Field(None, max_length=12)
     manufacturer_name: Optional[str] = Field(None, max_length=255)
     manufacturer_address: Optional[str] = None
 
@@ -679,6 +681,7 @@ class AdminProductDetail(ProductResponse):
     # build if a writable column is left out of this class.
     compare_at_price: Optional[int] = None
     offer_ends_at: Optional[datetime] = None
+    hsn_code: Optional[str] = None
 
 
 class ProductListResponse(BaseModel):

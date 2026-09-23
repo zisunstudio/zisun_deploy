@@ -242,6 +242,11 @@ async def verify_payment(
 
     # Transition order to PAID
     OrderStateMachine.transition(order, OrderStatus.PAID)
+    # The order is real now, so it earns its serial. Taken here rather than at
+    # creation so an abandoned checkout never burns a number.
+    from app.services.invoicing import issue_if_due  # noqa: PLC0415
+
+    await issue_if_due(db, order)
 
     # Enqueue outbox event for WhatsApp notification
     outbox_event = OutboxEvent(

@@ -29,6 +29,8 @@ export interface ProductFormData {
   net_quantity: string;
   commodity_name: string;
   country_of_origin: string;
+  /** HSN for the tax invoice. Blank = the apparel default. */
+  hsn_code: string;
   manufacturer_name: string;
   manufacturer_address: string;
   /**
@@ -108,7 +110,7 @@ interface Props {
 export function emptyProductForm(): ProductFormData {
   return {
     name: "", description: "", base_price_rupees: "", category_id: "", is_active: true,
-    dimensions: "", net_quantity: "", commodity_name: "", country_of_origin: "",
+    dimensions: "", net_quantity: "", commodity_name: "", country_of_origin: "", hsn_code: "",
     manufacturer_name: "", manufacturer_address: "",
     fabric_composition: "", fabric_gsm: "", weave: "",
     has_pockets: "", colourfastness: "", wash_care: "",
@@ -786,6 +788,20 @@ export default function ProductForm({ data, onChange, categories, compact = fals
                     value={data.country_of_origin}
                     onChange={f("country_of_origin")}
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    HSN code
+                  </label>
+                  <input
+                    className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
+                    placeholder="6204"
+                    value={data.hsn_code}
+                    onChange={f("hsn_code")}
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Printed on the tax invoice. Leave blank for the ready-made garment default (6204) &mdash; confirm the right code with your accountant.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

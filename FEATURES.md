@@ -38,6 +38,9 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Tap-to-set crop point per photograph | `frontend/src/components/admin/MediaUploader.tsx`, `backend/alembic/versions/0022_media_focus.py` | Live |
 | Customer order tracking: courier journey, checkpoints, no sign-in | `frontend/src/app/order/[id]/OrderTracking.tsx`, `backend/app/services/shiprocket.py` | Live |
 | COD fee read from the API, never a hard-coded constant | `backend/app/api/endpoints/checkout.py`, `frontend/src/lib/queries/policy.ts` | Live |
+| GST computed out of the inclusive price, per piece, split by place of supply | `backend/app/services/gst.py` | Live |
+| Tax invoice: consecutive serial per financial year, snapshotted on the order | `backend/app/services/invoicing.py`, `backend/alembic/versions/0023_gst.py` | Live |
+| Customer-visible tax breakdown on the order page | `frontend/src/app/order/[id]/OrderTracking.tsx` | Live |
 | Photographs downscaled in the browser before upload (2400px master) | `frontend/src/lib/downscale.ts` | Live |
 | Dependency round-trip timings on /health | `backend/app/api/endpoints/health.py` | Live |
 | Per-product journey: shown → opened → bag/buy → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |

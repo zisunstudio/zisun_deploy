@@ -157,6 +157,8 @@ class Product(BaseModel):
     # computed from these (services/truth.py): nothing is claimed that the
     # pieces do not record. Null means "not stated" and produces no claim.
     craft: Mapped[Optional[str]] = mapped_column(String(120))
+    # HSN for the tax invoice. NULL = the apparel default in services/gst.py.
+    hsn_code: Mapped[Optional[str]] = mapped_column(String(12))
     origin: Mapped[Optional[str]] = mapped_column(String(120))
     lining: Mapped[Optional[str]] = mapped_column(String(60))
     transparency: Mapped[Optional[str]] = mapped_column(String(40))

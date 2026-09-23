@@ -28,6 +28,7 @@ export default function EditProductPage() {
     net_quantity: "",
     commodity_name: "",
     country_of_origin: "",
+    hsn_code: "",
     manufacturer_name: "",
     manufacturer_address: "",
      fabric_composition: "",
@@ -99,6 +100,7 @@ export default function EditProductPage() {
       net_quantity: product.net_quantity ?? "",
       commodity_name: product.commodity_name ?? "",
       country_of_origin: product.country_of_origin ?? "",
+      hsn_code: product.hsn_code ?? "",
       manufacturer_name: product.manufacturer_name ?? "",
       manufacturer_address: product.manufacturer_address ?? "",
       // Numbers and booleans become strings here: an empty input has to mean
@@ -170,6 +172,7 @@ export default function EditProductPage() {
         net_quantity: form.net_quantity.trim(),
         commodity_name: form.commodity_name.trim(),
         country_of_origin: form.country_of_origin.trim(),
+        hsn_code: form.hsn_code.trim(),
         manufacturer_name: form.manufacturer_name.trim(),
         manufacturer_address: form.manufacturer_address.trim(),
         fabric_composition: form.fabric_composition.trim(),

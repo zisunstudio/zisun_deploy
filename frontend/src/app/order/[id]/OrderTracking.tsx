@@ -6,6 +6,7 @@ import { Check, Package, Truck, Home, RotateCcw, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { LegalFooter } from "@/components/LegalFooter";
 import { formatPrice } from "@/lib/queries/catalog";
+import { COMPANY } from "@/lib/legal";
 
 /**
  * Where is my order.
@@ -40,6 +41,18 @@ interface Tracking {
   checkpoints: Array<{ at: string | null; status: string | null; location: string | null }>;
   track_url: string | null;
   live_unavailable: boolean;
+  /** Null for orders placed before the breakdown existed - "not recorded". */
+  invoice: {
+    number: string | null;
+    issued_at: string | null;
+    place_of_supply: string | null;
+    taxable_paise: number | null;
+    cgst_paise: number | null;
+    sgst_paise: number | null;
+    igst_paise: number | null;
+    total_paise: number | null;
+    lines: Array<{ description: string; hsn: string; quantity: number; rate_pct: number; inclusive_paise: number }>;
+  } | null;
 }
 
 /** The path a parcel takes, in the words a customer would use. */
@@ -56,6 +69,15 @@ const ORDER_OF: Record<string, number> = {
   placed: 0, confirmed: 1, packed: 2, picked_up: 3, in_transit: 3,
   attempted: 4, out_for_delivery: 4, delivered: 5,
 };
+
+function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="text-muted">{label}</dt>
+      <dd className={`tabular-nums ${strong ? "font-semibold text-ink" : "text-ink"}`}>{value}</dd>
+    </div>
+  );
+}
 
 const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
@@ -182,6 +204,54 @@ export function OrderTracking({ orderId }: { orderId: string }) {
               </li>
             ))}
           </ul>
+        </details>
+      )}
+
+      {/* The tax invoice. ZISUN is GST-registered, so this is not a nicety:
+          the customer is entitled to see what tax she paid, and it is inside
+          the price rather than added to it. Folded away because most people
+          never open it, and present because some must. */}
+      {data.invoice && data.invoice.taxable_paise != null && (
+        <details className="mt-8 rounded-card border border-ink/10 bg-white px-4 py-3.5">
+          <summary className="cursor-pointer list-none text-[14px] text-ink [&::-webkit-details-marker]:hidden">
+            Tax invoice
+            {data.invoice.number && <span className="ml-2 text-[12px] text-muted tabular-nums">{data.invoice.number}</span>}
+          </summary>
+
+          <table className="mt-4 w-full text-[12px]">
+            <thead>
+              <tr className="text-left text-muted">
+                <th className="font-normal pb-1">Item</th>
+                <th className="font-normal pb-1">HSN</th>
+                <th className="font-normal pb-1 text-right">GST</th>
+                <th className="font-normal pb-1 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="align-top">
+              {data.invoice.lines.map((l, i) => (
+                <tr key={i} className="border-t border-ink/[0.06]">
+                  <td className="py-1.5 pr-2 text-ink">{l.description}{l.quantity > 1 ? ` × ${l.quantity}` : ""}</td>
+                  <td className="py-1.5 pr-2 text-muted tabular-nums">{l.hsn}</td>
+                  <td className="py-1.5 text-right text-muted tabular-nums">{l.rate_pct}%</td>
+                  <td className="py-1.5 text-right text-ink tabular-nums">{formatPrice(l.inclusive_paise)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <dl className="mt-3 space-y-1 border-t border-ink/[0.06] pt-3 text-[12px]">
+            <Row label="Taxable value" value={formatPrice(data.invoice.taxable_paise)} />
+            {!!data.invoice.cgst_paise && <Row label="CGST" value={formatPrice(data.invoice.cgst_paise)} />}
+            {!!data.invoice.sgst_paise && <Row label="SGST" value={formatPrice(data.invoice.sgst_paise)} />}
+            {!!data.invoice.igst_paise && <Row label="IGST" value={formatPrice(data.invoice.igst_paise)} />}
+            <Row label="Total paid" value={formatPrice(data.invoice.total_paise ?? 0)} strong />
+          </dl>
+
+          <p className="mt-3 text-[11px] text-muted leading-relaxed">
+            Prices include GST; it is inside the amount you paid, not added to it.
+            {data.invoice.place_of_supply && <> Place of supply: {data.invoice.place_of_supply}.</>}
+            {" "}GSTIN {COMPANY.gstin}.
+          </p>
         </details>
       )}
 

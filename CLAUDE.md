@@ -298,6 +298,24 @@ console form. It happened a second time with `compare_at_price` and
 `tests/unit/test_admin_readback.py` now reads the model and the schemas and
 fails the build when a writable column is missing from the read-back.
 
+**GST is extracted from the price, not added to it, and snapshotted.**
+ZISUN is registered (GSTIN 29BAYPT2026A1ZH - "29" is Karnataka), so every
+sale needs a tax invoice. `app/services/gst.py` works the tax out *of* the
+tax-inclusive price, in integer paise, taxable first and tax as the
+remainder, so the parts always add back to what was actually charged. Two
+things decide the numbers: the garment rate is **per piece** (5% at or below
+₹1,000, 12% above - a ₹999 and a ₹1,039 kurta in one parcel differ), and the
+split follows the place of supply (Karnataka → CGST+SGST, elsewhere → IGST;
+an unknown state is treated as inter-state, because wrongly charging
+CGST+SGST on an out-of-state supply is the error the customer cannot fix in
+her own filing). The breakdown is written onto the order and **never
+recomputed** - rates move by notification and an old invoice must keep its
+own numbers. The invoice *number* is taken when the order becomes real
+(prepaid PAID, or COD confirmed), never at creation, so an abandoned
+checkout does not burn a serial in a series meant to be consecutive.
+The rate table and the HSN default are data, not logic; a CA changes them
+in one edit.
+
 **Net quantity is derived, never typed.** `set_pieces` (["Kurta",
 "Palazzo"]) produces the Legal Metrology declaration "1 set - 2 pieces".
 A bare number in that box is rejected at the schema: it once read "5" on a

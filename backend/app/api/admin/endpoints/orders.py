@@ -274,6 +274,12 @@ async def admin_confirm_cod(
     if not body.confirmed:
         await _release_locks_for_order(db, order_id)
         OrderStateMachine.transition(order, OrderStatus.CANCELLED)
+    else:
+        # A confirmed cash order is a real sale, so it takes its serial here -
+        # the prepaid equivalent of reaching PAID.
+        from app.services.invoicing import issue_if_due  # noqa: PLC0415
+
+        await issue_if_due(db, order)
 
     await db.commit()
     await db.refresh(order)

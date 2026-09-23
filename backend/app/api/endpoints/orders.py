@@ -238,6 +238,11 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict) -> dict:
 
     # Transition to PAID
     OrderStateMachine.transition(order, OrderStatus.PAID)
+    # The order is real now, so it earns its serial. Taken here rather than at
+    # creation so an abandoned checkout never burns a number.
+    from app.services.invoicing import issue_if_due  # noqa: PLC0415
+
+    await issue_if_due(db, order)
 
     payment = Payment(
         order_id=order.id,
@@ -409,6 +414,20 @@ async def public_order_tracking(
         "delivered_at": (live or {}).get("delivered_at"),
         "checkpoints": (live or {}).get("checkpoints") or [],
         "track_url": (live or {}).get("track_url"),
+        # The tax invoice, as snapshotted when the order was placed. `null`
+        # for orders from before this existed - which must read as "not
+        # recorded", never as "no tax was charged".
+        "invoice": {
+            "number": order.invoice_number,
+            "issued_at": order.invoiced_at.isoformat() if order.invoiced_at else None,
+            "place_of_supply": order.place_of_supply,
+            "taxable_paise": order.taxable_amount,
+            "cgst_paise": order.cgst_amount,
+            "sgst_paise": order.sgst_amount,
+            "igst_paise": order.igst_amount,
+            "total_paise": order.total_amount,
+            "lines": (order.tax_breakdown or {}).get("lines") or [],
+        } if order.taxable_amount is not None else None,
         # True when the courier could not be reached, so the page can say so
         # instead of implying the parcel has not moved.
         "live_unavailable": bool(awb) and live is None,

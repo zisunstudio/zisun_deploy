@@ -372,6 +372,33 @@ class CheckoutService:
 
         # Payment gateway
         razorpay_order_id: Optional[str] = None
+        # The tax breakdown, worked out once and written onto the order.
+        # Rates move by notification, so an invoice must keep its own numbers
+        # rather than be recomputed later against a different slab.
+        try:
+            from app.models.order import Address  # noqa: PLC0415
+            from app.services.invoicing import snapshot_tax  # noqa: PLC0415
+
+            addr = (await self.db.execute(
+                select(Address).where(Address.id == address_id)
+            )).scalar_one_or_none()
+            snapshot_tax(
+                order,
+                [
+                    {
+                        "description": (v.product.name if v.product else "Garment"),
+                        "quantity": ci.quantity,
+                        "unit_price_paise": price,
+                        "hsn": getattr(v.product, "hsn_code", None),
+                    }
+                    for ci, v, price in item_snapshots
+                ],
+                state=getattr(addr, "state", None),
+            )
+        except Exception:  # noqa: BLE001
+            # Never let tax arithmetic fail a sale; the order is still right.
+            logger.exception("GST snapshot skipped for order %s", order.id)
+
         if payment_method == PaymentMethod.RAZORPAY:
             from app.core.config import settings  # deferred: avoids circular import
 

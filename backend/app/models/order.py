@@ -70,6 +70,20 @@ class Order(BaseModel):
     campaign: Mapped[Optional[str]] = mapped_column(String(120))
     content: Mapped[Optional[str]] = mapped_column(String(120))
     referrer_domain: Mapped[Optional[str]] = mapped_column(String(200))
+
+    # ── Tax invoice ───────────────────────────────────────────────────────────
+    # Snapshotted at order time, never recomputed: rates change by
+    # notification and an old invoice must still print its own numbers.
+    # The number itself is assigned when the order becomes real, so an
+    # abandoned checkout does not burn a serial.
+    invoice_number: Mapped[Optional[str]] = mapped_column(String(32), unique=True)
+    invoiced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    place_of_supply: Mapped[Optional[str]] = mapped_column(String(2))
+    taxable_amount: Mapped[Optional[int]] = mapped_column(Integer)
+    cgst_amount: Mapped[Optional[int]] = mapped_column(Integer)
+    sgst_amount: Mapped[Optional[int]] = mapped_column(Integer)
+    igst_amount: Mapped[Optional[int]] = mapped_column(Integer)
+    tax_breakdown: Mapped[Optional[dict]] = mapped_column(JSON)
     region: Mapped[Optional[str]] = mapped_column(String(100))
     payment_method: Mapped[PaymentMethod] = mapped_column(
         Enum(PaymentMethod, name="paymentmethod"),
