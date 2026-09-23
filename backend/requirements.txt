@@ -32,11 +32,16 @@ boto3==1.34.84
 
 # Payments
 # razorpay 1.4.1 imports pkg_resources, which Python 3.12 no longer ships and
-# python:3.12-slim does not install. Without setuptools the client fails to
-# construct, initiate_checkout refuses every prepaid order (correctly - it
+# python:3.12-slim does not install. Without it the client cannot be
+# constructed, initiate_checkout refuses every prepaid order (correctly - it
 # fails closed) and the only trace is one warning line in the container log.
 # Two real orders were lost this way before anyone looked.
-setuptools>=70
+#
+# The upper pin is the whole point: pkg_resources was REMOVED in setuptools
+# 81. An unpinned `setuptools>=70` installed 84.0.0 and the import failed
+# exactly as before, so the version floor must have a ceiling to mean
+# anything. /health reports `razorpay` so this cannot go unnoticed again.
+setuptools>=70,<81
 razorpay==1.4.1
 
 # Task queue
