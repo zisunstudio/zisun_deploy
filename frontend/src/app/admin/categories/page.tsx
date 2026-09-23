@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Tag } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
+import { imageUrlProblem } from "@/lib/mediaHost";
 
 interface Category {
   id: string;
@@ -193,6 +194,12 @@ export default function AdminCategoriesPage() {
                   value={form.image_url}
                   onChange={(e) => setForm({ ...form, image_url: e.target.value })}
                 />
+                {/* A URL from any other host returns 400 from the image
+                    optimizer and the picture is simply absent - no broken
+                    icon, no error. Said here rather than discovered later. */}
+                {imageUrlProblem(form.image_url) && (
+                  <p className="mt-1 text-xs text-amber-700">{imageUrlProblem(form.image_url)}</p>
+                )}
               </div>
             </div>
 
