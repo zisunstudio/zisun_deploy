@@ -127,6 +127,13 @@ class OrderItem(BaseModel):
     unit_price: Mapped[int] = mapped_column(Integer, nullable=False)  # Snapshot price in paise
 
     order: Mapped["Order"] = relationship("Order", back_populates="items")
+    # Read-only, for the admin order view: the console needs the garment's
+    # name, size and colour to pack a parcel, and a line stored only a
+    # variant id. `viewonly` because an order line is a price-and-quantity
+    # snapshot - editing the catalogue through it would rewrite history.
+    variant: Mapped["ProductVariant"] = relationship(
+        "ProductVariant", viewonly=True, lazy="raise"
+    )
 
 
 class Payment(BaseModel):

@@ -115,3 +115,52 @@ class OrderResponse(BaseModel):
 
 class OrderStatusUpdateRequest(BaseModel):
     status: OrderStatus
+
+
+# ── What packing an order actually needs ─────────────────────────────────────
+
+
+class AdminOrderItemDetail(BaseModel):
+    """A line, in the words on the parcel.
+
+    `OrderItemResponse` carried a product_variant_id and nothing else, so the
+    console could show that an order existed but not what was in it. Nobody
+    can pack from a UUID.
+    """
+    quantity: int
+    unit_price: int
+    product_id: Optional[uuid.UUID] = None
+    product_name: Optional[str] = None
+    sku: Optional[str] = None
+    size: Optional[str] = None
+    colour: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class AdminAddressDetail(BaseModel):
+    line1: str
+    line2: Optional[str] = None
+    city: str
+    state: str
+    pincode: str
+
+    class Config:
+        from_attributes = True
+
+
+class AdminOrderDetail(OrderResponse):
+    """Everything needed to pack and send one parcel, in one response.
+
+    The list view can say an order exists; this is what says who it goes to
+    and what goes in it. Deliberately a separate, authenticated endpoint -
+    name, phone and address are the most sensitive rows in the database and
+    do not belong in a list that is fetched fifty at a time.
+    """
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_email: Optional[str] = None
+    address: Optional[AdminAddressDetail] = None
+    detailed_items: List[AdminOrderItemDetail] = []
+    invoice_number: Optional[str] = None
+    awb_number: Optional[str] = None
+    carrier: Optional[str] = None

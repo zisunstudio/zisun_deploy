@@ -54,6 +54,18 @@ const FIXTURES = [
       { id: "v4", sku: "ZS-WIN-L", stock: 1, size: "L", color: "Wine", price_delta: 0, is_active: true },
     ],
   }]],
+  [/\/orders\/[0-9a-f-]{8,}$/, {
+    id: "o1", status: "PAID", total_amount: 112400, created_at: "2026-09-23T10:00:00Z",
+    payment_method: "RAZORPAY", shipping_amount: 0, cod_amount_due: null, items: [{}],
+    customer_name: "Test Shopper", customer_phone: "+919876543210", customer_email: null,
+    address: { line1: "12 MG Road", line2: "Near the park", city: "Bengaluru", state: "Karnataka", pincode: "560001" },
+    detailed_items: [{ quantity: 1, unit_price: 112400, product_name: "Rich Wine Dabu Cotton Bandhani-Inspired Kurta Set", sku: "ZS-WIN-M", size: "M", colour: "Wine", image_url: null }],
+    invoice_number: "ZS/25-26/0001", awb_number: null, carrier: null,
+  }],
+  [/\/orders\/?(\?|$)/, [
+    { id: "11111111-1111-1111-1111-111111111111", status: "PAID", total_amount: 112400, created_at: "2026-09-23T10:00:00Z", items: [{}], payment_method: "RAZORPAY", cod_confirmation: null },
+    { id: "22222222-2222-2222-2222-222222222222", status: "PAYMENT_PENDING", total_amount: 122300, created_at: "2026-09-23T09:00:00Z", items: [{}], payment_method: "COD", cod_confirmation: "PENDING" },
+  ]],
   [/\/dashboard\/brief/, {
     brief: { headline: "Two pieces live, no orders yet.", bullets: ["40 people saw a piece; 12 opened one."], critical: [], source: "rules" },
     facts: { as_of: "2026-09-22T18:30:00Z", system: { ai_note: null } },

@@ -1,9 +1,28 @@
 "use client";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
 import { formatPrice } from "@/lib/queries/catalog";
 import { Page, Card, Button, TableScroll, EmptyState, Input, Select, th, td } from "@/components/admin/ui";
+import { OrderDetail } from "./OrderDetail";
+
+type OrderDetail = {
+  id: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+  address: { line1: string; line2: string | null; city: string; state: string; pincode: string } | null;
+  detailed_items: Array<{
+    quantity: number; unit_price: number; product_name: string | null;
+    sku: string | null; size: string | null; colour: string | null; image_url: string | null;
+  }>;
+  invoice_number: string | null;
+  awb_number: string | null;
+  carrier: string | null;
+  shipping_amount?: number;
+  cod_amount_due?: number | null;
+  payment_method?: string | null;
+};
 
 type Order = {
   id: string; status: string; total_amount: number; created_at: string; items: any[];
@@ -40,6 +59,9 @@ export default function AdminOrdersPage() {
   });
 
   const [busy, setBusy] = useState<string | null>(null);
+  // Which order is open. Details are fetched only when one is, because name,
+  // phone and address should not be pulled fifty at a time to draw a list.
+  const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function run(orderId: string, fn: () => Promise<unknown>) {
@@ -132,7 +154,17 @@ export default function AdminOrdersPage() {
                       <div className="mt-1 flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /></div>
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2"><Actions order={order} /></div>
+                  <div className="mt-3 flex flex-wrap gap-2 items-center">
+                    <Actions order={order} />
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(openId === order.id ? null : order.id)}
+                      className="ml-auto text-xs text-ink underline underline-offset-2"
+                    >
+                      {openId === order.id ? "Hide details" : "What to pack"}
+                    </button>
+                  </div>
+                  {openId === order.id && <OrderDetail orderId={order.id} />}
                 </Card>
               </li>
             ))}
@@ -143,14 +175,23 @@ export default function AdminOrdersPage() {
                 <thead className="border-b border-gray-100"><tr>{["Order", "Date", "Items", "Amount", "Status", ""].map((h, i) => <th key={i} className={th}>{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-gray-100">
                   {rows.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50">
-                      <td className={`${td} font-mono text-xs text-gray-700`}>{order.id.slice(0, 8).toUpperCase()}</td>
+                    <Fragment key={order.id}>
+                    <tr className="hover:bg-gray-50">
+                      <td className={`${td} font-mono text-xs text-gray-700`}>
+                        <button type="button" onClick={() => setOpenId(openId === order.id ? null : order.id)} className="underline underline-offset-2">
+                          {order.id.slice(0, 8).toUpperCase()}
+                        </button>
+                      </td>
                       <td className={`${td} text-gray-600`}>{when(order.created_at)}</td>
                       <td className={`${td} text-gray-600`}>{order.items.length}</td>
                       <td className={`${td} font-semibold tabular-nums`}>{formatPrice(order.total_amount)}</td>
                       <td className={td}><div className="flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /></div></td>
                       <td className={`${td} text-right whitespace-nowrap`}><div className="inline-flex gap-1.5"><Actions order={order} /></div></td>
                     </tr>
+                    {openId === order.id && (
+                      <tr><td colSpan={6} className="px-4 pb-4 bg-gray-50/60"><OrderDetail orderId={order.id} /></td></tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

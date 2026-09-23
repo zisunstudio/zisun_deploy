@@ -101,6 +101,18 @@ only ever moves an order towards PAID and never cancels. A rejected webhook
 is counted in Redis and named on the dashboard, because one WARNING line in
 a container log is how this went unnoticed.
 
+**An order she cannot pack from is not an order.** The list showed id,
+date, amount and status; `OrderItemResponse` carried a `product_variant_id`
+and nothing else, and the detail endpoint eager-loaded the address and the
+customer while its schema exposed neither. So the console could say an order
+existed and not what was in it or where it went. `AdminOrderDetail` and
+`OrderDetail.tsx` give the garment, size, colour, SKU, the full address, the
+phone as a call and a WhatsApp link, and one tap to copy the address block
+into a courier form. Fetched only when a row is opened - name, phone and
+address have no business being pulled fifty at a time to draw a list.
+`OrderItem.variant` is `viewonly`: an order line is a price-and-quantity
+snapshot and editing the catalogue through it would rewrite history.
+
 **An unconfirmed COD order must not reach PACKED.** `may_dispatch()` gates the
 admin status endpoint with a 409. Asking the customer and shipping anyway
 saves nothing.

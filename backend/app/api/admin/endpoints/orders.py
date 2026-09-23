@@ -11,9 +11,10 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_async_db
 from app.core.config import settings
 from app.core.security import require_role
-from app.models.order import Order, OrderStatus, Payment, PaymentMethod, PaymentStatus, OutboxEvent
+from app.models.catalog import Product, ProductVariant
+from app.models.order import Order, OrderItem, OrderStatus, Payment, PaymentMethod, PaymentStatus, OutboxEvent
 from app.models.user import User
-from app.schemas.order import OrderResponse
+from app.schemas.order import AdminAddressDetail, AdminOrderDetail, AdminOrderItemDetail, OrderResponse
 from app.services.order_state_machine import OrderStateMachine
 from app.services.cod_confirmation import apply_reply, may_dispatch
 from app.tasks.commerce import _release_locks_for_order
@@ -63,15 +64,26 @@ async def admin_list_orders(
     return list(result.scalars().all())
 
 
-@router.get("/{order_id}", response_model=OrderResponse)
+@router.get("/{order_id}", response_model=AdminOrderDetail)
 async def admin_get_order(
     order_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_db),
 ):
+    """Everything needed to pack and send this parcel.
+
+    The endpoint already loaded the address and the customer; the response
+    schema simply never exposed them, and a line carried a variant id rather
+    than a garment. So the console could show that an order existed and not
+    what was in it or where it was going - which is no use to the one person
+    who has to put it in a bag.
+    """
     stmt = (
         select(Order)
         .options(
-            selectinload(Order.items),
+            selectinload(Order.items)
+            .selectinload(OrderItem.variant)
+            .selectinload(ProductVariant.product)
+            .selectinload(Product.media),
             selectinload(Order.payment),
             selectinload(Order.fulfillment),
             selectinload(Order.address),
@@ -83,7 +95,38 @@ async def admin_get_order(
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
-    return order
+
+    out = AdminOrderDetail.model_validate(order)
+    user = order.user
+    out.customer_name = getattr(user, "name", None)
+    out.customer_phone = getattr(user, "phone", None)
+    out.customer_email = getattr(user, "email", None)
+    if order.address:
+        out.address = AdminAddressDetail.model_validate(order.address)
+    if order.fulfillment:
+        out.awb_number = order.fulfillment.awb_number
+        out.carrier = order.fulfillment.carrier
+
+    lines = []
+    for item in order.items or []:
+        variant = getattr(item, "variant", None)
+        product = getattr(variant, "product", None) if variant else None
+        media = sorted(
+            (m for m in (getattr(product, "media", None) or []) if getattr(m, "type", None) and str(m.type).endswith("IMAGE")),
+            key=lambda m: getattr(m, "display_order", 0) or 0,
+        )
+        lines.append(AdminOrderItemDetail(
+            quantity=item.quantity,
+            unit_price=item.unit_price,
+            product_id=getattr(product, "id", None),
+            product_name=getattr(product, "name", None),
+            sku=getattr(variant, "sku", None),
+            size=getattr(variant, "size", None),
+            colour=getattr(variant, "color", None),
+            image_url=(media[0].cdn_url or media[0].url) if media else None,
+        ))
+    out.detailed_items = lines
+    return out
 
 
 @router.post("/{order_id}/status", response_model=OrderResponse)
