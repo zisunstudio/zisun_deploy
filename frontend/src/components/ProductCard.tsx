@@ -3,7 +3,7 @@
 import { navigate } from "@/lib/viewTransition";
 import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Product, formatPrice, productImageUrl } from "@/lib/queries/catalog";
+import { Product, formatPrice, productImageUrl, productImageFocus } from "@/lib/queries/catalog";
 import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from "@/lib/queries/wishlist";
 import { useAuthStore } from "@/store/useAuthStore";
 import { BROWSE_ONLY } from "@/lib/launchMode";
@@ -66,6 +66,7 @@ export function ProductCard({ product, className = "", markNew = true }: Props) 
         src={imageUrl}
         alt={product.name}
         sizes="(max-width: 768px) 50vw, 33vw"
+        focus={productImageFocus(product)}
         hover
       >
         <RepresentativeImage className="absolute bottom-1.5 left-1.5 text-[8px] px-1.5 py-[2px] z-10" />

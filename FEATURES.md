@@ -35,6 +35,9 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Markdown rendered without any raw-HTML path | `frontend/src/lib/markdown.tsx` | Live |
 | Image optimization: sharp, AVIF/WebP, year-long cache (48.8MB → 265KB per page) | `frontend/next.config.js` | Live |
 | One presentation system for every photograph: own-colour load-in, focal point, fixed ratio, hairline | `frontend/src/components/Photo.tsx` | Live |
+| Tap-to-set crop point per photograph | `frontend/src/components/admin/MediaUploader.tsx`, `backend/alembic/versions/0022_media_focus.py` | Live |
+| Customer order tracking: courier journey, checkpoints, no sign-in | `frontend/src/app/order/[id]/OrderTracking.tsx`, `backend/app/services/shiprocket.py` | Live |
+| COD fee read from the API, never a hard-coded constant | `backend/app/api/endpoints/checkout.py`, `frontend/src/lib/queries/policy.ts` | Live |
 | Photographs downscaled in the browser before upload (2400px master) | `frontend/src/lib/downscale.ts` | Live |
 | Dependency round-trip timings on /health | `backend/app/api/endpoints/health.py` | Live |
 | Per-product journey: shown → opened → bag/buy → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |

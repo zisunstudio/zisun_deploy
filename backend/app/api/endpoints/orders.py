@@ -25,6 +25,7 @@ from app.models.order import (
 from app.models.catalog import ProductVariant
 from app.schemas.order import OrderResponse
 from app.services.order_state_machine import OrderStateMachine
+from app.services.shiprocket import track_awb
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -337,3 +338,78 @@ async def _handle_payment_failed(db: AsyncSession, payload: dict) -> dict:
     await db.commit()
     logger.info("Order %s marked FAILED_PAYMENT (payment: %s)", order.id, razorpay_payment_id)
     return {"status": "ok"}
+
+
+# ── GET /{order_id}/tracking — where is my order ─────────────────────────────
+
+
+@router.get("/{order_id}/tracking", tags=["Orders"])
+async def public_order_tracking(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Where this parcel is, for the person who bought it.
+
+    Public by order id and nothing else. A v4 UUID is not guessable, and the
+    alternative - making her sign in - would mean a guest who bought in one
+    tap cannot find out where her parcel is, which is the whole point.
+
+    It answers with what is known and never invents a step: before an AWB
+    exists the honest answer is "being packed", and when the courier API is
+    unreachable the answer is still the AWB and the step the order itself
+    knows. **No personal detail is returned** - no name, phone or address -
+    so the id leaking costs nothing more than the status of one parcel.
+    """
+    order = (await db.execute(
+        select(Order).options(selectinload(Order.fulfillment), selectinload(Order.items))
+        .where(Order.id == order_id)
+    )).scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "No such order")
+
+    f = order.fulfillment
+    awb = f.awb_number if f else None
+
+    # The order's own status is the floor: it is true even when the courier
+    # has never heard of the parcel.
+    own_step = {
+        OrderStatus.PAYMENT_PENDING: "placed",
+        OrderStatus.CREATED: "placed",
+        OrderStatus.PAID: "confirmed",
+        OrderStatus.PACKED: "packed",
+        OrderStatus.SHIPPED: "in_transit",
+        OrderStatus.DELIVERED: "delivered",
+        OrderStatus.CANCELLED: "cancelled",
+        OrderStatus.RETURNED: "returning",
+        OrderStatus.FAILED_PAYMENT: "placed",
+    }.get(order.status, "placed")
+
+    live = None
+    if awb:
+        try:
+            from app.core.redis import get_redis_client  # noqa: PLC0415
+
+            redis = await get_redis_client()
+        except Exception:  # noqa: BLE001
+            redis = None
+        live = await track_awb(awb, redis=redis)
+
+    return {
+        "order_id": str(order.id),
+        "placed_at": order.created_at.isoformat() if order.created_at else None,
+        "status": order.status.value,
+        "payment_method": order.payment_method.value if order.payment_method else None,
+        "cod_amount_due": order.cod_amount_due,
+        "items": sum(int(i.quantity or 0) for i in (order.items or [])),
+        "step": (live or {}).get("step") or own_step,
+        "awb": awb,
+        "courier": (live or {}).get("courier") or (f.carrier if f else None),
+        "courier_status": (live or {}).get("status"),
+        "expected_at": (live or {}).get("expected_at"),
+        "delivered_at": (live or {}).get("delivered_at"),
+        "checkpoints": (live or {}).get("checkpoints") or [],
+        "track_url": (live or {}).get("track_url"),
+        # True when the courier could not be reached, so the page can say so
+        # instead of implying the parcel has not moved.
+        "live_unavailable": bool(awb) and live is None,
+    }

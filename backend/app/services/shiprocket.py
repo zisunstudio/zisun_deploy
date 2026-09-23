@@ -307,3 +307,91 @@ async def create_shipment(db, order) -> Optional[str]:
     data = resp.json()
     awb = data.get("awb_code") or data.get("awb_assign_status", {})
     return str(awb) if awb else None
+
+
+# ── Tracking ─────────────────────────────────────────────────────────────────
+#
+# "Where is my order" is the question a customer asks most after buying, and
+# until now the site could not answer it: the AWB was written to the
+# fulfilment row and never read back. An unanswered parcel becomes a WhatsApp
+# message to the founder, which is the most expensive way to answer anything.
+
+#: Shiprocket's numeric status codes are not stable enough to switch on, so
+#: the human status string is mapped to the five steps a customer cares about.
+_STEP_WORDS: tuple[tuple[str, str], ...] = (
+    ("delivered", "delivered"),
+    ("rto", "returning"),
+    ("return", "returning"),
+    ("undelivered", "attempted"),
+    ("out for delivery", "out_for_delivery"),
+    ("in transit", "in_transit"),
+    ("shipped", "in_transit"),
+    ("picked", "picked_up"),
+    ("pickup", "picked_up"),
+    ("manifest", "packed"),
+    ("awb assigned", "packed"),
+)
+
+
+def step_for(status: str) -> str:
+    """One of the five steps a customer understands, from a courier string."""
+    s = (status or "").strip().lower()
+    for needle, step in _STEP_WORDS:
+        if needle in s:
+            return step
+    return "packed"
+
+
+async def track_awb(awb: str, redis=None) -> Optional[dict]:
+    """Live tracking for one parcel, or None when it cannot be fetched.
+
+    Fails soft on purpose: a courier API that is slow or down must degrade to
+    "we have handed it over" rather than an error page. The customer still
+    sees the AWB and can follow it on the courier's own site.
+    """
+    if not awb:
+        return None
+    token = await _get_token(redis)
+    if not token:
+        return None
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SHIPROCKET_BASE}/courier/track/awb/{awb}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
+            )
+        if resp.status_code != 200:
+            logger.warning("Shiprocket tracking %s returned %s", awb, resp.status_code)
+            return None
+        payload = resp.json() or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Shiprocket tracking %s failed: %s", awb, exc)
+        return None
+
+    # The shape is nested and inconsistent between accounts; pull defensively.
+    data = payload.get("tracking_data") or {}
+    activities = data.get("shipment_track_activities") or []
+    track = (data.get("shipment_track") or [{}])[0]
+
+    checkpoints = [
+        {
+            "at": a.get("date"),
+            "status": a.get("activity") or a.get("status"),
+            "location": a.get("location"),
+        }
+        for a in activities
+        if a.get("date")
+    ]
+    current = track.get("current_status") or (checkpoints[0]["status"] if checkpoints else None)
+    return {
+        "awb": awb,
+        "courier": track.get("courier_name") or data.get("courier_name"),
+        "status": current,
+        "step": step_for(current or ""),
+        "delivered_at": track.get("delivered_date") or None,
+        "expected_at": data.get("etd") or track.get("edd") or None,
+        # Newest first, which is the order a person reads a journey in.
+        "checkpoints": checkpoints,
+        "track_url": data.get("track_url") or None,
+    }

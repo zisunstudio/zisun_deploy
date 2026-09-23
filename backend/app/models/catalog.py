@@ -221,6 +221,10 @@ class ProductMedia(BaseModel):
         SAEnum(MediaType, name="mediatype"), nullable=False, default=MediaType.IMAGE
     )
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Where the subject sits, as an object-position pair ("50 28"). NULL is
+    # the default upper-third read, which is right for a full-length
+    # photograph and wrong for a flat-lay or a close-up.
+    focus: Mapped[Optional[str]] = mapped_column(String(16))
     # Which colour this photograph shows. NULL = the product in general, shown
     # for every variant. Set = shown when that variant's colour is selected,
     # and used as the card image for that colour. ON DELETE SET NULL, not

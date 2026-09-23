@@ -10,6 +10,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/lib/queries/catalog";
 import { trackEvent } from "@/lib/queries/analytics";
+import { useCheckoutPolicy } from "@/lib/queries/policy";
 import { attributionFields } from "@/lib/attribution";
 import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
 import { recordEnquiry } from "@/lib/enquiry";
@@ -137,7 +138,12 @@ export default function CheckoutPage() {
   // Free when she pays online; the COD charge otherwise. The server adds the
   // same charge to the order total (services/pricing.py) - this is the line
   // she sees before choosing, so the choice is made with the number in view.
-  const codShippingPaise = POLICY_TERMS.codShippingRupees * 100;
+  const { data: policy } = useCheckoutPolicy();
+  // From the API, never a constant. The fee is configuration on the server;
+  // a page that keeps its own copy will one day quote a price the invoice
+  // does not match. Falls back to the documented default only until the
+  // policy call returns.
+  const codShippingPaise = policy?.cod_fee_paise ?? POLICY_TERMS.codShippingRupees * 100;
   const shippingPaise = paymentMethod === "COD" ? codShippingPaise : 0;
   const totalPaise = Math.round(totalRupees * 100);
 
@@ -342,8 +348,23 @@ export default function CheckoutPage() {
           <p className="mt-4 text-xs text-muted leading-relaxed">
             When it arrives, take a quick video as you open the parcel — it makes any size swap quick.
           </p>
-          {orderId && <p className="mt-4 text-xs text-muted">Order reference <span className="font-mono text-ink">{orderId.slice(0, 8).toUpperCase()}</span></p>}
-          <button onClick={() => router.push("/shop")} className="mt-8 border border-line text-ink px-6 py-3 rounded-full text-sm font-semibold">
+          {orderId && (
+            <>
+              <p className="mt-4 text-xs text-muted">Order reference <span className="font-mono text-ink">{orderId.slice(0, 8).toUpperCase()}</span></p>
+              {/* The answer to "where is my order", given before she has to
+                  ask it. Without this the only way to find out was a WhatsApp
+                  message to the founder. Bookmarkable, and no sign-in: a
+                  guest who bought in one tap has no account to sign in to. */}
+              <button
+                onClick={() => router.push(`/order/${orderId}`)}
+                className="mt-8 bg-burgundy text-white px-6 py-3 rounded-full text-sm font-semibold"
+              >
+                Track this order
+              </button>
+              <p className="mt-2 text-[11px] text-muted">Save this page &mdash; it is how you follow the parcel.</p>
+            </>
+          )}
+          <button onClick={() => router.push("/shop")} className="mt-4 border border-line text-ink px-6 py-3 rounded-full text-sm font-semibold">
             Keep looking
           </button>
         </div>
@@ -495,7 +516,7 @@ export default function CheckoutPage() {
                 title="Pay now"
                 badge="Free shipping"
                 subtitle="UPI, card or netbanking — through Razorpay"
-                note="Recommended. It is the fastest to dispatch and costs the shop least, which is how a small label keeps prices where they are."
+                note="Dispatched the same day it is packed."
               />
               <PayOption
                 selected={paymentMethod === "COD"}
@@ -504,14 +525,22 @@ export default function CheckoutPage() {
                 title="Cash on delivery"
                 subtitle={codOverLimit
                   ? `For orders up to ${formatPrice(POLICY_TERMS.codMaxRupees * 100)}`
-                  : pin && !pin.cod_available ? "Not available at this pincode" : `+${formatPrice(codShippingPaise)} shipping · pay the courier when it arrives`}
-                note="We will confirm on WhatsApp before packing."
+                  : pin && !pin.cod_available ? "Not available at this pincode" : "Pay the courier at your door"}
+                // Said once, plainly, and as a fact about the courier rather
+                // than a charge from us. "+Rs 99 shipping" next to a free
+                // option reads as a penalty for choosing wrongly, which is
+                // not how anyone should feel while handing over money.
+                note={codOverLimit || (pin && !pin.cod_available)
+                  ? "We will confirm on WhatsApp before packing."
+                  : `The courier charges ${formatPrice(codShippingPaise)} to collect cash at the door, and that is what it is. We will confirm on WhatsApp before packing.`}
               />
             </div>
             <Total total={totalPaise + shippingPaise} shipping={shippingPaise} />
             {paymentMethod === "COD" && (
+              // An offer, not a correction. "Pay online instead and save Rs99"
+              // tells her she has just made the expensive choice.
               <button type="button" onClick={() => setPaymentMethod("RAZORPAY")} className="mt-2 text-xs text-burgundy underline underline-offset-4">
-                Pay online instead and save {formatPrice(codShippingPaise)}
+                Prefer free delivery? Pay online
               </button>
             )}
             <ul className="mt-5 space-y-2 border-t border-line pt-4">

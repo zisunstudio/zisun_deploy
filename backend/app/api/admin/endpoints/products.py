@@ -904,3 +904,38 @@ async def admin_set_media_variant(
     await db.commit()
     await db.refresh(media)
     return media
+
+
+# ── PATCH /{id}/media/{mid}/focus — where the subject is ─────────────────────
+
+
+class MediaFocusBody(BaseModel):
+    """A percentage pair, or null to go back to the default."""
+    x: Optional[int] = Field(None, ge=0, le=100)
+    y: Optional[int] = Field(None, ge=0, le=100)
+
+
+@router.patch("/{product_id}/media/{media_id}/focus", response_model=ProductMediaResponse)
+async def admin_set_media_focus(
+    product_id: uuid.UUID,
+    media_id: uuid.UUID,
+    body: MediaFocusBody,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Tap the subject once; every crop of that photograph follows.
+
+    The storefront crops to a fixed ratio and reads the upper third, which is
+    right for a full-length photograph and wrong for a flat-lay or a close-up
+    of a sleeve. Rather than guess per picture, she points at what matters.
+    """
+    await _get_product_or_404(product_id, db)
+    media = (await db.execute(
+        select(ProductMedia).where(ProductMedia.id == media_id, ProductMedia.product_id == product_id)
+    )).scalar_one_or_none()
+    if not media:
+        raise HTTPException(404, "No such photograph on this product")
+
+    media.focus = None if body.x is None or body.y is None else f"{body.x} {body.y}"
+    await db.commit()
+    await db.refresh(media)
+    return media

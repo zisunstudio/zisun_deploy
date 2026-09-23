@@ -10,7 +10,8 @@ import { CouponTicket } from "@/components/CouponTicket";
 import { Reveal } from "@/components/Reveal";
 import { useActiveCoupons } from "@/lib/queries/coupons";
 import { markOpenSource } from "@/lib/enquiry";
-import { type Product, formatPrice, productImageUrl } from "@/lib/queries/catalog";
+import { type Product, formatPrice, productImageUrl, productImageFocus } from "@/lib/queries/catalog";
+import { Photo } from "@/components/Photo";
 
 /**
  * Deals: coupons first, then every piece currently marked down, in one band.
@@ -72,10 +73,9 @@ export function DealsRail() {
                   className="snap-start shrink-0 w-[156px] sm:w-[190px] text-left group"
                   aria-label={`${p.name}, ${p.offer.discount_pct} percent off`}
                 >
-                  <div className="relative w-full aspect-[3/4] rounded-card overflow-hidden bg-rose">
-                    <Image src={productImageUrl(p)} alt={p.name} fill sizes="190px" className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
+                  <Photo src={productImageUrl(p)} alt={p.name} focus={productImageFocus(p)} sizes="190px" hover>
                     <OfferBadge offer={p.offer} className="absolute top-2.5 left-2.5 shadow-sm" />
-                  </div>
+                  </Photo>
                   <p className="text-ink font-medium text-[13px] mt-2 leading-tight line-clamp-1">{p.name}</p>
                   <p className="flex items-baseline gap-1.5 mt-0.5">
                     <span className="text-ink font-semibold text-sm">{formatPrice(price)}</span>

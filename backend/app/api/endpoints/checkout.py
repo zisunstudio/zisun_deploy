@@ -107,6 +107,32 @@ async def check_pincode(pincode: str, cod: bool = True):
         "estimated_days": result.estimated_days,
         "courier": result.courier,
         "source": result.source,
+        # The fee the API will actually charge, so the page can never quote a
+        # different number from the one on the invoice.
+        "cod_fee_paise": settings.COD_SHIPPING_FEE_PAISE,
+    }
+
+
+# ── GET /policy — what the shop charges, from the shop ────────────────────────
+
+
+@router.get("/policy", tags=["Checkout"])
+async def checkout_policy():
+    """The commercial terms, read from the running configuration.
+
+    The storefront used to keep `codShippingRupees: 99` as a constant in
+    `lib/legal.ts` "mirroring" the backend. Two numbers, one of them a copy:
+    change COD_SHIPPING_FEE_PAISE on the server and every page would go on
+    advertising 99 while the customer was charged something else. A price
+    shown to a customer has to come from the thing that charges it.
+    """
+    from app.services.coupon import COD_MAX_ORDER_VALUE_PAISE  # noqa: PLC0415
+
+    return {
+        "cod_fee_paise": settings.COD_SHIPPING_FEE_PAISE,
+        "cod_max_order_paise": COD_MAX_ORDER_VALUE_PAISE,
+        "prepaid_shipping_paise": 0,
+        "cod_only": bool(settings.PAYMENTS_COD_ONLY),
     }
 
 

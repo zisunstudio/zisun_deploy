@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Upload, X, GripVertical, Loader2 } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { downscaleImage, mb } from "@/lib/downscale";
+import { objectPositionFor } from "@/components/Photo";
 
 export interface MediaItem {
   id: string;
@@ -13,6 +14,8 @@ export interface MediaItem {
   display_order: number;
   /** Colour variant this shot shows; null/undefined = all colours. */
   variant_id?: string | null;
+  /** Where the subject is, as "50 28". Null = the default upper third. */
+  focus?: string | null;
 }
 
 /** Enough of a variant to offer it as a colour choice. */
@@ -112,6 +115,17 @@ export default function MediaUploader({ productId, media, onChange, variants = [
       setError(e?.response?.data?.detail ?? "Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  /** Save where the subject is. Optimistic: the crop moves as she taps. */
+  async function setFocus(item: MediaItem, x: number | null, y: number | null) {
+    const focus = x === null || y === null ? null : `${x} ${y}`;
+    onChange(media.map((m) => (m.id === item.id ? { ...m, focus } : m)));
+    try {
+      await adminApi.patch(`/products/${productId}/media/${item.id}/focus`, { x, y });
+    } catch {
+      setError("Could not save that crop point.");
     }
   }
 
@@ -215,12 +229,24 @@ export default function MediaUploader({ productId, media, onChange, variants = [
                   VIDEO
                 </div>
               ) : (
+                // Tap the subject. The storefront crops every photograph to
+                // a fixed ratio and reads the upper third, which is right for
+                // a full-length shot and wrong for a flat-lay or a close-up.
+                // One tap beats guessing per picture.
                 <Image
                   src={item.cdn_url ?? item.url}
                   alt=""
                   fill
-                  className="object-cover"
+                  className="object-cover cursor-crosshair"
+                  style={{ objectPosition: objectPositionFor(item.focus) }}
                   sizes="100px"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    const x = Math.round(((e.clientX - r.left) / r.width) * 100);
+                    const y = Math.round(((e.clientY - r.top) / r.height) * 100);
+                    setFocus(item, x, y);
+                  }}
                 />
               )}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
@@ -232,6 +258,16 @@ export default function MediaUploader({ productId, media, onChange, variants = [
                 <X className="w-3 h-3" />
               </button>
               <GripVertical className="absolute bottom-1 left-1 w-3 h-3 text-white opacity-0 group-hover:opacity-70" />
+              {item.focus && (
+                <button
+                  type="button"
+                  title="Back to the default crop"
+                  onClick={(e) => { e.stopPropagation(); setFocus(item, null, null); }}
+                  className="absolute bottom-1 right-1 bg-white/90 text-ink text-[9px] px-1.5 py-[1px] rounded"
+                >
+                  reset crop
+                </button>
+              )}
               {idx === 0 && (
                 <span className="absolute top-1 left-1 bg-ink text-white text-xs px-1 rounded">
                   Cover

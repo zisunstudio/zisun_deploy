@@ -4,11 +4,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import { useWishlist, useRemoveFromWishlist } from "@/lib/queries/wishlist";
-import { formatPrice } from "@/lib/queries/catalog";
+import { formatPrice, productImageFocus } from "@/lib/queries/catalog";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { ProductCardSkeleton } from "@/components/skeletons/Skeleton";
 import { BROWSE_ONLY } from "@/lib/launchMode";
+import { Photo } from "@/components/Photo";
 
 const FALLBACK_IMAGE = "/placeholder-product.svg";
 
@@ -83,7 +84,7 @@ export default function WishlistPage() {
                     className="relative w-24 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100 cursor-pointer"
                     onClick={() => router.push(`/product/${product.id}`)}
                   >
-                    <Image src={imageUrl} alt={product.name} fill sizes="96px" className="object-cover" />
+                    <Photo src={imageUrl} alt={product.name} focus={productImageFocus(product)} sizes="96px" fill ground={false} />
                   </div>
                   <div className="flex-1 py-1 flex flex-col justify-between">
                     <div>

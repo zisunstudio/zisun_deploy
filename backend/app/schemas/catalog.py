@@ -27,6 +27,8 @@ class ProductMediaResponse(BaseModel):
     display_order: int
     # Which colour variant this photograph shows; None = the product in general.
     variant_id: Optional[uuid.UUID] = None
+    # object-position for the crop ("50 28"). None = the default upper third.
+    focus: Optional[str] = None
 
     class Config:
         from_attributes = True

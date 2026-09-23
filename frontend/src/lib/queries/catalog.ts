@@ -10,6 +10,8 @@ export interface ProductMedia {
   type: "IMAGE" | "VIDEO";
   display_order: number;
   variant_id?: string | null;
+  /** object-position for the crop ("50 28"); null = default upper third. */
+  focus?: string | null;
 }
 
 export interface ProductVariant {
@@ -166,6 +168,11 @@ export function formatPrice(paise: number): string {
 }
 
 /** First active image URL for a product, or placeholder */
+/** The founder's chosen crop point for a product's lead photograph. */
+export function productImageFocus(product: Product): string | null {
+  return product.media.find((m) => m.type === "IMAGE")?.focus ?? null;
+}
+
 export function productImageUrl(product: Product): string {
   const img = product.media.find((m) => m.type === "IMAGE");
   // LOCAL fallback on purpose: next/image remotePatterns allowlists only our
