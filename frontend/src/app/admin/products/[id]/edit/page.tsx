@@ -12,6 +12,12 @@ import ProductForm, {
 import VariantEditor, { type VariantRow } from "@/components/admin/VariantEditor";
 import MediaUploader, { type MediaItem } from "@/components/admin/MediaUploader";
 
+/** The details a customer reads, and the ones reported missing four times. */
+const GARMENT_FIELDS = [
+  "colour", "print_type", "pattern", "neck_type", "sleeve_type", "fit",
+  "garment_length", "embroidery", "bottom_type", "occasion", "craft", "origin",
+] as const;
+
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -222,8 +228,34 @@ export default function EditProductPage() {
         styling_notes: form.styling_notes.map((n) => ({ occasion: n.occasion.trim(), note: n.note.trim() })).filter((n) => n.occasion && n.note),
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ["admin", "products"] });
+      // Read it back before saying it saved.
+      //
+      // "Saved" used to mean nothing more than "the request returned 2xx",
+      // and the garment details were reported missing four times without
+      // anyone being able to tell whether the save reached the server, was
+      // rejected, or landed and came back blank. A tick that is not checked
+      // is worse than no tick: it is what made four rounds of this look like
+      // a display problem.
+      try {
+        const { data: after } = await adminApi.get(`/products/${productId}`);
+        const typed = GARMENT_FIELDS.filter((f) => String((form as any)[f] ?? "").trim() !== "");
+        const lost = typed.filter((f) => {
+          const v = after?.[f];
+          return v === null || v === undefined || String(v).trim() === "";
+        });
+        if (lost.length) {
+          setError(
+            `Saved, but ${lost.length === 1 ? "this did" : "these did"} not stick: ${lost.join(", ")}. ` +
+            "Nothing you typed was lost from this screen — tell Varun, the server did not keep it.",
+          );
+          return;
+        }
+      } catch {
+        // A failed read-back is not a failed save; stay quiet rather than
+        // frighten her over a flaky network.
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },

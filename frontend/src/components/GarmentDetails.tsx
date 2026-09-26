@@ -116,16 +116,29 @@ export function GarmentDetails({ attributes: a, hasPockets, selectedColour }: Pr
   if (rows.length === 0) return null;
 
   return (
-    <section className="mt-6 border-t border-gray-100 pt-4">
-      <h2 className="text-sm font-semibold text-foreground mb-3">The garment</h2>
-      <dl className="flex flex-col gap-2.5">
+    <section className="mt-8 border-t border-ink/10 pt-6">
+      <p className="text-[11px] uppercase tracking-[0.2em] text-burgundy">In your hands</p>
+      <h2 className="mt-1.5 font-display text-[26px] lg:text-[30px] leading-tight text-ink">
+        What you are actually getting
+      </h2>
+
+      {/*
+        A specification list answers a question nobody asked; a woman deciding
+        on a kurta is picturing wearing it. So the facts are set as a grid of
+        small cards rather than a column of dt/dd - each one a single thing
+        she can take in at a glance, the answer large and the question quiet
+        above it. That inversion is the whole change: the old row led with
+        "Neck" in grey and hid "Round neck" beside it, which reads as a form
+        somebody filled in. This reads as the garment.
+      */}
+      <dl className="mt-5 grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
         {rows.map(({ Icon, label, value }) => (
-          <div key={label} className="flex gap-2.5">
-            <Icon className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="flex flex-col sm:flex-row sm:gap-2 min-w-0">
-              <dt className="text-xs text-muted sm:w-24 sm:flex-shrink-0">{label}</dt>
-              <dd className="text-sm text-foreground leading-snug">{value}</dd>
-            </div>
+          <div key={label} className="min-w-0">
+            <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-muted">
+              <Icon className="w-3 h-3 text-burgundy/70 shrink-0" aria-hidden="true" />
+              {label}
+            </dt>
+            <dd className="mt-1 text-[15px] leading-snug text-ink">{value}</dd>
           </div>
         ))}
       </dl>

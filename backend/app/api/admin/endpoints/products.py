@@ -2,6 +2,7 @@
 import csv
 import io
 import re
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -35,6 +36,8 @@ from app.schemas.catalog import (
     ProductVariantUpdate,
 )
 from app.services import gst
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -205,14 +208,35 @@ async def admin_update_product(
     for column, value in data.spec_values().items():
         if column in FABRIC_SPEC_COLUMNS:
             setattr(product, column, value)
+    applied_attributes: dict = {}
     for column, value in data.attribute_values().items():
         if column in GARMENT_ATTRIBUTE_COLUMNS:
             setattr(product, column, value)
+            applied_attributes[column] = value
     for column, value in data.merchandising_values().items():
         if column in MERCHANDISING_COLUMNS:
             setattr(product, column, value)
     _validate_offer(product)
     await db.commit()
+    await db.refresh(product)
+
+    # The garment details have been reported missing four times, and there was
+    # no way to tell whether a save reached the server, was rejected, or
+    # landed and read back blank - uvicorn runs without an access log, so a
+    # rejected request left no trace at all. This says, per save, what arrived
+    # and what the row holds afterwards. It is one line and it ends the
+    # guessing; remove it only when the founder stops reporting this.
+    if applied_attributes:
+        landed = {c: getattr(product, c, None) for c in applied_attributes}
+        logger.info(
+            "product %s: garment attributes submitted=%s stored=%s",
+            product.id, applied_attributes, landed,
+        )
+    else:
+        logger.info(
+            "product %s: update carried NO garment attributes (keys sent: %s)",
+            product.id, sorted(data.model_dump(exclude_unset=True).keys()),
+        )
     updated = await _get_product_or_404(product_id, db)
     background.add_task(indexnow.ping, indexnow.product_urls(updated.id, updated.category.slug if updated.category else None))
     return updated
