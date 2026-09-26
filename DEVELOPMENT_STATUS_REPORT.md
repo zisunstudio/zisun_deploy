@@ -7,7 +7,7 @@
 
 ---
 
-## Executive Summary
+## Executive Summary :
 
 ZISUN set out to convert a **mocked one-commit scaffold** into a **production-grade fashion commerce platform**. That plan was written as `PHASES.md` — a 5-phase, 207-task roadmap (Release 1). We then added `RELEASE_2_ROADMAP.md` — a 6-month, ML/AI-powered second release.
 
