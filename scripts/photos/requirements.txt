@@ -1,0 +1,12 @@
+# The photograph pipeline runs once per shoot, on a laptop, and is not part of
+# any deployed image - `backend/requirements.txt` must not grow these.
+#
+# These are validated implementations of published standards. The first
+# version of this pipeline hand-typed CIEDE2000 out of the 2005 paper, which
+# is correct as far as it was tested and exactly where a quiet bug lives. A
+# wrong colour difference is worse than none, because it looks like evidence.
+#
+#   python3 -m venv .venv && .venv/bin/pip install -r scripts/photos/requirements.txt
+colour-science==0.4.7
+numpy>=2.0
+pillow>=10.0

@@ -150,61 +150,99 @@ expensive asset in the business.
 
 ## Where this actually stands (2026-09-26)
 
-Honest status, because the first version of this file overstated things.
+The pipeline is `scripts/photos/harmonise.py`. `correct.js` and `tone.js`
+came before it and are superseded; they are kept only because the traps
+recorded in them are real. Do not run them on a shoot.
 
-### What was wrong with `correct.js`
+### The problem, stated as a number
 
-It multiplied **gamma-encoded sRGB** values and called it exposure. It is
-not. A multiply in sRGB is a multiply of a perceptual encoding, so it
-distorts chroma and rotates hue as a side effect. The comment said "does not
-touch hue". That was asserted and never measured.
+The founder put two photographs of one wine kurta side by side and asked
+which colour the customer was supposed to believe. Measured across all six
+frames of that piece, in the garment region rather than the whole frame:
 
-Measured on this catalogue, against the originals:
+```
+photo     L*      a*      b*      C*      h
+03      34.8    42.5    -5.2    42.8   353.1
+05      29.1    39.2     7.1    39.8    10.2
+06       8.8    20.3    -1.8    20.4   354.9
 
-| | mean ΔE2000 | ΔC* (chroma) | Δh (hue) |
-|---|---|---|---|
-| `correct.js` (sRGB gain) | up to **10.68** | **+10.1** | **+6.7°** |
-| `tone.js` (CIELAB, L* only) | up to 16.8 | **−0.4 … +0.8** | **−0.6 … +0.8°** |
+mean dE2000 between frames  10.0      worst  20.6
+```
 
-ΔE 1 is just noticeable; above 5 is a different colour. So the first script
-was changing the garment's colour by an obvious amount while claiming not
-to. The ΔE in the second row is *larger* but it is **entirely lightness** —
-chroma and hue are preserved to within 8-bit rounding, and by construction
-rather than by tuning: only L* is written, so no term in the transform can
-move them.
+Lightness across a factor of four, chroma across a factor of two, hue across
+seventeen degrees - on one dyed cloth, which has one reflectance and cannot
+actually change between the shade of a tree and the middle of a road. dE 5
+is already "a different colour". The eye was reading something real and
+large.
 
-### What is still wrong
+### The method
 
-`tone.js` is colour-safe and **tonally wrong**. Side by side, its output is
-washed out and milky next to the crude version.
+Every bit of that spread is illuminant and exposure, so it is a correction
+with a right answer rather than a matter of taste. Three steps, kept
+separate so each can be measured on its own:
 
-The cause is a measurement error, not a tuning one: the target is anchored
-on the **median L* of the whole frame**. These photographs are full of dark
-trees, shadow and road, so the median reads 17–25 where the garment is much
-lighter, the correction concludes the picture is far darker than it is, and
-lifts until it clips the clamp on nine frames out of ten.
+1. **Find the garment** (`garment.py`). Cluster the central half of the
+   frame in the a*b* plane - chromaticity only, so light and shade on one
+   cloth stay one cluster - and keep the most *saturated* cluster big
+   enough to be the subject. Then grow the mask outward by CIEDE2000
+   proximity. Dyed cloth is the most chromatic large thing in these frames;
+   hair, skin, road and wall sit near the neutral axis.
+2. **Remove the light.** Estimate the illuminant by Shades-of-Gray
+   (Finlayson & Trezzi 2004, Minkowski p=6) over the frame's *low-chroma*
+   pixels only - road, wall, overcast sky - because those surfaces are
+   nearly neutral, so what the sensor recorded there is very nearly the
+   light itself. Then adapt the whole frame from that illuminant to D65
+   with Bradford.
+3. **Tone and chroma, anchored on the cloth.** Shift L* so the garment's
+   median lands on the shoot's reference, and scale a* and b* by one
+   factor - which preserves hue *by construction*, since scaling the
+   (a*, b*) vector cannot change `atan2(b*, a*)`. Both are clamped, and a
+   frame that hits a clamp is named in the output as beyond correction.
 
-**The fix is to measure the garment, not the frame.** That means knowing
-which pixels are the product — segmentation. This is the one place in this
-pipeline where machine learning is doing work a histogram genuinely cannot,
-as opposed to being decoration.
+### Measured result
 
-### The order of work, as it stands
+```
+                   before            after
+wine (6 frames)    mean  9.95  worst 20.64     mean 3.47  worst 6.05
+purple (4 frames)  mean  8.41  worst 15.19     mean 2.53  worst 3.70
+```
 
-1. ~~Colour-safe transform~~ — done, verified by ΔE2000.
-2. **Subject measurement** — anchor exposure on the product region. Open.
-3. Re-tune the target and clamp against the subject, not the frame.
-4. Only then is either script the one to use.
+Four of the six wine frames now sit within dE 0.8 of each other. 03 remains
+at 4.85 and is flagged: it hit both clamps, which is the pipeline saying
+this frame needs reshooting rather than correcting.
 
-Until (2) is done, `correct.js` produces the more attractive picture and
-`tone.js` produces the more honest one. Neither is finished.
+### Two mistakes this went through, both caught by measuring
 
-### Tooling note
+**A von Kries matrix anchored on the garment.** The first attempt treated
+the cloth as the white point, reasoning that one corresponding pair
+determines the three unknowns. It does, but a chromatic adaptation
+transform is defined between *white* tristimulus values, and a dark
+saturated patch has almost no S-cone response, so the ratio it implies is
+enormous. One frame came back at L* 63.8 from a tone shift of +2.3, and the
+spread across the shoot got *worse*: 10.04 to 13.83. The cloth is what the
+correction is checked against, never what it is anchored on.
 
-`colour.js` hand-implements sRGB↔XYZ↔Lab and CIEDE2000 from the published
-definitions. That was right for proving the point quickly and is correct as
-far as it is tested, but re-implementing published formulae is exactly where
-quiet bugs live. The batch pipeline should move to validated libraries —
-`colour-science`, `scikit-image`, OpenCV — which also bring the segmentation
-and local tone operators step (2) needs. See `AGENTS.md` for where each
-language belongs.
+**Choosing the mask by population.** "The most populous chromatic cluster"
+put the mask on the model's hair in one frame, which reported a violet
+co-ord set as a muted brown and would have dragged the whole shoot towards
+it. The rule is saturation, not size. It was visible in one overlay and
+invisible in every number until then, which is the same lesson as the
+electric purple above: **look at the output.**
+
+### Running it
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r scripts/photos/requirements.txt
+.venv/bin/python scripts/photos/harmonise.py <src>/*.jpg --out <dst>
+```
+
+Per shoot, per piece - the reference is the median of the frames given, so
+pass one garment's photographs at a time or it will harmonise a wine kurta
+towards a purple one. `--reference <file>` anchors on a chosen frame
+instead, which is how the founder says *this* is what the cloth looks like
+in the hand. No algorithm can supply that: the maths makes the set
+consistent, and only she can make it correct.
+
+It runs on a laptop, once per shoot. Nothing here is in any deployed image
+and `backend/requirements.txt` must not grow these dependencies.
