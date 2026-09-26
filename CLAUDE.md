@@ -3,7 +3,12 @@
 Apparel e-commerce platform. FastAPI backend + Next.js storefront, deployed on
 Railway. Customer base is India.
 
-`DEPLOYMENT.md` is the authoritative deploy runbook. `DESIGN.md` is the
+`AGENTS.md` is the short entry point for any coding agent and points back
+here; this file stays the single source of truth, so do not restate its
+rules there. `DEPLOYMENT.md` is the authoritative deploy runbook.
+`PHOTOGRAPHY.md` is how a product photograph is corrected before it is
+uploaded — measured per photograph, never a preset, and never touching hue,
+because ZISUN's colour casts are the garments. `DESIGN.md` is the
 storefront's design thesis — read it before changing anything a customer
 sees. `FEATURES.md` is the ledger of everything that has shipped: a feature
 leaves the product only by moving to its **Retired** table with a reason and

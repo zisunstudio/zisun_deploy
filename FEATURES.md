@@ -45,6 +45,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Tax invoice: consecutive serial per financial year, snapshotted on the order | `backend/app/services/invoicing.py`, `backend/alembic/versions/0023_gst.py` | Live |
 | Customer-visible tax breakdown on the order page | `frontend/src/app/order/[id]/OrderTracking.tsx` | Live |
 | Photographs downscaled in the browser before upload (2400px master) | `frontend/src/lib/downscale.ts` | Live |
+| Shoot correction: per-photograph exposure/contrast, hue never touched | `scripts/photos/correct.js`, `PHOTOGRAPHY.md` | Live |
 | Dependency round-trip timings on /health | `backend/app/api/endpoints/health.py` | Live |
 | Per-product journey: shown → opened → bag/buy → ordered, with the biggest drop named | `backend/app/api/admin/endpoints/dashboard.py`, `frontend/src/app/admin/page.tsx` | Live |
 | One money definition: collected vs committed, never added | `backend/app/services/metrics.py` | Live |
