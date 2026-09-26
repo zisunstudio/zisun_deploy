@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
+from app.core import memo
 from app.core.redis import get_redis
 from app.core.security import get_current_user, require_role
 from app.schemas.catalog import (
@@ -22,6 +23,11 @@ from app.services import truth as truth_svc
 
 router = APIRouter()
 
+# How long a public catalogue read is answered from memory. Short, because
+# stock rides on these responses and the founder edits from her phone; long
+# enough that a burst of visitors costs one database read. See core/memo.py.
+CATALOG_TTL = 30
+
 
 # ── Categories ────────────────────────────────────────────────────────────────
 
@@ -29,15 +35,19 @@ router = APIRouter()
 @router.get("/categories", response_model=list[CategoryResponse], tags=["Catalog"])
 async def list_categories(db: AsyncSession = Depends(get_async_db)):
     """List all active categories with product counts."""
-    svc = CatalogService(db)
-    return await svc.list_categories()
+    async def load():
+        cats = await CatalogService(db).list_categories()
+        return [CategoryResponse.model_validate(c, from_attributes=True) for c in cats]
+    return await memo.cached(("categories",), CATALOG_TTL, load)
 
 
 @router.get("/categories/{slug}", response_model=CategoryDetail, tags=["Catalog"])
 async def get_category_by_slug(slug: str, db: AsyncSession = Depends(get_async_db)):
     """Get a single category by slug with its active products."""
-    svc = CatalogService(db)
-    return await svc.get_category_by_slug(slug)
+    async def load():
+        c = await CatalogService(db).get_category_by_slug(slug)
+        return CategoryDetail.model_validate(c, from_attributes=True)
+    return await memo.cached(("category", slug), CATALOG_TTL, load)
 
 
 # ── Products ──────────────────────────────────────────────────────────────────
@@ -52,21 +62,24 @@ async def list_products(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Paginated product listing with optional category filter and sort."""
-    svc = CatalogService(db)
-    result = await svc.list_products(
-        page=page,
-        limit=limit,
-        category_id=category_id,
-        sort_by=sort_by.value,
-    )
-    return result
+    async def load():
+        result = await CatalogService(db).list_products(
+            page=page,
+            limit=limit,
+            category_id=category_id,
+            sort_by=sort_by.value,
+        )
+        return ProductListResponse.model_validate(result, from_attributes=True)
+    return await memo.cached(("products", page, limit, category_id, sort_by.value), CATALOG_TTL, load)
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse, tags=["Catalog"])
 async def get_product(product_id: uuid.UUID, db: AsyncSession = Depends(get_async_db)):
     """Get a single product with variants, media, and category."""
-    svc = CatalogService(db)
-    return await svc.get_product(product_id)
+    async def load():
+        p = await CatalogService(db).get_product(product_id)
+        return ProductResponse.model_validate(p, from_attributes=True)
+    return await memo.cached(("product", product_id), CATALOG_TTL, load)
 
 
 # ── Search ────────────────────────────────────────────────────────────────────
@@ -157,26 +170,28 @@ async def catalogue_truth(db: AsyncSession = Depends(get_async_db)):
     """The brand claims the live pieces support, and the facts that would
     unlock more. The storefront's home page, footer, meta descriptions and
     llms.txt are written from this - see services/truth.py."""
-    from sqlalchemy import select
-    from app.models.catalog import Product
-    rows = (await db.execute(
-        select(Product.fabric_composition, Product.craft, Product.origin, Product.will_rerun, Product.batch_size, Product.is_active)
-        .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
-    )).all()
-    t = truth_svc.compute([
-        {"fabric_composition": r[0], "craft": r[1], "origin": r[2], "will_rerun": r[3], "batch_size": r[4], "is_active": r[5]}
-        for r in rows
-    ])
-    # The free text she types is audited against the same facts: a category
-    # description saying "handloom" over pieces that record none is the same
-    # untruth as the old hard-coded home page, just entered by hand.
-    from app.models.catalog import Category
-    cats = (await db.execute(select(Category.name, Category.description).where(Category.is_active.is_(True)))).all()
-    for name, desc in cats:
-        t.unsupported += truth_svc.audit_text(f"Category \u201c{name}\u201d", desc, t)
-    descs = (await db.execute(
-        select(Product.name, Product.description).where(Product.deleted_at.is_(None), Product.is_active.is_(True))
-    )).all()
-    for name, desc in descs:
-        t.unsupported += truth_svc.audit_text(name, desc, t)
-    return truth_svc.as_dict(t)
+    async def load():
+        from sqlalchemy import select
+        from app.models.catalog import Product
+        rows = (await db.execute(
+            select(Product.fabric_composition, Product.craft, Product.origin, Product.will_rerun, Product.batch_size, Product.is_active)
+            .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+        )).all()
+        t = truth_svc.compute([
+            {"fabric_composition": r[0], "craft": r[1], "origin": r[2], "will_rerun": r[3], "batch_size": r[4], "is_active": r[5]}
+            for r in rows
+        ])
+        # The free text she types is audited against the same facts: a category
+        # description saying "handloom" over pieces that record none is the same
+        # untruth as the old hard-coded home page, just entered by hand.
+        from app.models.catalog import Category
+        cats = (await db.execute(select(Category.name, Category.description).where(Category.is_active.is_(True)))).all()
+        for name, desc in cats:
+            t.unsupported += truth_svc.audit_text(f"Category \u201c{name}\u201d", desc, t)
+        descs = (await db.execute(
+            select(Product.name, Product.description).where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+        )).all()
+        for name, desc in descs:
+            t.unsupported += truth_svc.audit_text(name, desc, t)
+        return truth_svc.as_dict(t)
+    return await memo.cached(("truth",), CATALOG_TTL, load)

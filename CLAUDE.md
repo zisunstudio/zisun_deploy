@@ -255,6 +255,23 @@ credit, not the direct visit a week later. Only the referrer's *domain* is
 stored, never the full URL, which can carry a search query. Orders placed
 before this shipped report "not recorded", never "direct".
 
+**The storefront's public reads are answered from memory, never money.**
+`app/core/memo.py` caches product, list, category, truth and active-coupon
+reads in process for 30 s, single-flight, so a burst of visitors costs one
+database read instead of queueing behind the api's four connections - which
+is what made a product read take 2-3.5 s and one /shop render hang for 60 s.
+Checkout, stock locks and gateway amounts never read it; an admin write,
+checkout or order clears it (`main.py`); `offer.active` and coupon expiry
+are resolved outside it on every request. Not Redis: a cache in front of
+every page view is exactly the traffic that would spend the Upstash quota.
+
+**A dynamic route needs `generateStaticParams` or its `revalidate` is
+ignored.** `/product/[id]`, `/category/[slug]` and `/journal/[slug]` declared
+five-minute ISR and were rendered on every request with `no-store` - in the
+App Router a dynamic segment without `generateStaticParams` is dynamic.
+Each returns `[]` now (cache on first visit). `next build`'s route table
+shows it: `●` is ISR, `ƒ` is every request; only personal pages may be `ƒ`.
+
 **The analytics board is one endpoint, computed concurrently and kept warm.**
 `compute_dashboard()` runs every panel's query at once on its own session
 (the database is a continent away; nine in a row cost ~20s, nine at once
@@ -603,10 +620,14 @@ Each of these produced a green build or a healthy-looking deploy:
   (Singapore), and `DB_POOL_SIZE=1` means concurrent requests open a fresh
   TLS connection across that ocean. `/health` reports `timings_ms` for the
   database and Redis so this is measurable rather than guessed at.
-- **Supabase's direct host is IPv6-only.** Use the pooler (IPv4). The app runs
-  on the transaction pooler `:6543` with `DB_PGBOUNCER_MODE=1`, which disables
-  statement caching — without it asyncpg fails intermittently, under
-  concurrency only.
+- **Supabase's direct host is IPv6-only.** Use the pooler (IPv4). The move to
+  the transaction pooler `:6543` was reverted and the revert stuck: read
+  from Railway on 2026-09-26 the api runs the **session** pooler `:5432`,
+  `DB_PGBOUNCER_MODE=0`, `DB_POOL_SIZE=1`, `DB_MAX_OVERFLOW=1`,
+  `UVICORN_WORKERS=2` - four connections for the whole api, each ~900 ms
+  from Sydney. If the transaction pooler is tried again it needs
+  `DB_PGBOUNCER_MODE=1` (statement caching off) or asyncpg fails
+  intermittently, under concurrency only.
 - **Migrations cannot use the transaction pooler.** `alembic/env.py` rewrites
   `:6543` → `:5432` (session pooler, same host and credentials) when
   `DB_PGBOUNCER_MODE` is set, and disables the hstore probe. Supavisor severs

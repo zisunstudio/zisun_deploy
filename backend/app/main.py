@@ -16,6 +16,7 @@ from app.core.security import _load_keys
 from app.api.v1 import api_router
 from app.api.admin.v1 import admin_router
 from app.api.endpoints.health import router as health_router
+from app.core import memo
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
@@ -92,6 +93,26 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# The public catalogue is answered from an in-process cache (core/memo.py).
+# Any write that changes what it holds - the console, a checkout taking stock
+# - clears it, so the founder sees her edit on her next load and a sold size
+# stops showing at once on this worker. The other worker catches up within
+# the cache's lifetime; checkout never reads the cache, so nothing is sold
+# that the database does not hold.
+_CATALOGUE_WRITERS = (settings.ADMIN_V1_STR, f"{settings.API_V1_STR}/catalog/admin",
+                      f"{settings.API_V1_STR}/checkout", f"{settings.API_V1_STR}/orders")
+
+
+@app.middleware("http")
+async def _forget_catalogue_after_writes(request, call_next):
+    response = await call_next(request)
+    if (request.method not in ("GET", "HEAD", "OPTIONS")
+            and response.status_code < 400
+            and request.url.path.startswith(_CATALOGUE_WRITERS)):
+        memo.clear()
+    return response
+
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(health_router)

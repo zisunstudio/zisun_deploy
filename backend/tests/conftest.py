@@ -85,3 +85,14 @@ async def app_client(fake_redis, mock_db, mock_user):
             yield c
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_catalogue_cache():
+    """The public catalogue cache (core/memo.py) is a module global. Tests
+    that seed rows straight into the database, bypassing the admin API and so
+    its invalidation, would otherwise be served the previous test's answer."""
+    from app.core import memo
+    memo.clear()
+    yield
+    memo.clear()
