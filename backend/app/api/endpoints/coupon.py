@@ -21,7 +21,7 @@ async def active_coupons(db: AsyncSession = Depends(get_async_db)):
     customer, not to the shop. Expired and inactive ones are filtered here
     rather than trusted to the admin flipping a flag on the day.
     """
-    async def load():
+    async def load(db):
         coupons = await CouponService(db).list_coupons(active_only=True)
         return [
             PublicCoupon.model_validate(c, from_attributes=True)
@@ -32,7 +32,7 @@ async def active_coupons(db: AsyncSession = Depends(get_async_db)):
     # only saves the database read, never the decision.
     now = datetime.now(timezone.utc)
     live = [
-        c for c in await memo.cached(("coupons_active",), 30, load)
+        c for c in await memo.cached(("coupons_active",), 30, lambda: load(db), memo.own_session(load))
         if getattr(c, "expires_at", None) is None or c.expires_at > now
     ]
     # Soonest to expire first: that is the one worth the shopper's attention.

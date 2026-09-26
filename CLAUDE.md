@@ -257,13 +257,25 @@ before this shipped report "not recorded", never "direct".
 
 **The storefront's public reads are answered from memory, never money.**
 `app/core/memo.py` caches product, list, category, truth and active-coupon
-reads in process for 30 s, single-flight, so a burst of visitors costs one
-database read instead of queueing behind the api's four connections - which
-is what made a product read take 2-3.5 s and one /shop render hang for 60 s.
+reads in process, single-flight: fresh for 30 s, then served stale while a
+background read replaces it (up to ten minutes), so no shopper waits on
+the database once a worker is warm. With plain expiry a small shop's
+visitors, further apart than any sensible lifetime, would nearly all have
+landed on a cold entry. A miss uses the request's session (tests that swap
+`get_async_db` still govern it); the background refresh opens its own via
+`memo.own_session`. It exists because the api's four connections made a
+product read take 2-3.5 s and one /shop render hang for 60 s.
 Checkout, stock locks and gateway amounts never read it; an admin write,
 checkout or order clears it (`main.py`); `offer.active` and coupon expiry
 are resolved outside it on every request. Not Redis: a cache in front of
 every page view is exactly the traffic that would spend the Upstash quota.
+
+**Only the sign-in rate limit touches Redis.** The global limit (100 a
+minute) counts in process, per uvicorn worker; the sign-in limit (10 a
+minute, guarding paid OTP sends) stays in Redis so every worker shares it.
+A Redis `INCR` in front of every api request cost ~0.4 s - a cached product
+read and a bare 404 both took 0.50 s - and spent two or three metered
+Upstash commands per shopper per minute.
 
 **A dynamic route needs `generateStaticParams` or its `revalidate` is
 ignored.** `/product/[id]`, `/category/[slug]` and `/journal/[slug]` declared

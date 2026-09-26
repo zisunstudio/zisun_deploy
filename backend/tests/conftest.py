@@ -93,6 +93,11 @@ def _fresh_catalogue_cache():
     that seed rows straight into the database, bypassing the admin API and so
     its invalidation, would otherwise be served the previous test's answer."""
     from app.core import memo
+    from app.middleware import rate_limit
+    # The global rate limit counts in process too, and the suite sends far
+    # more than a hundred requests a minute from one test-client address.
     memo.clear()
+    rate_limit._local.clear()
     yield
     memo.clear()
+    rate_limit._local.clear()

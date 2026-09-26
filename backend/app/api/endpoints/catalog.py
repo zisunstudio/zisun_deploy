@@ -23,9 +23,10 @@ from app.services import truth as truth_svc
 
 router = APIRouter()
 
-# How long a public catalogue read is answered from memory. Short, because
-# stock rides on these responses and the founder edits from her phone; long
-# enough that a burst of visitors costs one database read. See core/memo.py.
+# How long a public catalogue read counts as fresh. Past it the stored answer
+# is still served at once and re-read in the background (core/memo.py), so
+# this bounds staleness, not speed. Short, because stock rides on these
+# responses and the founder edits from her phone.
 CATALOG_TTL = 30
 
 
@@ -35,19 +36,19 @@ CATALOG_TTL = 30
 @router.get("/categories", response_model=list[CategoryResponse], tags=["Catalog"])
 async def list_categories(db: AsyncSession = Depends(get_async_db)):
     """List all active categories with product counts."""
-    async def load():
+    async def load(db):
         cats = await CatalogService(db).list_categories()
         return [CategoryResponse.model_validate(c, from_attributes=True) for c in cats]
-    return await memo.cached(("categories",), CATALOG_TTL, load)
+    return await memo.cached(("categories",), CATALOG_TTL, lambda: load(db), memo.own_session(load))
 
 
 @router.get("/categories/{slug}", response_model=CategoryDetail, tags=["Catalog"])
 async def get_category_by_slug(slug: str, db: AsyncSession = Depends(get_async_db)):
     """Get a single category by slug with its active products."""
-    async def load():
+    async def load(db):
         c = await CatalogService(db).get_category_by_slug(slug)
         return CategoryDetail.model_validate(c, from_attributes=True)
-    return await memo.cached(("category", slug), CATALOG_TTL, load)
+    return await memo.cached(("category", slug), CATALOG_TTL, lambda: load(db), memo.own_session(load))
 
 
 # ── Products ──────────────────────────────────────────────────────────────────
@@ -62,7 +63,7 @@ async def list_products(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Paginated product listing with optional category filter and sort."""
-    async def load():
+    async def load(db):
         result = await CatalogService(db).list_products(
             page=page,
             limit=limit,
@@ -70,16 +71,16 @@ async def list_products(
             sort_by=sort_by.value,
         )
         return ProductListResponse.model_validate(result, from_attributes=True)
-    return await memo.cached(("products", page, limit, category_id, sort_by.value), CATALOG_TTL, load)
+    return await memo.cached(("products", page, limit, category_id, sort_by.value), CATALOG_TTL, lambda: load(db), memo.own_session(load))
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse, tags=["Catalog"])
 async def get_product(product_id: uuid.UUID, db: AsyncSession = Depends(get_async_db)):
     """Get a single product with variants, media, and category."""
-    async def load():
+    async def load(db):
         p = await CatalogService(db).get_product(product_id)
         return ProductResponse.model_validate(p, from_attributes=True)
-    return await memo.cached(("product", product_id), CATALOG_TTL, load)
+    return await memo.cached(("product", product_id), CATALOG_TTL, lambda: load(db), memo.own_session(load))
 
 
 # ── Search ────────────────────────────────────────────────────────────────────
@@ -170,7 +171,7 @@ async def catalogue_truth(db: AsyncSession = Depends(get_async_db)):
     """The brand claims the live pieces support, and the facts that would
     unlock more. The storefront's home page, footer, meta descriptions and
     llms.txt are written from this - see services/truth.py."""
-    async def load():
+    async def load(db):
         from sqlalchemy import select
         from app.models.catalog import Product
         rows = (await db.execute(
@@ -194,4 +195,4 @@ async def catalogue_truth(db: AsyncSession = Depends(get_async_db)):
         for name, desc in descs:
             t.unsupported += truth_svc.audit_text(name, desc, t)
         return truth_svc.as_dict(t)
-    return await memo.cached(("truth",), CATALOG_TTL, load)
+    return await memo.cached(("truth",), CATALOG_TTL, lambda: load(db), memo.own_session(load))

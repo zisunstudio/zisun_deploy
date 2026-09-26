@@ -90,3 +90,51 @@ def test_a_read_that_straddles_a_write_is_not_kept():
 
     assert run(race()) == "v1"               # the caller still gets an answer
     assert run(memo.cached(("p", 4), 30, produce)) == "v2"   # but it was not kept
+
+
+def test_a_stale_entry_is_served_at_once_and_refreshed_behind():
+    """What makes the cache felt by a real, infrequent visitor."""
+    memo.clear()
+    reads = []
+
+    async def produce():
+        reads.append("request")
+        return "old"
+
+    async def refresh():
+        reads.append("background")
+        await asyncio.sleep(0.02)
+        return "new"
+
+    async def scenario():
+        await memo.cached(("p", 5), 0.01, produce, refresh)
+        await asyncio.sleep(0.02)                          # now stale
+        t0 = asyncio.get_running_loop().time()
+        served = await memo.cached(("p", 5), 0.01, produce, refresh)
+        waited = asyncio.get_running_loop().time() - t0
+        await asyncio.sleep(0.04)                          # let the refresh land
+        return served, waited, memo._store[("p", 5)][1]
+
+    served, waited, after = run(scenario())
+    assert served == "old" and waited < 0.01, "the visitor must not wait on the refresh"
+    assert after == "new"
+    assert reads == ["request", "background"]
+
+
+def test_a_failed_refresh_keeps_the_last_good_answer():
+    memo.clear()
+
+    async def produce():
+        return "good"
+
+    async def refresh():
+        raise ConnectionError("database unreachable")
+
+    async def scenario():
+        await memo.cached(("p", 6), 0.01, produce, refresh)
+        await asyncio.sleep(0.02)
+        first = await memo.cached(("p", 6), 0.01, produce, refresh)
+        await asyncio.sleep(0.02)
+        return first, await memo.cached(("p", 6), 0.01, produce, refresh)
+
+    assert run(scenario()) == ("good", "good")
