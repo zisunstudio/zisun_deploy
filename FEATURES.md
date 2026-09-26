@@ -51,6 +51,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Gateway-verified cancellation: never cancel a prepaid order Razorpay says was paid | `backend/app/services/razorpay_reconcile.py`, `backend/app/tasks/commerce.py` | Live |
 | One-button recovery of orders the webhook missed | `frontend/src/app/admin/reconciliation/page.tsx` | Live |
 | Order detail in the console: what to pack, where to send it, one-tap copy | `frontend/src/app/admin/orders/OrderDetail.tsx` | Live |
+| Courier booked on packing: AWB, pickup requested, label; pickup day on the list; failure named with retry or hand entry; live status moves the order to shipped/delivered | `frontend/src/app/admin/orders/Shipment.tsx`, `frontend/src/lib/pickup.ts`, `backend/app/services/shiprocket.py`, `backend/alembic/versions/0026_fulfillment_pickup.py` | Live |
 | Payment instrumentation: sheet opened, failed (with gateway reason), dismissed, checkout viewed | `frontend/src/app/checkout/page.tsx` | Live |
 | First-touch attribution on every event and every order | `frontend/src/lib/attribution.ts`, `backend/alembic/versions/0021_order_attribution.py` | Live |
 | Acquisition panel: visits, people and money by channel | `frontend/src/app/admin/page.tsx` | Needs data |

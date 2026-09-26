@@ -1,10 +1,12 @@
 """Admin order endpoints — list, detail, status update, refund."""
 import uuid
+from datetime import date, datetime, time
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, String
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,9 +14,9 @@ from app.core.database import get_async_db
 from app.core.config import settings
 from app.core.security import require_role
 from app.models.catalog import Product, ProductVariant
-from app.models.order import Order, OrderItem, OrderStatus, Payment, PaymentMethod, PaymentStatus, OutboxEvent
+from app.models.order import Fulfillment, Order, OrderItem, OrderStatus, Payment, PaymentMethod, PaymentStatus, OutboxEvent
 from app.models.user import User
-from app.schemas.order import AdminAddressDetail, AdminOrderDetail, AdminOrderItemDetail, OrderResponse
+from app.schemas.order import AdminAddressDetail, AdminOrderDetail, AdminOrderItemDetail, AdminOrderRow, AdminShipment, OrderResponse
 from app.services.order_state_machine import OrderStateMachine
 from app.services.cod_confirmation import apply_reply, may_dispatch
 from app.tasks.commerce import _release_locks_for_order
@@ -30,7 +32,7 @@ class RefundRequest(BaseModel):
     amount: Optional[int] = None  # paise; None = full amount
 
 
-@router.get("/", response_model=List[OrderResponse])
+@router.get("/", response_model=List[AdminOrderRow])
 async def admin_list_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
@@ -61,7 +63,19 @@ async def admin_list_orders(
     offset = (page - 1) * limit
     stmt = stmt.offset(offset).limit(limit)
     result = await db.execute(stmt)
-    return list(result.scalars().all())
+    rows = []
+    for order in result.scalars().all():
+        row = AdminOrderRow.model_validate(order)
+        f = order.fulfillment
+        if f:
+            row.pickup_scheduled_at = f.pickup_scheduled_at
+            row.courier_name = f.courier_name
+            row.shipment_problem = bool(f.last_error) and not (f.awb_number and f.pickup_scheduled_at)
+        elif order.status == OrderStatus.PACKED:
+            # Packed before booking existed, or the booking never started.
+            row.shipment_problem = True
+        rows.append(row)
+    return rows
 
 
 @router.get("/{order_id}", response_model=AdminOrderDetail)
@@ -104,6 +118,7 @@ async def admin_get_order(
     if order.address:
         out.address = AdminAddressDetail.model_validate(order.address)
     if order.fulfillment:
+        out.shipment = AdminShipment.model_validate(order.fulfillment)
         out.awb_number = order.fulfillment.awb_number
         out.carrier = order.fulfillment.carrier
 
@@ -141,6 +156,10 @@ async def admin_update_order_status(
             selectinload(Order.items),
             selectinload(Order.payment),
             selectinload(Order.fulfillment),
+            # The courier needs the address. It was not loaded here, so the
+            # booking read it lazily, which raises under asyncio - and the
+            # bare `except: pass` around it hid that too.
+            selectinload(Order.address),
         )
         .where(Order.id == order_id)
         .with_for_update()
@@ -170,28 +189,11 @@ async def admin_update_order_status(
     if body.status in (OrderStatus.CANCELLED, OrderStatus.FAILED_PAYMENT):
         await _release_locks_for_order(db, order_id)
 
-    # Shiprocket AWB on PACKED
+    # Packed means a courier should come for it: book one now. A booking that
+    # fails does not undo the packing - the reason is kept on the fulfilment
+    # and the console offers a retry and a way to enter it by hand.
     if body.status == OrderStatus.PACKED:
-        try:
-            from app.services.shiprocket import create_shipment
-            from app.models.order import Fulfillment
-
-            awb = await create_shipment(db, order)
-            if awb:
-                fulfillment = order.fulfillment
-                if fulfillment:
-                    fulfillment.awb_number = awb
-                    fulfillment.status = "PACKED"
-                else:
-                    f = Fulfillment(
-                        order_id=order.id,
-                        carrier="shiprocket",
-                        awb_number=awb,
-                        status="PACKED",
-                    )
-                    db.add(f)
-        except Exception:
-            pass  # Non-blocking — admin sees "Manual AWB Entry Required" in UI
+        await _book_courier(db, order)
 
     await db.commit()
     return await admin_get_order(order_id, db)
@@ -356,3 +358,137 @@ async def admin_reconcile_payments(
     from app.services.razorpay_reconcile import sweep  # noqa: PLC0415
 
     return await sweep(db, days=days)
+
+
+# ── Shipment: book the courier, enter a booking by hand, ask where it is ─────
+#
+# After an order was placed the console could not say when a courier would
+# come, whether one had been asked, or where the parcel was. These three
+# answer that, and the order detail shows the result.
+
+
+async def _book_courier(db: AsyncSession, order: Order) -> Fulfillment:
+    from app.services.shiprocket import book_shipment  # noqa: PLC0415
+
+    f = order.fulfillment
+    if f is None:
+        f = Fulfillment(order_id=order.id, carrier="shiprocket", status="NOT_BOOKED")
+        db.add(f)
+        order.fulfillment = f
+    await book_shipment(db, order, f)
+    return f
+
+
+async def _locked_order(db: AsyncSession, order_id: uuid.UUID) -> Order:
+    order = (await db.execute(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.fulfillment), selectinload(Order.address))
+        .where(Order.id == order_id)
+        .with_for_update()
+    )).scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    return order
+
+
+@router.post("/{order_id}/shipment/book", response_model=AdminOrderDetail)
+async def admin_book_shipment(order_id: uuid.UUID, db: AsyncSession = Depends(get_async_db)):
+    """Try booking the courier again, resuming at whichever step stopped."""
+    order = await _locked_order(db, order_id)
+    if order.status != OrderStatus.PACKED:
+        raise HTTPException(409, "A courier is booked for packed orders only. Mark it packed first.")
+    if order.fulfillment and order.fulfillment.carrier != "shiprocket":
+        raise HTTPException(409, "This parcel was booked by hand. Edit that booking instead.")
+    await _book_courier(db, order)
+    await db.commit()
+    return await admin_get_order(order_id, db)
+
+
+class ManualShipmentBody(BaseModel):
+    awb: str = Field(min_length=3, max_length=100)
+    courier: str = Field(min_length=2, max_length=100)
+    # The day the courier said they would come; optional because a drop-off
+    # at a counter has no pickup.
+    pickup_date: Optional[date] = None
+    # True when she booked it in Shiprocket's own panel, so its tracking can
+    # still be read through Shiprocket; False for a courier booked directly.
+    via_shiprocket: bool = True
+
+
+@router.post("/{order_id}/shipment/manual", response_model=AdminOrderDetail)
+async def admin_manual_shipment(
+    order_id: uuid.UUID, body: ManualShipmentBody, db: AsyncSession = Depends(get_async_db)
+):
+    """Record a courier she booked herself, when automatic booking could not."""
+    order = await _locked_order(db, order_id)
+    if order.status not in (OrderStatus.PACKED, OrderStatus.SHIPPED):
+        raise HTTPException(409, "A courier can be recorded on a packed or shipped order only.")
+    if not may_dispatch(order):
+        raise HTTPException(409, "This Cash on Delivery order is not confirmed and cannot be dispatched.")
+
+    from app.services.shiprocket import _IST  # noqa: PLC0415
+
+    f = order.fulfillment
+    if f is None:
+        f = Fulfillment(order_id=order.id, carrier="shiprocket", status="NOT_BOOKED")
+        db.add(f)
+        order.fulfillment = f
+    f.carrier = "shiprocket" if body.via_shiprocket else "manual"
+    f.awb_number = body.awb.strip()
+    f.courier_name = body.courier.strip()
+    if body.pickup_date:
+        f.pickup_scheduled_at = datetime.combine(body.pickup_date, time(0, 0), tzinfo=_IST)
+    f.status = "PICKUP_SCHEDULED" if body.pickup_date else "AWB_ASSIGNED"
+    f.last_error = None
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "That AWB is already on another order.")
+    return await admin_get_order(order_id, db)
+
+
+#: Courier steps that mean the parcel has left her hands, and the one that
+#: means it has arrived. Everything else leaves the order where it is.
+_LEFT = {"picked_up", "in_transit", "out_for_delivery", "attempted", "delivered"}
+
+
+@router.post("/{order_id}/shipment/refresh")
+async def admin_refresh_shipment(order_id: uuid.UUID, db: AsyncSession = Depends(get_async_db)):
+    """Where the parcel is, and move the order forward if the courier says so.
+
+    Only ever moves an order forwards (PACKED -> SHIPPED -> DELIVERED), and
+    only on the courier's word; never back, never to cancelled. DELIVERED
+    matters beyond tidiness: a COD order's cash counts as collected only then.
+    """
+    from app.services.shiprocket import track_awb  # noqa: PLC0415
+
+    order = await _locked_order(db, order_id)
+    f = order.fulfillment
+    if not f or not f.awb_number or f.carrier != "shiprocket":
+        return {"tracking": None, "status": order.status.value, "moved": []}
+
+    try:
+        from app.core.redis import get_redis_client  # noqa: PLC0415
+
+        redis = await get_redis_client()
+    except Exception:  # noqa: BLE001
+        redis = None
+    live = await track_awb(f.awb_number, redis=redis)
+    if not live:
+        return {"tracking": None, "status": order.status.value, "moved": [], "live_unavailable": True}
+
+    moved: list[str] = []
+    step = live.get("step")
+    if step in _LEFT and order.status == OrderStatus.PACKED:
+        OrderStateMachine.transition(order, OrderStatus.SHIPPED)
+        moved.append("SHIPPED")
+    if step == "delivered" and order.status == OrderStatus.SHIPPED:
+        OrderStateMachine.transition(order, OrderStatus.DELIVERED)
+        moved.append("DELIVERED")
+    if live.get("courier") and not f.courier_name:
+        f.courier_name = str(live["courier"])[:100]
+    if live.get("status"):
+        f.status = str(live["status"])[:50]
+    await db.commit()
+    return {"tracking": live, "status": order.status.value, "moved": moved}

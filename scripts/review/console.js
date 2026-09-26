@@ -14,6 +14,9 @@
  * Usage: node scripts/review/console.js /admin/journal [...more paths]
  *   BASE=http://127.0.0.1:3600   the running Next build
  *   OUT=/tmp/shots               where screenshots land
+ *   CHROMIUM=/opt/pw-browsers/...  a browser binary, where none is bundled
+ *   CLICK="What to pack"         click every button with this text first, so
+ *                                what opens (an order's detail) is measured too
  */
 const path = require("path");
 const TOOLS = process.env.ZISUN_TOOLS || `${process.env.HOME}/.cache/zisun-tools`;
@@ -54,17 +57,38 @@ const FIXTURES = [
       { id: "v4", sku: "ZS-WIN-L", stock: 1, size: "L", color: "Wine", price_delta: 0, is_active: true },
     ],
   }]],
+  // The courier, for a packed parcel: one booked, one that failed to book.
+  [/\/shipment\/refresh/, { tracking: {
+    awb: "141123221084922", courier: "Delhivery Surface", status: "PICKUP SCHEDULED", step: "packed",
+    expected_at: "2026-10-02", delivered_at: null, track_url: null,
+    checkpoints: [{ at: "2026-09-28 18:10:00", status: "Pickup scheduled", location: "Bengaluru_Yelahanka_PC (Karnataka)" }],
+  }, status: "PACKED", moved: [] }],
+  [/\/orders\/44444444-[0-9a-f-]+$/, {
+    id: "44444444-4444-4444-4444-444444444444", status: "PACKED", total_amount: 103900, created_at: "2026-09-24T10:00:00Z",
+    payment_method: "RAZORPAY", shipping_amount: 0, cod_amount_due: null, items: [{}],
+    customer_name: "Test Shopper", customer_phone: "+919876543210", customer_email: null,
+    address: { line1: "4 Park Street", line2: null, city: "Kolkata", state: "West Bengal", pincode: "700016" },
+    detailed_items: [{ quantity: 1, unit_price: 103900, product_name: "Purple Rose Embroidered Co-ord Set", sku: "ZS-PUR-L", size: "L", colour: "Purple", image_url: null }],
+    invoice_number: "ZS/25-26/0003", awb_number: null, carrier: "shiprocket",
+    shipment: { carrier: "shiprocket", courier_name: null, awb_number: null, shipment_id: "222", pickup_scheduled_at: null, pickup_token: null, label_url: null, status: "ORDER_CREATED",
+      last_error: "No courier assigned: Selected courier is not serviceable for the pincode 700016 with the given weight and dimensions." },
+  }],
   [/\/orders\/[0-9a-f-]{8,}$/, {
-    id: "o1", status: "PAID", total_amount: 112400, created_at: "2026-09-23T10:00:00Z",
+    id: "o1", status: "PACKED", total_amount: 112400, created_at: "2026-09-23T10:00:00Z",
     payment_method: "RAZORPAY", shipping_amount: 0, cod_amount_due: null, items: [{}],
     customer_name: "Test Shopper", customer_phone: "+919876543210", customer_email: null,
     address: { line1: "12 MG Road", line2: "Near the park", city: "Bengaluru", state: "Karnataka", pincode: "560001" },
     detailed_items: [{ quantity: 1, unit_price: 112400, product_name: "Rich Wine Dabu Cotton Bandhani-Inspired Kurta Set", sku: "ZS-WIN-M", size: "M", colour: "Wine", image_url: null }],
-    invoice_number: "ZS/25-26/0001", awb_number: null, carrier: null,
+    invoice_number: "ZS/25-26/0001", awb_number: "141123221084922", carrier: "shiprocket",
+    shipment: { carrier: "shiprocket", courier_name: "Delhivery Surface", awb_number: "141123221084922", shipment_id: "221",
+      pickup_scheduled_at: "2026-09-29T05:30:00+00:00", pickup_token: "Reference No: 194_BIGFOOT 1966840_29092026",
+      label_url: "https://example.invalid/label.pdf", status: "PICKUP_SCHEDULED", last_error: null },
   }],
   [/\/orders\/?(\?|$)/, [
     { id: "11111111-1111-1111-1111-111111111111", status: "PAID", total_amount: 112400, created_at: "2026-09-23T10:00:00Z", items: [{}], payment_method: "RAZORPAY", cod_confirmation: null },
     { id: "22222222-2222-2222-2222-222222222222", status: "PAYMENT_PENDING", total_amount: 122300, created_at: "2026-09-23T09:00:00Z", items: [{}], payment_method: "COD", cod_confirmation: "PENDING" },
+    { id: "33333333-3333-3333-3333-333333333333", status: "PACKED", total_amount: 112400, created_at: "2026-09-24T09:00:00Z", items: [{}], payment_method: "RAZORPAY", cod_confirmation: null, pickup_scheduled_at: "2026-09-29T05:30:00+00:00", courier_name: "Delhivery Surface", shipment_problem: false },
+    { id: "44444444-4444-4444-4444-444444444444", status: "PACKED", total_amount: 103900, created_at: "2026-09-24T10:00:00Z", items: [{}], payment_method: "RAZORPAY", cod_confirmation: null, pickup_scheduled_at: null, courier_name: null, shipment_problem: true },
   ]],
   [/\/dashboard\/brief/, {
     brief: { headline: "Two pieces live, no orders yet.", bullets: ["40 people saw a piece; 12 opened one."], critical: [], source: "rules" },
@@ -123,7 +147,7 @@ const FIXTURES = [
 (async () => {
   // --disable-web-security: the fixtures answer a cross-origin API, and an
   // un-intercepted call would otherwise fail CORS instead of being mocked.
-  const browser = await chromium.launch({ args: ["--disable-web-security", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+  const browser = await chromium.launch({ ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}), args: ["--disable-web-security", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
   const ctx = await browser.newContext({ ...devices["Pixel 7"] });
   await ctx.route("**/api/**", async (route) => {
     const url = route.request().url();
@@ -147,6 +171,12 @@ const FIXTURES = [
     page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon/.test(m.text())) errs.push(m.text().slice(0, 200)); });
     await page.goto(BASE + p, { waitUntil: "domcontentloaded", timeout: 120000 });
     await page.waitForTimeout(2500);
+    if (process.env.CLICK) {
+      for (const b of await page.getByRole("button", { name: process.env.CLICK }).all()) {
+        if (await b.isVisible()) await b.click();
+      }
+      await page.waitForTimeout(1500);
+    }
     const name = p.replace(/\W+/g, "-").replace(/^-|-$/g, "") || "root";
     await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
 

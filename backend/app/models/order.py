@@ -169,6 +169,15 @@ class Fulfillment(BaseModel):
     awb_number: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(50))
     external_ref: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True)
+    # Each step of booking the courier, as the courier answered it (0026).
+    # `carrier` is who we booked through; `courier_name` is who actually comes.
+    shipment_id: Mapped[Optional[str]] = mapped_column(String(50))
+    courier_name: Mapped[Optional[str]] = mapped_column(String(100))
+    pickup_scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    pickup_token: Mapped[Optional[str]] = mapped_column(String(100))
+    label_url: Mapped[Optional[str]] = mapped_column(String(500))
+    # Why the last attempt stopped, in the courier's words; None once booked.
+    last_error: Mapped[Optional[str]] = mapped_column(String(500))
 
     order: Mapped["Order"] = relationship("Order", back_populates="fulfillment")
 

@@ -152,6 +152,34 @@ class AdminAddressDetail(BaseModel):
         from_attributes = True
 
 
+class AdminOrderRow(OrderResponse):
+    """A list row, plus the one shipping fact she scans the list for.
+
+    No name, phone or address - those stay behind the detail endpoint.
+    """
+    pickup_scheduled_at: Optional[datetime] = None
+    courier_name: Optional[str] = None
+    # The courier could not be booked and nobody has entered one by hand.
+    shipment_problem: bool = False
+
+
+class AdminShipment(BaseModel):
+    """What the courier has said about this parcel, step by step."""
+    carrier: str
+    courier_name: Optional[str] = None
+    awb_number: Optional[str] = None
+    shipment_id: Optional[str] = None
+    pickup_scheduled_at: Optional[datetime] = None
+    pickup_token: Optional[str] = None
+    label_url: Optional[str] = None
+    status: Optional[str] = None
+    last_error: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class AdminOrderDetail(OrderResponse):
     """Everything needed to pack and send one parcel, in one response.
 
@@ -168,3 +196,4 @@ class AdminOrderDetail(OrderResponse):
     invoice_number: Optional[str] = None
     awb_number: Optional[str] = None
     carrier: Optional[str] = None
+    shipment: Optional[AdminShipment] = None

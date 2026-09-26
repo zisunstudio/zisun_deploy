@@ -2,6 +2,7 @@
 import json
 import logging
 from dataclasses import dataclass, asdict
+from datetime import datetime
 from typing import Optional
 
 import httpx
@@ -212,60 +213,108 @@ def _as_int(value) -> Optional[int]:
         return None
 
 
-async def create_shipment(db, order) -> Optional[str]:
-    """Create Shiprocket order when marked PACKED. Returns AWB number or None."""
-    from app.core.redis import get_redis_client
-    from app.services.cod_confirmation import may_dispatch
+# ── Booking a courier ────────────────────────────────────────────────────────
+#
+# Shiprocket books a parcel in four calls, not one: create the order, assign a
+# courier (the AWB), ask that courier for a pickup, and print the label. This
+# used to make only the first, read an AWB that the first call never returns,
+# and swallow every error - so a packed order sat on the table with nobody
+# coming for it, and the console could say neither when a courier would come
+# nor that none had been asked.
+#
+# Each step below is skipped when the fulfilment already records its answer,
+# so "try again" resumes where the last attempt stopped instead of creating a
+# second Shiprocket order for the same parcel.
 
-    # Belt and braces behind the admin route's check. Anything that reaches
-    # this function is about to hand a parcel to a courier, and an unconfirmed
-    # COD parcel is the single most expensive thing we can put on a van.
-    if not may_dispatch(order):
-        logger.error(
-            "Refusing AWB for order %s: COD confirmation is %s",
-            order.id,
-            order.cod_confirmation.value if order.cod_confirmation else "not asked",
-        )
+try:
+    from zoneinfo import ZoneInfo
+
+    _IST = ZoneInfo("Asia/Kolkata")
+except Exception:  # pragma: no cover - tzdata missing
+    from datetime import timezone as _tz, timedelta as _td
+
+    _IST = _tz(_td(hours=5, minutes=30))
+
+
+def _find(data, key):
+    """First non-empty value for `key` anywhere in a nested reply.
+
+    Shiprocket's replies nest differently by endpoint and by account (the AWB
+    is at `response.data.awb_code` on one and top-level on another), so the
+    fields are looked up by name rather than by one remembered path.
+    """
+    if isinstance(data, dict):
+        v = data.get(key)
+        if v not in (None, "", [], {}):
+            return v
+        children = data.values()
+    elif isinstance(data, list):
+        children = data
+    else:
         return None
+    for child in children:
+        found = _find(child, key)
+        if found not in (None, "", [], {}):
+            return found
+    return None
 
-    try:
-        redis = await get_redis_client()
-    except Exception:
-        redis = None
 
-    token = await _get_token(redis)
-    if not token:
-        logger.warning(
-            "Shiprocket: no credentials — skipping AWB for order %s", order.id
-        )
+def _message(data, fallback: str) -> str:
+    """The courier's own words for why a step did not happen."""
+    for key in ("message", "error", "errors", "response"):
+        v = data.get(key) if isinstance(data, dict) else None
+        if isinstance(v, str) and v.strip():
+            return v.strip()[:400]
+        if isinstance(v, dict):
+            inner = v.get("data") or v.get("message")
+            if isinstance(inner, str) and inner.strip():
+                return inner.strip()[:400]
+            flat = "; ".join(
+                f"{k}: {', '.join(map(str, x)) if isinstance(x, list) else x}" for k, x in v.items()
+            )
+            if flat:
+                return flat[:400]
+    return fallback
+
+
+def parse_pickup_time(value) -> Optional[datetime]:
+    """Shiprocket's "2026-09-29 11:00:00", which is Indian time, as an instant."""
+    if not value or not isinstance(value, str):
         return None
+    text = value.strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d-%m-%Y %H:%M:%S", "%d %b %Y"):
+        try:
+            return datetime.strptime(text, fmt).replace(tzinfo=_IST)
+        except ValueError:
+            continue
+    return None
 
+
+def _order_payload(order, buyer) -> dict:
     # Who it is going to. These were sent as "Customer" with an empty phone,
     # which leaves the courier unable to reach the buyer at the door.
-    from sqlalchemy import select as _select
-    from app.models.user import User as _User
-    buyer = (await db.execute(_select(_User).where(_User.id == order.user_id))).scalar_one_or_none()
     buyer_name = ((buyer.name if buyer else None) or "Customer").strip()
     first, _, last = buyer_name.partition(" ")
     phone = "".join(ch for ch in ((buyer.phone if buyer else None) or "") if ch.isdigit())[-10:]
     is_cod = str(getattr(order.payment_method, "value", order.payment_method)).upper() == "COD"
     shipping = (getattr(order, "shipping_amount", 0) or 0) / 100
-
-    # Build payload with available order data
-    payload = {
+    address = getattr(order, "address", None)
+    line2 = getattr(address, "line2", None)
+    return {
         "order_id": str(order.id)[:20],
         "order_date": order.created_at.strftime("%Y-%m-%d %H:%M"),
-        "pickup_location": "Primary",
+        "pickup_location": settings.SHIPROCKET_PICKUP_LOCATION,
         "channel_id": "",
         "comment": f"ZISUN order {order.id}",
         "billing_customer_name": first or "Customer",
         "billing_last_name": last,
-        "billing_address": getattr(order.address, "line1", ""),
-        "billing_city": getattr(order.address, "city", ""),
-        "billing_pincode": getattr(order.address, "pincode", "110001"),
-        "billing_state": getattr(order.address, "state", ""),
+        "billing_address": getattr(address, "line1", ""),
+        "billing_address_2": line2 or "",
+        "billing_city": getattr(address, "city", ""),
+        "billing_pincode": getattr(address, "pincode", ""),
+        "billing_state": getattr(address, "state", ""),
         "billing_country": "India",
-        "billing_email": "",
+        "billing_email": (getattr(buyer, "email", None) or "") if buyer else "",
         "billing_phone": phone,
         "shipping_is_billing": True,
         "order_items": [
@@ -289,24 +338,137 @@ async def create_shipment(db, order) -> Optional[str]:
         "weight": 0.5,
     }
 
-    async with httpx.AsyncClient() as client:
+
+async def _call(client, token: str, path: str, body: dict) -> tuple[bool, dict]:
+    try:
         resp = await client.post(
-            f"{SHIPROCKET_BASE}/orders/create/adhoc",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            timeout=15,
+            f"{SHIPROCKET_BASE}{path}",
+            json=body,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            timeout=20,
         )
+    except Exception as exc:  # noqa: BLE001
+        return False, {"message": f"Shiprocket did not answer ({type(exc).__name__})"}
+    try:
+        data = resp.json() or {}
+    except Exception:  # noqa: BLE001
+        data = {"message": (resp.text or "")[:300]}
+    if not isinstance(data, dict):
+        data = {"message": str(data)[:300]}
+    return resp.status_code in (200, 201, 202), data
 
-    if resp.status_code not in (200, 201):
-        logger.error("Shiprocket create_shipment failed: %s", resp.text)
-        return None
 
-    data = resp.json()
-    awb = data.get("awb_code") or data.get("awb_assign_status", {})
-    return str(awb) if awb else None
+def is_booked(fulfillment) -> bool:
+    """A courier is assigned and has been asked to come."""
+    return bool(fulfillment and fulfillment.awb_number and fulfillment.pickup_scheduled_at)
+
+
+async def book_shipment(db, order, fulfillment) -> None:
+    """Book the courier for a packed order, recording each answer on `fulfillment`.
+
+    Never raises: a courier that cannot be booked must not stop the order
+    being marked packed. Whatever step stops it is written to
+    `fulfillment.last_error`, which the console shows beside a retry button
+    and a way to enter a booking made by hand.
+    """
+    from app.core.redis import get_redis_client
+    from app.services.cod_confirmation import may_dispatch
+
+    # Belt and braces behind the admin route's check. Anything that reaches
+    # this function is about to hand a parcel to a courier, and an unconfirmed
+    # COD parcel is the single most expensive thing we can put on a van.
+    if not may_dispatch(order):
+        state = order.cod_confirmation.value if order.cod_confirmation else "not asked"
+        logger.error("Refusing to book courier for order %s: COD confirmation is %s", order.id, state)
+        fulfillment.last_error = f"Cash on Delivery confirmation is {state}; not booked."
+        return
+
+    if is_booked(fulfillment) and fulfillment.label_url:
+        fulfillment.last_error = None
+        return
+
+    try:
+        redis = await get_redis_client()
+    except Exception:  # noqa: BLE001
+        redis = None
+
+    token = await _get_token(redis)
+    if not token:
+        fulfillment.last_error = (
+            "Shiprocket is not connected, so no courier was booked. Book the "
+            "pickup in Shiprocket or with a courier, then enter the AWB here."
+        )
+        logger.warning("Shiprocket: no token - courier not booked for order %s", order.id)
+        return
+
+    from sqlalchemy import select as _select
+    from app.models.user import User as _User
+
+    buyer = (await db.execute(_select(_User).where(_User.id == order.user_id))).scalar_one_or_none()
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. The order, in Shiprocket.
+            if not fulfillment.shipment_id:
+                ok, data = await _call(client, token, "/orders/create/adhoc", _order_payload(order, buyer))
+                shipment_id = _find(data, "shipment_id")
+                if not ok or not shipment_id:
+                    fulfillment.last_error = "Creating the Shiprocket order failed: " + _message(data, "no shipment id returned")
+                    return
+                fulfillment.shipment_id = str(shipment_id)
+                sr_order = _find(data, "order_id")
+                if sr_order and not fulfillment.external_ref:
+                    fulfillment.external_ref = str(sr_order)
+                # Some accounts auto-assign; take the AWB if it came along.
+                if _find(data, "awb_code"):
+                    fulfillment.awb_number = str(_find(data, "awb_code"))
+                    fulfillment.courier_name = _find(data, "courier_name") or fulfillment.courier_name
+                fulfillment.status = "ORDER_CREATED"
+                await db.flush()
+
+            # 2. A courier, which is what an AWB is.
+            if not fulfillment.awb_number:
+                ok, data = await _call(client, token, "/courier/assign/awb", {"shipment_id": fulfillment.shipment_id})
+                awb = _find(data, "awb_code")
+                refused = str(_find(data, "awb_assign_status")) == "0"
+                if not ok or not awb or refused:
+                    fulfillment.last_error = "No courier assigned: " + _message(data, "Shiprocket returned no AWB")
+                    return
+                fulfillment.awb_number = str(awb)
+                fulfillment.courier_name = _find(data, "courier_name") or fulfillment.courier_name
+                fulfillment.status = "AWB_ASSIGNED"
+                await db.flush()
+
+            # 3. The pickup - the step that was never taken.
+            if not fulfillment.pickup_scheduled_at:
+                ok, data = await _call(
+                    client, token, "/courier/generate/pickup", {"shipment_id": [fulfillment.shipment_id]}
+                )
+                when = parse_pickup_time(_find(data, "pickup_scheduled_date"))
+                if not ok or not when:
+                    fulfillment.last_error = "Pickup not scheduled: " + _message(data, "Shiprocket gave no pickup date")
+                    return
+                fulfillment.pickup_scheduled_at = when
+                token_no = _find(data, "pickup_token_number")
+                if token_no:
+                    fulfillment.pickup_token = str(token_no)[:100]
+                fulfillment.status = "PICKUP_SCHEDULED"
+
+            # 4. The label to stick on the parcel. Worth having, not worth
+            # failing the booking for: Shiprocket's panel prints it too.
+            if not fulfillment.label_url:
+                ok, data = await _call(
+                    client, token, "/courier/generate/label", {"shipment_id": [fulfillment.shipment_id]}
+                )
+                label = _find(data, "label_url")
+                if ok and label:
+                    fulfillment.label_url = str(label)[:500]
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Booking courier for order %s failed", order.id)
+        fulfillment.last_error = f"Booking stopped unexpectedly ({type(exc).__name__})."
+        return
+
+    fulfillment.last_error = None
 
 
 # ── Tracking ─────────────────────────────────────────────────────────────────
@@ -318,16 +480,21 @@ async def create_shipment(db, order) -> Optional[str]:
 
 #: Shiprocket's numeric status codes are not stable enough to switch on, so
 #: the human status string is mapped to the five steps a customer cares about.
+#: Order matters - the first needle found wins. "delivered" once came first,
+#: so "UNDELIVERED" and "RTO DELIVERED" both read as delivered; and every
+#: "PICKUP SCHEDULED" / "OUT FOR PICKUP" read as picked up, telling the
+#: customer her parcel had left while it was still on the table.
 _STEP_WORDS: tuple[tuple[str, str], ...] = (
-    ("delivered", "delivered"),
     ("rto", "returning"),
     ("return", "returning"),
     ("undelivered", "attempted"),
+    ("delivered", "delivered"),
     ("out for delivery", "out_for_delivery"),
     ("in transit", "in_transit"),
     ("shipped", "in_transit"),
+    ("not picked", "packed"),
     ("picked", "picked_up"),
-    ("pickup", "picked_up"),
+    ("pickup", "packed"),       # scheduled, queued, out for pickup: not yet
     ("manifest", "packed"),
     ("awb assigned", "packed"),
 )

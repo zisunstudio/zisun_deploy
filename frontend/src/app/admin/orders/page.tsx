@@ -1,9 +1,10 @@
 "use client";
 import { Fragment, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
 import { formatPrice } from "@/lib/queries/catalog";
-import { Page, Card, Button, TableScroll, EmptyState, Input, Select, th, td } from "@/components/admin/ui";
+import { Page, Card, Button, TableScroll, EmptyState, Input, Select, Pill, th, td } from "@/components/admin/ui";
+import { pickupWhen } from "@/lib/pickup";
 import { OrderDetail } from "./OrderDetail";
 
 type OrderDetail = {
@@ -29,6 +30,9 @@ type Order = {
   payment_method?: "COD" | "RAZORPAY" | null;
   cod_confirmation?: "PENDING" | "CONFIRMED" | "DECLINED" | "UNREACHABLE" | null;
   cod_amount_due?: number | null;
+  pickup_scheduled_at?: string | null;
+  courier_name?: string | null;
+  shipment_problem?: boolean;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -64,9 +68,11 @@ export default function AdminOrdersPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const qc = useQueryClient();
   async function run(orderId: string, fn: () => Promise<unknown>) {
     setBusy(orderId); setError(null);
-    try { await fn(); await refetch(); }
+    // The open detail must show the booking that packing just made.
+    try { await fn(); await refetch(); qc.invalidateQueries({ queryKey: ["admin", "order", orderId] }); }
     catch (e: any) {
       const d = e?.response?.data?.detail;
       setError(typeof d === "string" ? d : "That did not go through.");
@@ -124,6 +130,14 @@ export default function AdminOrdersPage() {
     const words: Record<string, string> = { PENDING: "COD · not confirmed", CONFIRMED: "COD · confirmed", DECLINED: "COD · declined", UNREACHABLE: "COD · no answer" };
     return <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${tone}`}>{words[state] ?? "COD"}</span>;
   };
+  // For a packed parcel the question is "when is the courier coming?", so
+  // the list answers it without opening the order.
+  const PickupPill = ({ order }: { order: Order }) => {
+    if (order.status !== "PACKED") return null;
+    if (order.shipment_problem) return <Pill tone="warn">No courier booked</Pill>;
+    if (order.pickup_scheduled_at) return <Pill tone="good">Pickup {pickupWhen(order.pickup_scheduled_at)}</Pill>;
+    return null;
+  };
   const when = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   return (
     <Page title="Orders" description="Newest first. Move each one along as it is packed, shipped and delivered.">
@@ -151,7 +165,7 @@ export default function AdminOrdersPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900 tabular-nums">{formatPrice(order.total_amount)}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /></div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /><PickupPill order={order} /></div>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 items-center">
@@ -185,7 +199,7 @@ export default function AdminOrdersPage() {
                       <td className={`${td} text-gray-600`}>{when(order.created_at)}</td>
                       <td className={`${td} text-gray-600`}>{order.items.length}</td>
                       <td className={`${td} font-semibold tabular-nums`}>{formatPrice(order.total_amount)}</td>
-                      <td className={td}><div className="flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /></div></td>
+                      <td className={td}><div className="flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /><PickupPill order={order} /></div></td>
                       <td className={`${td} text-right whitespace-nowrap`}><div className="inline-flex gap-1.5"><Actions order={order} /></div></td>
                     </tr>
                     {openId === order.id && (

@@ -113,6 +113,24 @@ address have no business being pulled fifty at a time to draw a list.
 `OrderItem.variant` is `viewonly`: an order line is a price-and-quantity
 snapshot and editing the catalogue through it would rewrite history.
 
+**Packed means a courier has been asked to come, or the console says why
+not.** Shiprocket books a parcel in four calls - create the order, assign a
+courier (the AWB), request the pickup, print the label - and PACKED used to
+make only the first, read an AWB that call never returns, and `except: pass`
+everything (the address was not even loaded, so it raised every time). A
+parcel could sit packed with nobody coming, and the console could not tell.
+`book_shipment()` runs all four, records each answer on the fulfilment
+(migration 0026), resumes at the step that failed rather than creating a
+second Shiprocket order, and writes the courier's own words to `last_error`.
+The console shows the pickup day on the list and offers "Try booking again"
+and "I booked it myself". `POST /admin/orders/{id}/shipment/refresh` reads
+the courier and only ever moves an order forwards (PACKED -> SHIPPED ->
+DELIVERED) - which is also what makes COD cash count as collected. The
+pickup address must be named in `SHIPROCKET_PICKUP_LOCATION` exactly as
+Shiprocket knows it ("Primary" by default). `step_for` checks "undelivered",
+"RTO" and "pickup scheduled" before "delivered" and "picked": the order of
+that table once told customers an undelivered parcel had arrived.
+
 **An unconfirmed COD order must not reach PACKED.** `may_dispatch()` gates the
 admin status endpoint with a 409. Asking the customer and shipping anyway
 saves nothing.

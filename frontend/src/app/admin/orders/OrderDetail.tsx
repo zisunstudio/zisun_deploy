@@ -4,6 +4,7 @@ import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { adminApi } from "@/lib/adminApi";
 import { formatPrice } from "@/lib/queries/catalog";
+import { Shipment, type ShipmentShape } from "./Shipment";
 
 /**
  * Everything needed to put one parcel in a bag.
@@ -33,6 +34,8 @@ export interface OrderDetailShape {
   invoice_number: string | null;
   awb_number: string | null;
   carrier: string | null;
+  shipment?: ShipmentShape | null;
+  status?: string;
   shipping_amount?: number;
   cod_amount_due?: number | null;
   payment_method?: string | null;
@@ -149,6 +152,8 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         )}
       </div>
 
+      <Shipment orderId={data.id} orderStatus={data.status ?? ""} shipment={data.shipment ?? null} />
+
       {/* The few facts that matter after it is packed. */}
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         {data.payment_method === "COD" && !!data.cod_amount_due && (
@@ -162,10 +167,6 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         {data.invoice_number && (
           <><dt className="text-gray-500">Invoice</dt>
             <dd className="text-gray-900 tabular-nums">{data.invoice_number}</dd></>
-        )}
-        {data.awb_number && (
-          <><dt className="text-gray-500">Tracking</dt>
-            <dd className="text-gray-900 tabular-nums">{data.awb_number}{data.carrier ? ` · ${data.carrier}` : ""}</dd></>
         )}
       </dl>
     </div>

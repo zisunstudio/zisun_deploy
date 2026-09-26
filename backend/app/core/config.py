@@ -130,6 +130,10 @@ class Settings(BaseSettings):
     # Origin pincode for serviceability and rate lookups. Defaults to the
     # registered business address in Bengaluru; override if dispatch moves.
     SHIPROCKET_PICKUP_PINCODE: str = "560094"
+    # The pickup address's nickname in Shiprocket (Settings -> Pickup
+    # Addresses). Every booking names it; a name Shiprocket does not know
+    # fails the order at the first step.
+    SHIPROCKET_PICKUP_LOCATION: str = "Primary"
     # Courier serviceability is cached, but the two halves age differently.
     # Prepaid coverage is stable. The per-pincode COD flag is not: couriers
     # suspend COD to a pincode intraday when RTO spikes there, so a day-old
