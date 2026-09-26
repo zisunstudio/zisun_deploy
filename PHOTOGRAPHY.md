@@ -145,3 +145,66 @@ Corrected files go up through the console's photo uploader like any other —
 `lib/downscale.ts` caps them at 2400px on the way, which is twice the widest
 the storefront ever renders. Keep the originals; `product_media` is the most
 expensive asset in the business.
+
+---
+
+## Where this actually stands (2026-09-26)
+
+Honest status, because the first version of this file overstated things.
+
+### What was wrong with `correct.js`
+
+It multiplied **gamma-encoded sRGB** values and called it exposure. It is
+not. A multiply in sRGB is a multiply of a perceptual encoding, so it
+distorts chroma and rotates hue as a side effect. The comment said "does not
+touch hue". That was asserted and never measured.
+
+Measured on this catalogue, against the originals:
+
+| | mean ΔE2000 | ΔC* (chroma) | Δh (hue) |
+|---|---|---|---|
+| `correct.js` (sRGB gain) | up to **10.68** | **+10.1** | **+6.7°** |
+| `tone.js` (CIELAB, L* only) | up to 16.8 | **−0.4 … +0.8** | **−0.6 … +0.8°** |
+
+ΔE 1 is just noticeable; above 5 is a different colour. So the first script
+was changing the garment's colour by an obvious amount while claiming not
+to. The ΔE in the second row is *larger* but it is **entirely lightness** —
+chroma and hue are preserved to within 8-bit rounding, and by construction
+rather than by tuning: only L* is written, so no term in the transform can
+move them.
+
+### What is still wrong
+
+`tone.js` is colour-safe and **tonally wrong**. Side by side, its output is
+washed out and milky next to the crude version.
+
+The cause is a measurement error, not a tuning one: the target is anchored
+on the **median L* of the whole frame**. These photographs are full of dark
+trees, shadow and road, so the median reads 17–25 where the garment is much
+lighter, the correction concludes the picture is far darker than it is, and
+lifts until it clips the clamp on nine frames out of ten.
+
+**The fix is to measure the garment, not the frame.** That means knowing
+which pixels are the product — segmentation. This is the one place in this
+pipeline where machine learning is doing work a histogram genuinely cannot,
+as opposed to being decoration.
+
+### The order of work, as it stands
+
+1. ~~Colour-safe transform~~ — done, verified by ΔE2000.
+2. **Subject measurement** — anchor exposure on the product region. Open.
+3. Re-tune the target and clamp against the subject, not the frame.
+4. Only then is either script the one to use.
+
+Until (2) is done, `correct.js` produces the more attractive picture and
+`tone.js` produces the more honest one. Neither is finished.
+
+### Tooling note
+
+`colour.js` hand-implements sRGB↔XYZ↔Lab and CIEDE2000 from the published
+definitions. That was right for proving the point quickly and is correct as
+far as it is tested, but re-implementing published formulae is exactly where
+quiet bugs live. The batch pipeline should move to validated libraries —
+`colour-science`, `scikit-image`, OpenCV — which also bring the segmentation
+and local tone operators step (2) needs. See `AGENTS.md` for where each
+language belongs.
