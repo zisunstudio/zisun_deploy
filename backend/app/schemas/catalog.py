@@ -580,6 +580,55 @@ class ProductResponse(ProductBase):
     colourfastness: Optional[str] = Field(None, exclude=True)
     wash_care: Optional[str] = Field(None, exclude=True)
 
+    # The same again for the garment's own attributes, and this block is the
+    # reason the founder reported her details missing four times.
+    #
+    # `GarmentAttributes.resolve(self)` reads each column off *this model* with
+    # getattr. A field this class does not declare is simply not there, so the
+    # getattr fell to its default and every attribute resolved to null - on
+    # every product, on every request, no matter what the row held. The data
+    # was in the database the whole time; `AdminProductDetail` re-declares
+    # these fields, which is why the console showed them back correctly while
+    # the product page showed nothing. The fabric block above worked purely
+    # because somebody remembered to declare its six columns here.
+    #
+    # `exclude=True` for the same reason as the fabric block: these are
+    # populated so the computed block can read them, never serialised twice.
+    colour: Optional[str] = Field(None, exclude=True)
+    print_type: Optional[str] = Field(None, exclude=True)
+    pattern: Optional[str] = Field(None, exclude=True)
+    neck_type: Optional[str] = Field(None, exclude=True)
+    sleeve_type: Optional[str] = Field(None, exclude=True)
+    sleeve_attached: Optional[bool] = Field(None, exclude=True)
+    dupatta_included: Optional[bool] = Field(None, exclude=True)
+    fit: Optional[str] = Field(None, exclude=True)
+    garment_length: Optional[str] = Field(None, exclude=True)
+    embroidery: Optional[str] = Field(None, exclude=True)
+    bottom_type: Optional[str] = Field(None, exclude=True)
+    occasion: Optional[str] = Field(None, exclude=True)
+    set_pieces: Optional[List[str]] = Field(None, exclude=True)
+    craft: Optional[str] = Field(None, exclude=True)
+    origin: Optional[str] = Field(None, exclude=True)
+    lining: Optional[str] = Field(None, exclude=True)
+    transparency: Optional[str] = Field(None, exclude=True)
+    batch_size: Optional[int] = Field(None, exclude=True)
+    will_rerun: Optional[bool] = Field(None, exclude=True)
+
+    # The offer's own two columns, for the third instance of the same mistake.
+    #
+    # These were left out deliberately, on the reasoning that "the storefront
+    # reads the resolved `offer` block, so ProductResponse never sends the raw
+    # columns". The first half is right and the second half does not follow:
+    # `Offer.resolve(self)` reads `compare_at_price` and `offer_ends_at` off
+    # *this model*. Omitting them did not hide them from the client, it hid
+    # them from the resolver - so every product answered `offer.active: false`
+    # and no markdown the founder set could ever appear on the site.
+    #
+    # `exclude=True` is what "never sends the raw columns" actually requires:
+    # readable by the computed block, absent from the response.
+    compare_at_price: Optional[int] = Field(None, exclude=True)
+    offer_ends_at: Optional[datetime] = Field(None, exclude=True)
+
     # Declarations the buyer must be able to read before paying. Computed, so
     # it needs no work at any of the call sites that build a ProductResponse.
     @computed_field  # type: ignore[prop-decorator]

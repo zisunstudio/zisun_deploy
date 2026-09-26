@@ -363,6 +363,31 @@ console form. It happened a second time with `compare_at_price` and
 `tests/unit/test_admin_readback.py` now reads the model and the schemas and
 fails the build when a writable column is missing from the read-back.
 
+**And anything a customer reads must be declared on `ProductResponse`.**
+The mirror of the rule above, and the reason the garment details were
+reported missing *four times*. The product page's nested blocks are
+`@computed_field` properties calling `X.resolve(self)`, and every `resolve`
+reaches for its columns with `getattr(product, ...)` - where `product` is
+the schema, not the row. A column `ProductResponse` does not declare is not
+an attribute at all, so the getattr falls to its default and the block
+serialises as null: 200 OK, correct shape, every field empty, nothing
+raised anywhere. It had happened three times. All six fabric-spec columns
+were declared and **none of the nineteen garment attributes**, so every
+product answered nineteen nulls whatever the row held, `GarmentDetails`
+saw no rows and rendered nothing, and the console showed the data back
+perfectly because `AdminProductDetail` re-declares it - so every
+investigation that checked the public API concluded the founder's data had
+not saved. `set_pieces` went the same way, quietly dropping Legal
+Metrology's "1 set - 2 pieces" back to the brand default. So did
+`compare_at_price` and `offer_ends_at`, omitted on the reasoning that "the
+storefront reads the resolved `offer` block" - which starved `Offer.resolve`
+rather than hiding anything, so **no markdown could ever appear on the
+site**. `exclude=True` is what that intent actually requires: readable by
+the computed block, absent from the response.
+`tests/unit/test_storefront_readback.py` derives the requirement from the
+`resolve` bodies themselves, so a new block or a new column is covered the
+day it is written.
+
 **GST is extracted from the price, not added to it, and snapshotted.**
 ZISUN is registered (GSTIN 29BAYPT2026A1ZH - "29" is Karnataka), so every
 sale needs a tax invoice. `app/services/gst.py` works the tax out *of* the
