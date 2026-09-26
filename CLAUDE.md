@@ -259,6 +259,20 @@ it refreshes, and computed at startup by `warm_dashboard()` from the api's
 lifespan. Do not add a panel as a second request from the page, and do not
 route it through Redis.
 
+**Two AI providers, and the console names the one that answered.**
+The Anthropic account ran out of credits and every console AI feature died
+at the same moment - the daily brief, the listing drafter, styling notes,
+attribute extraction and the journal drafter - with nothing behind them. A
+shop with one provider has none the moment that provider says no. `ai.py`
+tries Claude and falls back to Gemini (`GEMINI_API_KEY`,
+`gemini-flash-lite-latest`; `gemini-flash-latest` answered 503 on every
+attempt on 2026-09-26). `extract` keeps its shape on both - Claude by a
+forced tool call, Gemini by `responseSchema` - so a fallback cannot smuggle
+prose into a field the console parses as data, and `_for_gemini` strips the
+schema keys Gemini rejects (`additionalProperties`, `maxLength`) because a
+rejected schema is a 400 rather than a quiet degradation. The brief reports
+the provider that actually answered, never the one asked first.
+
 **Claude runs only behind the admin role.** `app/services/ai.py` is called
 from `/admin/ai/*` and `/admin/dashboard/brief` and nowhere else, so the
 Anthropic bill is bounded by the founder's own use. Every feature degrades

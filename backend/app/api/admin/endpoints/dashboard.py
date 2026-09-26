@@ -729,7 +729,7 @@ async def _brief_facts() -> dict:
                       "low_stock": [{"product": n, "size": s, "colour": c, "stock": int(st)} for n, s, c, st in (r["low"] or [])],
                       "without_photos": [row[0] for row in (r["no_photos"] or [])],
                       "coupons_live": int(r["coupons"] or 0)},
-        "system": {"launch_mode": settings.LAUNCH_MODE or "live", "checkout_enabled": settings.checkout_enabled, "ai": settings.has_ai},
+        "system": {"launch_mode": settings.LAUNCH_MODE or "live", "checkout_enabled": settings.checkout_enabled, "ai": settings.has_any_ai},
     }
 
 
@@ -804,7 +804,10 @@ async def compute_brief() -> dict:
     facts = await _brief_facts()
     brief = _rule_brief(facts)
     facts["system"]["ai_note"] = None
-    if settings.has_ai:
+    # Either provider will do. The gate used to be `has_ai` alone, so a shop
+    # with only a Gemini key would have fallen back to rule-written sentences
+    # while a working provider sat unused.
+    if settings.has_any_ai:
         try:
             import json
             written = await ai.extract(
@@ -814,9 +817,18 @@ async def compute_brief() -> dict:
                 json.dumps(facts, ensure_ascii=False),
                 BRIEF_SCHEMA, name="brief", description="The founder's brief for today.", max_tokens=700,
             )
-            brief = {**written, "source": settings.AI_MODEL}
+            # Name the provider that actually answered, not the one we asked
+            # first: "source: claude-sonnet-5" on a brief Gemini wrote is the
+            # kind of small lie that makes a console untrustworthy.
+            provider = ai.last_provider()
+            brief = {
+                **written,
+                "source": settings.GEMINI_MODEL if provider == "gemini" else settings.AI_MODEL,
+            }
+            if provider == "gemini":
+                facts["system"]["ai_note"] = "Written by Gemini - Claude was unavailable."
         except ai.AIUnavailable as exc:
-            facts["system"]["ai_note"] = f"Claude unavailable: {exc}."
+            facts["system"]["ai_note"] = f"No model could write this: {exc}."
     return {"brief": brief, "facts": facts}
 
 

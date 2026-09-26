@@ -98,6 +98,20 @@ class Settings(BaseSettings):
     # changes.
     ANTHROPIC_API_KEY: str = ""
     AI_MODEL: str = "claude-sonnet-5"
+
+    # ── Gemini, as the second provider ────────────────────────────────────────
+    # The Anthropic account ran out of credits and every console AI feature
+    # died at once - the daily brief, the listing drafter, styling notes,
+    # attribute extraction and the journal drafter. A shop with one AI
+    # provider has none the moment that provider says no, so Gemini stands
+    # behind Claude and answers when Claude cannot. Same fence: these are
+    # admin endpoints only, so the bill stays bounded by the founder's use.
+    GEMINI_API_KEY: str = ""
+    # flash-lite, not flash: verified working on 2026-09-26 while
+    # `gemini-flash-latest` answered 503 "high demand" on every attempt. The
+    # brief is a paragraph and two bullets - it does not need the larger
+    # model, and a model that answers beats a better one that does not.
+    GEMINI_MODEL: str = "gemini-flash-lite-latest"
     # The one customer-facing use of Claude: the fit stylist rephrasing a
     # size the rules engine has already decided. Small, fast model; a hard
     # daily ceiling on calls (every answer is also cached); and a per-visitor
@@ -283,6 +297,14 @@ class Settings(BaseSettings):
     def has_ai(self) -> bool:
         """True when the console's Claude features can run."""
         return bool(self.ANTHROPIC_API_KEY)
+
+    @property
+    def has_gemini(self) -> bool:
+        return bool(self.GEMINI_API_KEY)
+
+    @property
+    def has_any_ai(self) -> bool:
+        return self.has_ai or self.has_gemini
 
     @property
     def has_twilio_auth(self) -> bool:

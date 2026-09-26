@@ -30,7 +30,15 @@ BRAND_VOICE = (
 @router.get("/status")
 async def ai_status():
     """Whether the console's AI features can run, so the UI can say so."""
-    return {"available": settings.has_ai, "model": settings.AI_MODEL if settings.has_ai else None}
+    # Both providers, so the System page can say which one is standing by.
+    return {
+        "available": settings.has_any_ai,
+        "model": settings.AI_MODEL if settings.has_ai else (settings.GEMINI_MODEL if settings.has_gemini else None),
+        "providers": [
+            p for p, on in (("claude", settings.has_ai), ("gemini", settings.has_gemini)) if on
+        ],
+        "last_used": ai.last_provider(),
+    }
 
 
 class DraftRequest(BaseModel):

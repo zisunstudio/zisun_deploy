@@ -33,6 +33,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | The Journal: articles, Article JSON-LD, sitemap, llms.txt | `frontend/src/app/journal/page.tsx`, `backend/app/api/endpoints/journal.py` | Needs data |
 | Journal pipeline: ideas, Claude draft from facts only, approve, publish | `backend/app/api/admin/endpoints/journal.py`, `frontend/src/app/admin/journal/page.tsx` | Live |
 | Markdown rendered without any raw-HTML path | `frontend/src/lib/markdown.tsx` | Live |
+| Gemini as a second AI provider, so no-credits stops killing five features | `backend/app/services/ai.py` | Live |
 | Image optimization: sharp, AVIF/WebP, year-long cache (48.8MB → 265KB per page) | `frontend/next.config.js` | Live |
 | One presentation system for every photograph: own-colour load-in, focal point, fixed ratio, hairline | `frontend/src/components/Photo.tsx` | Live |
 | Tap-to-set crop point per photograph | `frontend/src/components/admin/MediaUploader.tsx`, `backend/alembic/versions/0022_media_focus.py` | Live |
