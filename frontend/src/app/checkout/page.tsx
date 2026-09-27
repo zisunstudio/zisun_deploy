@@ -90,6 +90,9 @@ export default function CheckoutPage() {
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [checkingPin, setCheckingPin] = useState(false);
+  // What "Use my current location" filled in, so she can see it and check it.
+  const [located, setLocated] = useState<{ filled: string[]; attribution: string } | null>(null);
+  const line1Ref = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -97,6 +100,64 @@ export default function CheckoutPage() {
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+  const formRef = useRef(form);
+  formRef.current = form;
+
+  /**
+   * One tap: the phone's position becomes the address, less the door.
+   *
+   * The server turns the coordinates into pincode, road, area, city and
+   * state (services/geocode.py - OpenStreetMap, with the pincode confirmed by
+   * India Post). Only blank fields are filled; anything she has typed wins.
+   * The house number is never filled, because the nearest mapped building is
+   * not her house - the cursor is put at the start of the address line
+   * instead, where the flat number goes. Still only on her tap: a permission
+   * prompt nobody invited is the fastest way to be refused for good.
+   */
+  async function fillFromLocation() {
+    setLocationError(null); setLocated(null);
+    if (!navigator.geolocation) { setLocationError("This browser cannot share a location. Please type the address."); return; }
+    setLocating(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }));
+      const acc = Math.round(pos.coords.accuracy ?? 0);
+      // A fix coarser than a kilometre is a cell tower, not a doorstep.
+      if (acc > 1000) { setLocationError("Your phone could not place you accurately. Please type the address."); return; }
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      setCoords({ lat, lng, acc });
+      const { data } = await api.get("/checkout/locate", { params: { lat, lng } });
+      if (!data?.found) {
+        setLocationError("Location saved for the delivery person, but we could not read a street address there. Please type it.");
+        return;
+      }
+      const f = formRef.current;
+      const next = { ...f };
+      const filled: string[] = [];
+      const take = (k: "pincode" | "line1" | "line2" | "city", v: string | null | undefined, label: string) => {
+        if (v && !f[k].trim()) { next[k] = v; filled.push(label); }
+      };
+      take("pincode", data.pincode, "pincode");
+      take("line1", data.line1, "street");
+      take("line2", data.locality, "area");
+      take("city", data.city, "city");
+      if (data.state && INDIAN_STATES.includes(data.state) && (!f.pincode || f.pincode === data.pincode) && f.state !== data.state) {
+        next.state = data.state; filled.push("state");
+      }
+      setForm(next);
+      setLocated({ filled, attribution: data.attribution });
+      trackEvent("address_located", { filled: filled.length, accuracy_m: acc });
+      if (!f.line1.trim() && data.line1) {
+        setTimeout(() => { const el = line1Ref.current; if (el) { el.focus(); el.setSelectionRange(0, 0); } }, 60);
+      }
+    } catch (e) {
+      // Denied, timed out, or the lookup failed: the form is exactly as it was.
+      const denied = typeof e === "object" && e !== null && "code" in e && (e as GeolocationPositionError).code === 1;
+      setLocationError(denied ? "Location not shared — please type the address." : "We could not find your location. Please type the address.");
+    } finally {
+      setLocating(false);
+    }
+  }
 
   useEffect(() => {
     const isExpress = new URLSearchParams(window.location.search).get("express") === "1";
@@ -446,13 +507,23 @@ export default function CheckoutPage() {
               ))}
             </ul>
             <Total total={totalPaise} shipping={null} />
-            <Primary onClick={() => setStep("details")}>Continue</Primary>
+            {/* A buyer this device remembers goes straight to Pay, where her
+                details show as a card with "Change" - the same short path
+                Buy now already gave her. */}
+            <Primary onClick={() => setStep(remembered && detailsValid ? "pay" : "details")}>Continue</Primary>
           </section>
         )}
 
         {/* 2. Details */}
         {step === "details" && (
           <section>
+            {/* A real form, with shipping-section autofill tokens: Chrome and
+                Safari then fill every field below from one tap on a saved
+                profile - which most phones already carry for their owner. */}
+            <form
+              autoComplete="on"
+              onSubmit={(e) => { e.preventDefault(); if (detailsValid) setStep("pay"); }}
+            >
             <h1 className="font-display text-[30px] text-ink mb-1">Where to?</h1>
             <p className="text-sm text-muted mb-5">No account needed. We use your number to confirm the order.</p>
             {savedAddresses && savedAddresses.length > 0 && (
@@ -473,20 +544,45 @@ export default function CheckoutPage() {
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Full name" className="col-span-2"><input className={input} value={form.name} onChange={set("name")} autoComplete="name" /></Field>
+              <Field label="Full name" className="col-span-2"><input className={input} name="name" value={form.name} onChange={set("name")} autoComplete="shipping name" /></Field>
               <Field label="Mobile number" className="col-span-2">
                 <div className="flex">
                   <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-line bg-rose text-sm text-ink">+91</span>
-                  <input className={`${input} rounded-l-none`} value={form.phone} onChange={set("phone")} inputMode="numeric" maxLength={10} autoComplete="tel-national" />
+                  <input className={`${input} rounded-l-none`} name="tel" type="tel" value={form.phone} onChange={set("phone")} inputMode="numeric" maxLength={10} autoComplete="shipping tel-national" />
                 </div>
               </Field>
               <Field label="Email (optional)" className="col-span-2">
-                <input className={input} type="email" value={form.email} onChange={set("email")} placeholder="For your receipt" autoComplete="email" inputMode="email" />
+                <input className={input} type="email" name="email" value={form.email} onChange={set("email")} placeholder="For your receipt" autoComplete="shipping email" inputMode="email" />
               </Field>
-              <Field label="Address" className="col-span-2"><input className={input} value={form.line1} onChange={set("line1")} placeholder="House / flat, street" autoComplete="address-line1" /></Field>
-              <Field label="Landmark (optional)" className="col-span-2"><input className={input} value={form.line2} onChange={set("line2")} autoComplete="address-line2" /></Field>
-              <Field label="City"><input className={input} value={form.city} onChange={set("city")} autoComplete="address-level2" /></Field>
-              <Field label="Pincode"><input className={input} value={form.pincode} onChange={set("pincode")} inputMode="numeric" maxLength={6} autoComplete="postal-code" /></Field>
+              {/* Location first: one tap fills everything below except the door. */}
+              <div className="col-span-2">
+                <button
+                  type="button"
+                  disabled={locating}
+                  onClick={fillFromLocation}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-ink/25 bg-white px-4 py-3 text-sm font-medium text-ink disabled:opacity-60"
+                >
+                  {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4 text-burgundy" />}
+                  {locating ? "Finding your address…" : coords ? "Update from my location" : "Use my current location"}
+                </button>
+                {located && located.filled.length > 0 && (
+                  <p className="mt-1.5 text-[11px] text-moss">
+                    Filled {located.filled.join(", ")} from your location. Please check them, and add your house or flat number.
+                    <span className="block text-muted">Map data {located.attribution}</span>
+                  </p>
+                )}
+                {coords && (
+                  <p className="mt-1 text-[11px] text-muted flex items-center gap-1">
+                    Pin shared with the delivery person
+                    <button type="button" onClick={() => { setCoords(null); setLocated(null); }} className="underline underline-offset-2">remove</button>
+                  </p>
+                )}
+                {locationError && <p className="mt-1 text-[11px] text-muted">{locationError}</p>}
+              </div>
+              <Field label="Address" className="col-span-2"><input ref={line1Ref} className={input} name="address-line1" value={form.line1} onChange={set("line1")} placeholder="House / flat no., street" autoComplete="shipping address-line1" /></Field>
+              <Field label="Landmark (optional)" className="col-span-2"><input className={input} name="address-line2" value={form.line2} onChange={set("line2")} autoComplete="shipping address-line2" /></Field>
+              <Field label="City"><input className={input} name="address-level2" value={form.city} onChange={set("city")} autoComplete="shipping address-level2" /></Field>
+              <Field label="Pincode"><input className={input} name="postal-code" value={form.pincode} onChange={set("pincode")} inputMode="numeric" maxLength={6} autoComplete="shipping postal-code" /></Field>
 
               {/* The localities under this pincode, as taps. "Indiranagar"
                   spelled three ways is three addresses to a courier; this
@@ -509,47 +605,8 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {/* One tap, and only if she offers. The written address is what
-                  the courier drives to; the pin is what saves the delivery
-                  when the bell goes unanswered. */}
-              <div className="col-span-2">
-                {coords ? (
-                  <p className="text-[12px] text-moss flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5" /> Location shared &mdash; the delivery person can find you
-                    <button type="button" onClick={() => setCoords(null)} className="ml-1 text-muted underline underline-offset-2">remove</button>
-                  </p>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={locating}
-                    onClick={() => {
-                      setLocationError(null);
-                      if (!navigator.geolocation) { setLocationError("This browser cannot share a location."); return; }
-                      setLocating(true);
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          setLocating(false);
-                          const acc = Math.round(pos.coords.accuracy ?? 0);
-                          // A fix coarser than a kilometre is a cell tower,
-                          // not a doorstep. Showing that to a delivery person
-                          // as a pin is worse than showing nothing.
-                          if (acc > 1000) { setLocationError("Your phone could not place you accurately. The written address is what we will use."); return; }
-                          setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc });
-                        },
-                        () => { setLocating(false); setLocationError("No location shared — the written address is enough."); },
-                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-                      );
-                    }}
-                    className="inline-flex items-center gap-1.5 text-[13px] text-burgundy underline underline-offset-4"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    {locating ? "Finding you…" : "Share my location to help the delivery"}
-                  </button>
-                )}
-                {locationError && <p className="mt-1 text-[11px] text-muted">{locationError}</p>}
-              </div>
               <Field label="State" className="col-span-2">
-                <select className={input} value={form.state} onChange={set("state")}>
+                <select className={input} name="address-level1" value={form.state} onChange={set("state")} autoComplete="shipping address-level1">
                   {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </Field>
@@ -565,8 +622,9 @@ export default function CheckoutPage() {
               </p>
             )}
 
-            <Primary disabled={!detailsValid} onClick={() => setStep("pay")}>Continue to payment</Primary>
+            <Primary type="submit" disabled={!detailsValid}>Continue to payment</Primary>
             <BackLink onClick={() => (express ? router.back() : setStep("bag"))} />
+            </form>
           </section>
         )}
 
@@ -717,9 +775,9 @@ function Total({ total, shipping }: { total: number; shipping: number | null }) 
   );
 }
 
-function Primary({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+function Primary({ children, onClick, disabled, type = "button" }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; type?: "button" | "submit" }) {
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type={type} onClick={onClick} disabled={disabled}
       className="mt-6 w-full bg-burgundy text-white py-4 rounded-full font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 hover:bg-burgundy-deep transition-colors">
       {children}
     </button>
@@ -728,7 +786,7 @@ function Primary({ children, onClick, disabled }: { children: React.ReactNode; o
 
 function BackLink({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="mt-3 w-full text-center text-xs text-muted inline-flex items-center justify-center gap-1.5 hover:text-ink">
+    <button type="button" onClick={onClick} className="mt-3 w-full text-center text-xs text-muted inline-flex items-center justify-center gap-1.5 hover:text-ink">
       <ArrowLeft className="w-3.5 h-3.5" /> Back
     </button>
   );

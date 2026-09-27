@@ -122,6 +122,28 @@ async def check_pincode(pincode: str, cod: bool = True):
     }
 
 
+# ── GET /locate — the phone's position, as an address ─────────────────────────
+
+@router.get("/locate", tags=["Checkout"])
+async def locate(lat: float, lng: float):
+    """Pincode, road, locality, city and state for a position, so the only
+    thing left for her to type is the house or flat number.
+
+    Called only when she taps "Use my current location". Always answers 200:
+    `found: false` means the form stays as it is and she types it, which is
+    what happened before this existed. See services/geocode.py.
+    """
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        raise HTTPException(status_code=400, detail="Not a position on Earth")
+    from app.services.geocode import reverse  # noqa: PLC0415
+
+    try:
+        redis = await get_redis_client()
+    except Exception:
+        redis = None
+    return (await reverse(lat, lng, redis=redis)).as_dict()
+
+
 # ── GET /policy — what the shop charges, from the shop ────────────────────────
 
 
