@@ -49,14 +49,16 @@ export function LegalFooter({ line }: { line?: string } = {}) {
             </p>
 
           </div>
-          <nav className="grid grid-cols-2 gap-x-10 gap-y-2.5 text-sm" aria-label="Footer">
+          {/* Each link is at least 24px tall (WCAG 2.2 SC 2.5.8): they sat at
+              20px, and a footer is exactly where a thumb misses. */}
+          <nav className="grid grid-cols-2 gap-x-10 gap-y-0.5 text-sm" aria-label="Footer">
             {LINKS.map(({ href, label }) => (
-              <Link key={href} href={href} className="text-porcelain/80 hover:text-porcelain underline-offset-4 hover:underline">
+              <Link key={href} href={href} className="inline-flex items-center min-h-[32px] text-porcelain/80 hover:text-porcelain underline-offset-4 hover:underline">
                 {label}
               </Link>
             ))}
             {HAS_ANY_WHATSAPP && wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => recordEnquiry({ source: "footer" })} className="text-porcelain/80 hover:text-porcelain underline-offset-4 hover:underline">
+              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => recordEnquiry({ source: "footer" })} className="inline-flex items-center min-h-[32px] text-porcelain/80 hover:text-porcelain underline-offset-4 hover:underline">
                 WhatsApp us
               </a>
             )}

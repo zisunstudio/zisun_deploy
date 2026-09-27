@@ -37,6 +37,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Image optimization: sharp, AVIF/WebP, year-long cache (48.8MB → 265KB per page) | `frontend/next.config.js` | Live |
 | One presentation system for every photograph: own-colour load-in, focal point, fixed ratio, hairline | `frontend/src/components/Photo.tsx` | Live |
 | Tap-to-set crop point per photograph | `frontend/src/components/admin/MediaUploader.tsx`, `backend/alembic/versions/0022_media_focus.py` | Live |
+| The next storefront, previewed at /genz (noindex): full-bleed worn hero, swipe rail, fit at 153 cm, the receipts, ZISUN mark | `frontend/src/app/genz/page.tsx`, `frontend/src/app/genz/GenZView.tsx` | Live |
 | Customer order tracking: courier journey, checkpoints, no sign-in | `frontend/src/app/order/[id]/OrderTracking.tsx`, `backend/app/services/shiprocket.py` | Live |
 | COD fee read from the API, never a hard-coded constant | `backend/app/api/endpoints/checkout.py`, `frontend/src/lib/queries/policy.ts` | Live |
 | GST computed out of the inclusive price, per piece, split by place of supply | `backend/app/services/gst.py` | Live |

@@ -410,3 +410,49 @@ not decoration:
 
 Still open, and not a design matter: the home page's handloom, Mangalgiri /
 Ilkal / Kasavu and never-re-run claims need the founder's confirmation.
+
+## 16. The next storefront, previewed at /genz (2026-09-27)
+
+`/genz` is the storefront for the women who will buy from ZISUN through 2035:
+13 to 30 today, nearly all on a mid-range Android, most arriving from
+Instagram's in-app browser. It is a preview. It carries `noindex` because it
+shows the same pieces as `/`, and two URLs competing for one catalogue help
+neither. When it replaces the home page it moves to `/` and the flag goes.
+
+The research behind it said four things, and each one became a section:
+
+- **This audience trusts her own research, not an ad.** 82% want brands to
+  be honest, and quality ranks above price. So the page opens on one piece,
+  worn full-bleed, with its name and price on the photograph ("Worn: Purple
+  Rose · ₹1,039"). It shows the thing itself, not an ad for it.
+- **Fit drives 53–70% of apparel returns.** "The fit, honestly" gives her
+  height as a number (153 cm) and names the size finder, which keeps her
+  measurements on the phone (§13).
+- **Drip pricing is now an enforcement matter (CCPA).** "The receipts" puts
+  GST, the COD fee, the exchange window, dispatch and delivery in one table
+  before she reaches the bag. Every number is read from `POLICY_TERMS`.
+- **Only 1% want "full sparkle"; 37.5% want low-key chic.** Motion is one
+  headline rising word by word, done in CSS. It is switched off under
+  reduced motion, and the markup is identical on server and client so
+  hydration cannot diverge. There is no loop, no confetti and no counter.
+
+Everything else follows the rules above. Every photograph goes through
+`Photo`. Product cards carry no buttons. Burgundy is used only for the
+primary action and the WhatsApp button. Brand lines come from `truth.ts`.
+In browse mode it says nothing about stock. The rail is a native
+`snap-x` scroller: swipe on a phone, arrow keys on a desktop, and a focus
+ring when reached by keyboard. Every standalone link is at least 44px tall
+(WCAG 2.2 asks for 24px).
+
+**Deliberately not built:**
+
+- Pop-ups before any interaction.
+- Streaks, spin-to-win or countdowns that are not real offers.
+- Slang.
+- AI-generated models (74% react badly).
+- Virtual try-on (the evidence for it is weak).
+- WebGPU (it fails inside in-app browsers).
+- Anything that profiles an under-18 visitor (DPDP: she is a child in law).
+
+The first-load JS is 206 kB, well inside the ~365 kB that gives a
+three-second load on a mid-range phone.
