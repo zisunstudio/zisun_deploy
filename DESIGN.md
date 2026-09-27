@@ -411,13 +411,13 @@ not decoration:
 Still open, and not a design matter: the home page's handloom, Mangalgiri /
 Ilkal / Kasavu and never-re-run claims need the founder's confirmation.
 
-## 16. The next storefront, previewed at /genz (2026-09-27)
+## 16. The next storefront, first previewed at /genz, now the home page (2026-09-27)
 
-`/genz` is the storefront for the women who will buy from ZISUN through 2035:
+The home page is the storefront for the women who will buy from ZISUN through 2035:
 13 to 30 today, nearly all on a mid-range Android, most arriving from
-Instagram's in-app browser. It is a preview. It carries `noindex` because it
-shows the same pieces as `/`, and two URLs competing for one catalogue help
-neither. When it replaces the home page it moves to `/` and the flag goes.
+Instagram's in-app browser. It was previewed at `/genz` and became the home page the
+same day; `/genz` now redirects to `/`. The earlier home page is retired in
+FEATURES.md with the commit to restore it from.
 
 The research behind it said four things, and each one became a section:
 

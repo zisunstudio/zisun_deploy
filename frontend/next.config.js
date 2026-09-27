@@ -55,6 +55,11 @@ const nextConfig = {
     deviceSizes: [360, 414, 640, 828, 1080, 1200, 1920],
     imageSizes: [64, 128, 236, 256, 384],
   },
+  // /genz previewed the storefront that became the home page on 2026-09-27;
+  // links shared while it was a preview land on the real thing.
+  async redirects() {
+    return [{ source: "/genz", destination: "/", permanent: true }];
+  },
   experimental: {
     optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
   },

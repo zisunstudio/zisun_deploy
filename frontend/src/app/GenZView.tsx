@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowRight, MessageCircle, ShoppingBag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowDown, ArrowRight, MessageCircle, Search, ShoppingBag, User } from "lucide-react";
 
 import { Photo } from "@/components/Photo";
 import { ProductCard } from "@/components/ProductCard";
@@ -12,15 +13,17 @@ import { PieceWeave } from "@/components/PieceWeave";
 import { Reveal } from "@/components/Reveal";
 import { Wordmark } from "@/components/Wordmark";
 import { LegalFooter } from "@/components/LegalFooter";
+import { DealsRail } from "@/components/DealsRail";
 import {
   formatPrice, productImageFocus, productImageUrl, useProducts,
   type Product, type ProductListResponse,
 } from "@/lib/queries/catalog";
 import { FOUNDER, HERO, MANIFESTO } from "@/lib/brand";
-import { heroEyebrow, type Truth } from "@/lib/truth";
+import { heroEyebrow, shortLine, type Truth } from "@/lib/truth";
 import { POLICY_TERMS } from "@/lib/legal";
 import { BROWSE_ONLY, whatsappContactUrl } from "@/lib/launchMode";
 import { useCartStore } from "@/store/useCartStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
 /**
  * ZISUN for the women who will be most of its buyers from 2027 to 2035.
@@ -65,13 +68,23 @@ function shortName(name: string): string {
 // ── Header ───────────────────────────────────────────────────────────────────
 
 function Header() {
+  const router = useRouter();
+  const signedIn = useAuthStore((s) => s.user !== null);
   const count = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
   const toggleCart = useCartStore((s) => s.toggleCart);
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between px-5 lg:px-10 h-14 bg-porcelain/85 backdrop-blur-md border-b border-line">
-      <Link href="/genz" aria-label="ZISUN, the drop"><Wordmark size="sm" showTagline={false} /></Link>
-      <nav className="flex items-center gap-5 text-sm text-ink">
-        <Link href="/shop" className="hidden sm:inline-flex items-center min-h-[44px] hover:underline underline-offset-4">Everything</Link>
+      <Link href="/" aria-label="ZISUN, home"><Wordmark size="sm" showTagline={false} /></Link>
+      <nav className="flex items-center gap-1 sm:gap-3 text-sm text-ink">
+        <Link href="/shop" className="hidden sm:inline-flex items-center min-h-[44px] px-2 hover:underline underline-offset-4">Everything</Link>
+        <button type="button" onClick={() => router.push("/search")} className="inline-flex h-10 w-10 items-center justify-center" aria-label="Search">
+          <Search className="w-5 h-5" aria-hidden />
+        </button>
+        {/* Always present: without it the storefront has no way to sign in
+            or reach an account (the old home page learned this). */}
+        <button type="button" onClick={() => router.push(signedIn ? "/profile" : "/login")} className="inline-flex h-10 w-10 items-center justify-center" aria-label={signedIn ? "Your account" : "Sign in"}>
+          <User className="w-5 h-5" aria-hidden />
+        </button>
         <button type="button" onClick={toggleCart} className="relative inline-flex h-10 w-10 items-center justify-center -mr-2" aria-label={`Bag, ${count} ${count === 1 ? "piece" : "pieces"}`}>
           <ShoppingBag className="w-5 h-5" aria-hidden />
           {count > 0 && (
@@ -329,6 +342,10 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
         )}
       </section>
 
+      {/* Coupons are advertised, not just accepted (CLAUDE.md): the
+          tickets live on the home page. Renders nothing when there are none. */}
+      <DealsRail />
+
       <Fit lead={lead} />
 
       {styled && (
@@ -380,11 +397,9 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
         </section>
       )}
 
-      <div className="px-5 lg:px-12 py-6 border-t border-line text-xs text-muted flex flex-wrap items-center justify-between gap-2">
-        <span>You are looking at the new ZISUN.</span>
-        <Link href="/" className="inline-flex items-center min-h-[44px] underline underline-offset-2">Back to the classic site</Link>
-      </div>
-      <LegalFooter />
+      {/* Policy links must be reachable from the home page itself: Google's
+          app verification and Razorpay's onboarding both look here. */}
+      <LegalFooter line={shortLine(truth)} />
     </div>
   );
 }

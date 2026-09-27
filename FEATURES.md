@@ -20,13 +20,10 @@ string, and every component, from `9a0585c` to `HEAD`).
 
 | Feature | Where | Status |
 |---|---|---|
-| Hero from the featured piece, credit line | `frontend/src/app/page.tsx` | Live |
-| Three promises (free shipping on prepaid, dispatch time, UPI/cards) | `frontend/src/app/page.tsx` | Live |
-| The day's line (from her clock) | `frontend/src/lib/brand.ts` (`DAYPARTS`) | Live |
+| Home page (was the /genz preview): full-bleed worn hero, swipe rail, fit at 153 cm, the receipts, coupon tickets, ZISUN mark; /genz redirects here | `frontend/src/app/page.tsx`, `frontend/src/app/GenZView.tsx`, `frontend/next.config.js` | Live |
 | Stories of the drop, full-screen viewer, seen rings | `frontend/src/components/Stories.tsx` | Live |
 | Deals rail (offers, coupons) | `frontend/src/components/DealsRail.tsx` | Live |
 | The drop grid, quiet cards, "Only N left" at ≤3 | `frontend/src/components/ProductCard.tsx` | Live |
-| Today's pattern — drawn from the week's colours, woven by scroll, new each day (a pattern, not a claim about the fabric) | `frontend/src/components/Weave.tsx`, `frontend/src/lib/weave.ts` | Live |
 | Brand claims computed from the catalogue, never written | `backend/app/services/truth.py`, `frontend/src/lib/truth.ts` | Live |
 | Provenance on a piece: craft, origin, lining, sheerness, batch, re-run | `backend/app/models/catalog.py`, `frontend/src/components/admin/ProductForm.tsx` | Needs data |
 | "What the site is allowed to say" in the console | `frontend/src/app/admin/system/page.tsx` | Live |
@@ -37,7 +34,6 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Image optimization: sharp, AVIF/WebP, year-long cache (48.8MB → 265KB per page) | `frontend/next.config.js` | Live |
 | One presentation system for every photograph: own-colour load-in, focal point, fixed ratio, hairline | `frontend/src/components/Photo.tsx` | Live |
 | Tap-to-set crop point per photograph | `frontend/src/components/admin/MediaUploader.tsx`, `backend/alembic/versions/0022_media_focus.py` | Live |
-| The next storefront, previewed at /genz (noindex): full-bleed worn hero, swipe rail, fit at 153 cm, the receipts, ZISUN mark | `frontend/src/app/genz/page.tsx`, `frontend/src/app/genz/GenZView.tsx` | Live |
 | Customer order tracking: courier journey, checkpoints, no sign-in | `frontend/src/app/order/[id]/OrderTracking.tsx`, `backend/app/services/shiprocket.py` | Live |
 | COD fee read from the API, never a hard-coded constant | `backend/app/api/endpoints/checkout.py`, `frontend/src/lib/queries/policy.ts` | Live |
 | GST computed out of the inclusive price, per piece, split by place of supply | `backend/app/services/gst.py` | Live |
@@ -173,6 +169,7 @@ string, and every component, from `9a0585c` to `HEAD`).
 
 | What | Why | Restore from |
 |---|---|---|
+| Previous home page: header over the hero, three promises, the day's line, today's pattern (the loom), occasions, category tiles, craft facts, founder note, bottom tab bar | Replaced by the /genz storefront as the home page on 2026-09-27 (DESIGN.md §16); the components (`Weave`, `CategoryCard`, `FounderNote`) are still in the repo | `git show bbab3f0:frontend/src/app/HomeView.tsx` |
 | Ticker (moving ribbon), Sticker, Flourish | Design pass: a label, not a market stall; nothing moves by itself | `git show d844596^:frontend/src/components/Ticker.tsx` (and Sticker, Flourish) |
 | OfferStrip | Replaced by the Deals rail | `git show 5958b0b^:frontend/src/components/OfferStrip.tsx` |
 | "In stock" on every healthy size | Noise; scarcity shows only when true | `git show 529c3ae:"frontend/src/app/product/[id]/page.tsx"` |
