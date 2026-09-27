@@ -23,6 +23,7 @@ from app.api.admin.endpoints import ai as admin_ai
 from app.api.admin.endpoints import journal as admin_journal
 from app.api.admin.endpoints import enquiries as admin_enquiries
 from app.api.admin.endpoints import channels as admin_channels
+from app.api.admin.endpoints import catalog_export as admin_catalog_export
 
 # Read-only overview. Finance sees it too: the payment-method split is the
 # number that decides whether COD is worth running.
@@ -120,4 +121,12 @@ admin_router.include_router(
     prefix="/channels",
     tags=["Admin - Channels"],
     dependencies=[Depends(require_role("admin", "operations", "finance"))],
+)
+
+# The catalogue once, in the shape each marketplace's upload template asks for.
+admin_router.include_router(
+    admin_catalog_export.router,
+    prefix="/catalog-export",
+    tags=["Admin - Catalogue export"],
+    dependencies=[Depends(require_role("admin", "operations"))],
 )

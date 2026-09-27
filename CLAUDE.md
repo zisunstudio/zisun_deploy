@@ -219,6 +219,21 @@ width with a faked session and exits non-zero on any horizontal overflow —
 run it before calling a console change done. It lived in `scratchpad/` and
 was lost three times to a wipe; it is in the repo now.
 
+**A marketplace template is read, never guessed.** Listing on a marketplace
+means filling its category-specific bulk-upload template, downloaded from
+the seller panel and renamed without notice. `services/catalog_export.py`
+has one source - our pieces, one row per live size and colour - and two
+outputs: the master sheet, and her own uploaded template filled in. The
+header row is found as the (sheet, row) in the first 15 rows matching the
+most field aliases; data goes into the first row after it where every
+mapped column is empty, so description and example rows are never
+overwritten; the matches are previewed and overridable; openpyxl keeps
+the template's dropdowns. A column nothing matches is left blank - a wrong
+value in a listing is worse than an empty one - and count columns ("Pack
+of") get a number, never the list of pieces. Prices exported are
+`base_price + price_delta` (tax-inclusive, what is charged); MRP is the
+compare-at price only when it is above that.
+
 **A marketplace order is one order, on the one stock count, and it is not
 money until the marketplace pays.** ZISUN sells on zisun.in and, as they
 open, on Amazon, Myntra, Meesho and AJIO. None offers a seller of this size

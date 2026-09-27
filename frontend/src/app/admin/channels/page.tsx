@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Upload } from "lucide-react";
+import { Download, Loader2, Upload } from "lucide-react";
 
 import { adminApi } from "@/lib/adminApi";
 import {
@@ -135,6 +135,8 @@ export default function AdminChannelsPage() {
         ))}
       </div>
 
+      <CatalogueExport />
+
       {!selected && (
         <EmptyState
           title="Choose a marketplace above"
@@ -151,6 +153,152 @@ export default function AdminChannelsPage() {
         </div>
       )}
     </Page>
+  );
+}
+
+// ── Catalogue export: our pieces, in each marketplace's own template ─────────
+
+type TemplateCol = { column: number; header: string; field: string | null; label: string | null };
+type TemplatePreview = {
+  sheet: string; header_row: number; first_data_row: number; columns: TemplateCol[]; matched: number;
+  total_columns: number; missing_required: string[]; rows: number; sample: Record<string, unknown>;
+};
+
+function saveBlob(data: Blob, filename: string) {
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function CatalogueExport() {
+  const [file, setFile] = useState<File | null>(null);
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  const [includeOff, setIncludeOff] = useState(false);
+  const [preview, setPreview] = useState<TemplatePreview | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const { data: fields } = useQuery({
+    queryKey: ["admin-catalog-fields"],
+    queryFn: async () => (await adminApi.get<{ key: string; label: string }[]>("/catalog-export/fields")).data,
+    staleTime: Infinity,
+  });
+
+  const form = () => {
+    const fd = new FormData();
+    fd.append("file", file!);
+    if (Object.keys(choices).length) fd.append("overrides", JSON.stringify(choices));
+    fd.append("include_inactive", String(includeOff));
+    return fd;
+  };
+  const multipart = { headers: { "Content-Type": "multipart/form-data" } };
+
+  const master = useMutation({
+    mutationFn: async (format: "xlsx" | "csv") =>
+      (await adminApi.get(`/catalog-export/master`, { params: { format, include_inactive: includeOff }, responseType: "blob" })).data as Blob,
+    onSuccess: (blob, format) => { saveBlob(blob, `zisun-catalogue.${format}`); setErr(null); },
+    onError: () => setErr("Could not build the catalogue file."),
+  });
+  const check = useMutation({
+    mutationFn: async () => (await adminApi.post<TemplatePreview>("/catalog-export/template/preview", form(), multipart)).data,
+    onMutate: () => { setErr(null); setMsg(null); },
+    onSuccess: (p) => setPreview(p),
+    onError: (e: unknown) => setErr(detail(e, "Could not read that template.")),
+  });
+  const fill = useMutation({
+    mutationFn: async () => {
+      const res = await adminApi.post("/catalog-export/template/fill", form(), { ...multipart, responseType: "blob" });
+      return { blob: res.data as Blob, rows: res.headers["x-rows-written"] as string | undefined };
+    },
+    onSuccess: ({ blob, rows }) => {
+      const name = file!.name.replace(/\.(xlsx|xlsm)$/i, "");
+      const ext = /\.xlsm$/i.test(file!.name) ? "xlsm" : "xlsx";
+      saveBlob(blob, `${name}-zisun-filled.${ext}`);
+      setMsg(`Filled ${rows ?? preview?.rows ?? ""} rows. Open it to check, then upload it on the marketplace.`);
+    },
+    onError: async (e: unknown) => {
+      // A blob response hides the API's words; read them back out.
+      const data = (e as { response?: { data?: Blob } })?.response?.data;
+      if (data instanceof Blob) {
+        try { const j = JSON.parse(await data.text()); setErr(typeof j.detail === "string" ? j.detail : "The fill failed."); return; } catch { /* not JSON */ }
+      }
+      setErr("The fill failed.");
+    },
+  });
+
+  const reset = () => { setPreview(null); setMsg(null); setErr(null); setChoices({}); };
+
+  return (
+    <div className="mb-6">
+      <Card>
+        <CardHeader
+          title="Catalogue for marketplaces"
+          meta="Your pieces once, in whatever shape a marketplace asks for. Upload its blank template and get it back filled in."
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button disabled={master.isPending} onClick={() => master.mutate("xlsx")}>
+            <Download className="w-4 h-4" /><span className="ml-1.5">Full catalogue (Excel)</span>
+          </Button>
+          <Button disabled={master.isPending} onClick={() => master.mutate("csv")}>CSV</Button>
+          <label className="flex items-center gap-2 text-sm text-gray-700 ml-1">
+            <input type="checkbox" className="h-4 w-4 accent-ink" checked={includeOff} onChange={(e) => { setIncludeOff(e.target.checked); reset(); }} />
+            Include pieces that are switched off
+          </label>
+        </div>
+
+        <div className="mt-5 border-t border-gray-100 pt-4">
+          <p className="text-sm font-semibold text-gray-900">Fill a marketplace template</p>
+          <p className="text-xs text-gray-500 mt-0.5 mb-3">Download the blank bulk-upload template for your category from Amazon, Flipkart, Meesho, Myntra or AJIO, and choose it here (.xlsx or .xlsm).</p>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <input
+              ref={fileRef} type="file" accept=".xlsx,.xlsm"
+              onChange={(e) => { setFile(e.target.files?.[0] ?? null); reset(); }}
+              className={`${inputClass} py-1.5 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1 file:text-sm`}
+            />
+            <Button variant="primary" disabled={!file || check.isPending} onClick={() => check.mutate()}>
+              {check.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}<span className="ml-1.5">Check template</span>
+            </Button>
+          </div>
+          {err && <p className="mt-3 text-sm text-red-700">{err}</p>}
+
+          {preview && (
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-gray-800">
+                Sheet <strong>{preview.sheet}</strong>, column names on row {preview.header_row}. <strong>{preview.matched}</strong> of {preview.total_columns} columns filled from ZISUN; your {preview.rows} sizes go from row {preview.first_data_row}.
+              </p>
+              {preview.missing_required.length > 0 && (
+                <p className="text-sm text-amber-800">No column found for: {preview.missing_required.join(", ")}. Choose it below if the template has one.</p>
+              )}
+              <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+                {preview.columns.map((c) => (
+                  <li key={c.column} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                    <span className="text-sm text-gray-900 min-w-0 break-words">{c.header}</span>
+                    <select
+                      className="h-9 rounded-md border border-gray-300 text-sm w-full sm:w-64"
+                      value={choices[String(c.column)] ?? c.field ?? ""}
+                      onChange={(e) => setChoices((o) => ({ ...o, [String(c.column)]: e.target.value }))}
+                    >
+                      <option value="">Leave empty</option>
+                      {(fields ?? []).map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                    </select>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500">Columns left empty are for you to fill on the marketplace (category-specific values ZISUN does not record). Nothing is guessed.</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(choices).length > 0 && <Button disabled={check.isPending} onClick={() => check.mutate()}>Check again</Button>}
+                <Button variant="primary" disabled={fill.isPending} onClick={() => fill.mutate()}>
+                  {fill.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}<span className="ml-1.5">Download filled template</span>
+                </Button>
+              </div>
+            </div>
+          )}
+          {msg && <p className="mt-3 text-sm text-green-800">{msg}</p>}
+        </div>
+      </Card>
+    </div>
   );
 }
 

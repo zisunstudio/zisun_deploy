@@ -56,3 +56,6 @@ pytest-asyncio==0.23.6
 pytest-cov==5.0.0
 anyio[trio]==4.4.0
 fakeredis[aioredis]==2.23.2
+# Catalogue export: writes the master sheet and fills a marketplace's own
+# upload template while keeping its dropdowns and formatting.
+openpyxl==3.1.5
