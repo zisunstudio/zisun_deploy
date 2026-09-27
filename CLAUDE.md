@@ -351,7 +351,10 @@ cost one), and a failing panel names itself in `meta.errors` rather than
 taking the page down. The result is cached in-process, served stale while
 it refreshes, and computed at startup by `warm_dashboard()` from the api's
 lifespan. Do not add a panel as a second request from the page, and do not
-route it through Redis. Impressions and opens per piece for today / this week / this month
+route it through Redis. Its window is calendar days in India time, today included (`days`
+query param, 7/30/90 from the console's range filter), and it carries a
+daily `series` for the window and the one before it, so every tile,
+sparkline and the trend chart are one set of numbers. Impressions and opens per piece for today / this week / this month
 / this year (IST calendar periods) come in the same response, as one
 grouped query of conditional counts (`attention.by_period`), so switching
 period needs no request. The single exception is a custom date range,
