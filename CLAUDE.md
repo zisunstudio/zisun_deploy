@@ -338,6 +338,11 @@ minute, guarding paid OTP sends) stays in Redis so every worker shares it.
 A Redis `INCR` in front of every api request cost ~0.4 s - a cached product
 read and a bare 404 both took 0.50 s - and spent two or three metered
 Upstash commands per shopper per minute.
+`SessionRestore` asks `/auth/refresh` only on a device that has had a
+session (`lib/sessionHint.ts`), or once to probe a device it has never
+seen: it used to ask twice on every page for every visitor, so strangers'
+browsing spent the sign-in limit - per address, and Indian carriers put
+many phones behind one - plus two Upstash commands a page.
 
 **A dynamic route needs `generateStaticParams` or its `revalidate` is
 ignored.** `/product/[id]`, `/category/[slug]` and `/journal/[slug]` declared

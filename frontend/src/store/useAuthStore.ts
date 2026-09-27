@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { setAccessToken } from "@/lib/api";
+import { forgetSession, markSignedIn } from "@/lib/sessionHint";
 
 export interface AuthUser {
   id: string;
@@ -42,6 +43,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   setAuth: (user, accessToken) => {
     setAccessToken(accessToken);
     set({ user });
+    markSignedIn();
 
     // The moment a guest becomes a customer, their cart has to stop being
     // local-only: /checkout reads the server cart. Imported dynamically so the
@@ -79,6 +81,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   restoreSession: (user, accessToken) => {
     setAccessToken(accessToken);
     set({ user });
+    markSignedIn();
     if (typeof window !== "undefined") {
       import("@sentry/nextjs").then(({ setUser }) => {
         setUser({ id: user?.id, username: user?.phone });
@@ -89,6 +92,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   clearAuth: () => {
     setAccessToken(null);
     set({ user: null });
+    forgetSession();
     if (typeof window !== "undefined") {
       // Signing out must also end the device's Firebase session, or the
       // silent return sign-in (SessionRestore) would put her straight back.

@@ -5,6 +5,7 @@ import axios from "axios";
 
 import { API_V1 } from "@/lib/apiBase";
 import { useAuthStore } from "@/store/useAuthStore";
+import { forgetSession, shouldRestore } from "@/lib/sessionHint";
 
 /**
  * Rebuilds the session on page load from the httpOnly refresh cookie.
@@ -28,6 +29,12 @@ export function SessionRestore() {
     if (isAuthenticated) {
       markSessionChecked();
       return; // already restored, or just signed in
+    }
+    // A visitor who has never signed in has nothing to restore; asking
+    // anyway spent the sign-in rate limit on every page (lib/sessionHint).
+    if (!shouldRestore()) {
+      markSessionChecked();
+      return;
     }
     let cancelled = false;
 
@@ -55,7 +62,10 @@ export function SessionRestore() {
         await new Promise((r) => setTimeout(r, 1200));
         try {
           await attempt();
-        } catch {
+        } catch (err) {
+          // The server answered "no session": stop asking on every page.
+          // Anything else (offline, a 5xx) keeps the flag for next time.
+          if (axios.isAxiosError(err) && err.response?.status === 401) forgetSession();
           // The cookie is gone - more than 30 days away, or a cleared
           // cookie jar. If this device has signed in with Firebase before,
           // its own session usually outlives ours: trade it for a new one,
