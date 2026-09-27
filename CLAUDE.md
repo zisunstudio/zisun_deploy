@@ -331,6 +331,19 @@ App Router a dynamic segment without `generateStaticParams` is dynamic.
 Each returns `[]` now (cache on first visit). `next build`'s route table
 shows it: `●` is ISR, `ƒ` is every request; only personal pages may be `ƒ`.
 
+**Console charts are measured, not styled.** `components/admin/charts.tsx`
+draws every chart by hand in SVG to the dataviz method: colours are the
+`viz` tokens in `tailwind.config.ts`, each validated with the six-checks
+script against the white chart surface - the brand burgundy itself fails
+the mark lightness band (OKLCH L 0.395, reads as ink), so the accent is the
+same hue stepped to L 0.50, and ordered stages (the funnel) take a
+one-hue ordinal ramp. One axis per chart, never two; the trend compares a
+period with the one before it (accent vs grey), not two metrics. Text
+wears ink and muted tokens, never the series colour. Every chart has a
+hover *and* keyboard/tap readout and a "Show as table" twin, so no value
+is reachable only by hovering. Adding a colour means validating it first;
+adding a chart means reusing these components.
+
 **The analytics board is one endpoint, computed concurrently and kept warm.**
 `compute_dashboard()` runs every panel's query at once on its own session
 (the database is a continent away; nine in a row cost ~20s, nine at once

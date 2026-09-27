@@ -43,3 +43,38 @@ def test_rows_become_per_period_numbers():
                                        opens_month=60, impressions_year=2341, opens_year=300)])
     assert rows[0]["periods"]["day"] == {"impressions": 32, "opens": 4}
     assert rows[0]["periods"]["year"]["impressions"] == 2341
+
+
+def test_the_series_has_one_row_per_day_for_both_windows():
+    from datetime import date, datetime, timezone
+    first = date(2026, 9, 21)
+    now = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
+    ev = [(date(2026, 9, 27), 40, 12, 3, 90), (date(2026, 9, 20), 10, 2, 0, 20), (date(2026, 8, 1), 999, 9, 9, 9)]
+    enq = [(date(2026, 9, 25), 4)]
+    ist_noon = lambda d: datetime(2026, 9, d, 6, 30, tzinfo=timezone.utc)   # 12:00 IST
+    orders = [
+        ("PAID", "RAZORPAY", 112400, ist_noon(26), None, None),
+        ("PAYMENT_PENDING", "COD", 99900, ist_noon(26), None, None),
+        ("DELIVERED", "MARKETPLACE", 112400, ist_noon(24), ist_noon(26), 90000),
+        ("CANCELLED", "RAZORPAY", 50000, ist_noon(26), None, None),
+    ]
+    s = d.build_series(first, 7, ev, orders, enq, now)
+    assert [len(s["current"]), len(s["previous"])] == [7, 7]
+    assert s["current"][0]["date"] == "2026-09-21" and s["current"][-1]["date"] == "2026-09-27"
+    assert s["previous"][-1]["date"] == "2026-09-20" and s["previous"][-1]["sessions"] == 10
+    today = s["current"][-1]
+    assert (today["sessions"], today["opens"], today["bag_adds"], today["impressions"]) == (40, 12, 3, 90)
+    assert s["current"][4]["enquiries"] == 4
+    day26 = s["current"][5]
+    assert day26["orders"] == 2, "the cancelled one is not an order"
+    assert (day26["collected_paise"], day26["committed_paise"]) == (112400, 99900), "never added together"
+    assert s["current"][3]["collected_paise"] == 90000, "a marketplace order counts what it paid, not its list price"
+    assert all(r["sessions"] != 999 for r in s["current"] + s["previous"]), "older rows fall outside"
+
+
+def test_the_series_queries_compile_with_ist_dates():
+    import sqlalchemy as sa
+    from sqlalchemy.dialects import postgresql
+    from app.models.analytics import AnalyticsEvent
+    sql = str(sa.select(d.ist_day(AnalyticsEvent.created_at)).compile(dialect=postgresql.dialect()))
+    assert "timezone(" in sql and "date(" in sql

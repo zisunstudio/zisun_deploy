@@ -1,10 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, Lightbulb, Minus } from "lucide-react";
+import { AlertTriangle, Info, Lightbulb, OctagonAlert } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { Page, Card, Button, Pill, StockBadge, Swatch, Sku, TableScroll, LinkButton, th, td } from "@/components/admin/ui";
+import { BarList, Funnel, StatTile, TrendChart, compact, fmtInt, fmtRupees } from "@/components/admin/charts";
 
 /**
  * The founder's board.
@@ -33,8 +34,11 @@ type ProductRow = {
   gap?: { from: string; to: string; from_count: number; to_count: number; lost: number; rate: number; step: string } | null;
   stock_left: number; lowest_variant: { size: string; colour: string; stock: number } | null;
 };
+type SeriesRow = { date: string; sessions: number; opens: number; bag_adds: number; impressions: number; enquiries: number; orders: number; collected_paise: number; committed_paise: number };
+type MetricKey = "sessions" | "opens" | "bag_adds" | "enquiries" | "orders" | "collected_paise";
 type Dash = {
-  meta: { window_days: number; checkout_enabled: boolean; launch_mode: string; events_recorded: number; errors?: string[]; generated_at?: string };
+  series?: { current: SeriesRow[]; previous: SeriesRow[] };
+  meta: { window_start?: string; window_days: number; checkout_enabled: boolean; launch_mode: string; events_recorded: number; errors?: string[]; generated_at?: string };
   week: { sessions: number; sessions_previous: number; opens: number; opens_previous: number; bag_adds: number; bag_adds_previous: number; enquiries: number; enquiries_previous: number; orders: number; revenue_paise: number; committed_paise: number; whatsapp_marked_ordered: number; whatsapp_marked_revenue_paise: number };
   whatsapp: { enquiries_window: number; ordered_window: number; revenue_window_paise: number; conversion: number | null; unanswered: number };
   attention_items: Array<{ severity: "critical" | "warn" | "info"; title: string; body: string; href: string | null }>;
@@ -53,23 +57,26 @@ type Dash = {
 };
 type BriefPayload = { brief: { headline: string; bullets: string[]; critical: string[]; source: string }; facts?: { as_of?: string } };
 
+/** The six figures that lead the board; each is also a tab for the trend chart. */
+const TILES: { key: MetricKey; label: string; money?: boolean; note?: string; hint: string }[] = [
+  { key: "sessions", label: "Visits", hint: "Visits to the site, day by day, against the same number of days before." },
+  { key: "opens", label: "Product opens", hint: "Product pages opened each day." },
+  { key: "bag_adds", label: "Added to bag", hint: "Bag adds each day, including Buy now." },
+  // A tap on a WhatsApp button. The site cannot see whether a message was
+  // ever sent, so it is never called a conversation or an order.
+  { key: "enquiries", label: "WhatsApp taps", note: "opened a chat - not a message, not an order", hint: "Taps on a WhatsApp button each day. The site cannot see whether a message followed." },
+  { key: "orders", label: "Orders", note: "placed and not cancelled", hint: "Orders placed each day - website and marketplaces, cancelled ones left out." },
+  { key: "collected_paise", label: "Collected", money: true, hint: "Money in, by the day the order was placed: prepaid paid, COD delivered, marketplace settled." },
+];
+
 const rupees = (paise: number) => "₹" + Math.round(paise / 100).toLocaleString("en-IN");
 const pct = (r: number | null | undefined) => (r == null ? "—" : `${Math.round(r * 100)}%`);
-
-function Trend({ now, before }: { now: number; before?: number }) {
-  if (!before) return null;
-  if (before < 20) return <span className="text-xs text-gray-500 whitespace-nowrap">vs {before}</span>;
-  const change = Math.round(((now - before) / before) * 100);
-  const Icon = change > 0 ? ArrowUpRight : change < 0 ? ArrowDownRight : Minus;
-  const tone = change > 0 ? "text-green-700" : change < 0 ? "text-red-700" : "text-gray-500";
-  return <span className={`inline-flex items-center gap-0.5 text-xs font-semibold whitespace-nowrap ${tone}`}><Icon className="w-3.5 h-3.5" />{change > 0 ? "+" : ""}{change}%</span>;
-}
 
 function Stat({ label, value, note, trend, empty }: { label: string; value: React.ReactNode; note?: string; trend?: React.ReactNode; empty?: boolean }) {
   return (
     <Card className="flex flex-col gap-1 !p-3.5 sm:!p-4">
-      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`text-[24px] sm:text-[26px] leading-none font-semibold tabular-nums ${empty ? "text-gray-300" : "text-gray-900"}`}>{value}</p>
+      <p className="text-xs text-gray-600">{label}</p>
+      <p className={`text-[24px] sm:text-[26px] leading-none font-semibold ${empty ? "text-gray-400" : "text-gray-900"}`}>{value}</p>
       <div className="flex items-center justify-between gap-2 mt-1 min-h-[16px]">{note ? <p className="text-[11px] text-gray-500 leading-snug">{note}</p> : <span />}{trend}</div>
     </Card>
   );
@@ -135,7 +142,7 @@ function AttentionByPeriod({ data }: { data?: ByPeriod }) {
                 <span className="text-sm text-gray-900 min-w-0 truncate"><span className="text-gray-400 tabular-nums mr-1.5">{i + 1}.</span>{r.name}</span>
                 <span className="shrink-0 text-sm tabular-nums text-gray-900">{r.impressions.toLocaleString("en-IN")} <span className="text-xs text-gray-500">shown</span> · {r.opens.toLocaleString("en-IN")} <span className="text-xs text-gray-500">opened</span></span>
               </div>
-              <div className="mt-1.5"><Bar value={r.impressions} max={max} tone="bg-burgundy" /></div>
+              <div className="mt-1.5"><Bar value={r.impressions} max={max} /></div>
             </li>
           ))}
           {rows.length === 0 && <li className="py-3 text-sm text-gray-500">{period === "custom" && custom.isFetching ? "Counting…" : "No live pieces."}</li>}
@@ -157,9 +164,9 @@ function Section({ title, hint, children, action }: { title: string; hint?: stri
   );
 }
 
-function Bar({ value, max, tone = "bg-ink" }: { value: number; max: number; tone?: string }) {
-  const w = max > 0 ? Math.max(value > 0 ? 2 : 0, Math.round((value / max) * 100)) : 0;
-  return <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden"><div className={`h-full rounded-full ${tone}`} style={{ width: `${w}%` }} /></div>;
+function Bar({ value, max }: { value: number; max: number }) {
+  const w = max > 0 ? Math.max(value > 0 ? 1.5 : 0, (value / max) * 100) : 0;
+  return <div className="h-2.5 w-full"><div className="h-full rounded-r-[4px] bg-viz-accent" style={{ width: `${w}%` }} /></div>;
 }
 
 /** The week in sentences. Infrastructure notes live on the System page, not here. */
@@ -233,8 +240,15 @@ function Journey({ p }: { p: ProductRow }) {
 }
 
 export default function AdminAnalytics() {
-  const { data, isLoading, error, refetch } = useQuery<Dash>({
-    queryKey: ["admin", "dashboard"], queryFn: async () => (await adminApi.get("/dashboard")).data, refetchOnWindowFocus: true, retry: 1,
+  const [days, setDays] = useState<7 | 30 | 90>(7);
+  const [metric, setMetric] = useState<MetricKey>("sessions");
+  const { data, isLoading, error, refetch, isPlaceholderData, isFetching } = useQuery<Dash>({
+    queryKey: ["admin", "dashboard", days],
+    queryFn: async () => (await adminApi.get("/dashboard", { params: { days } })).data,
+    // Changing the range keeps the last board on screen, dimmed, until the
+    // new one arrives - no skeleton flash, no layout jump.
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: true, retry: 1,
   });
   if (isLoading) {
     return (
@@ -259,37 +273,65 @@ export default function AdminAnalytics() {
     );
   }
 
-  const { meta, week, whatsapp, attention_items, insight, commerce, attention, inventory, acquisition } = data;
+  const { meta, attention_items, insight, commerce, attention, inventory, acquisition } = data;
   const browse = !meta.checkout_enabled;
   const products = attention.products ?? [];
   const top = [...products].sort((a, b) => b.views - a.views || b.add_to_cart - a.add_to_cart).slice(0, 3);
-  const maxFunnel = Math.max(1, ...attention.funnel.map((f) => f.count));
-  const maxUnits = Math.max(1, ...inventory.by_size.map((s) => s.units));
   const maxAttention = Math.max(1, ...products.map((p) => p.attention));
   const shown = attention.funnel.find((f) => f.key === "impressions")?.count ?? 0;
   const opens = attention.funnel.find((f) => f.key === "views")?.count ?? 0;
   const generated = meta.generated_at ? new Date(meta.generated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : null;
   const sev = (s: string) => (s === "critical" ? "bad" : s === "warn" ? "warn" : "neutral") as "bad" | "warn" | "neutral";
+  const cur = data.series?.current ?? [];
+  const prev = data.series?.previous ?? [];
+  const sum = (rows: SeriesRow[], k: MetricKey | "committed_paise") => rows.reduce((a, r) => a + (r[k] ?? 0), 0);
+  const owed = sum(cur, "committed_paise");
+  const chosen = TILES.find((t) => t.key === metric) ?? TILES[0];
+  const rangeLabel = meta.window_start
+    ? `${new Date(`${meta.window_start}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} to today, India time`
+    : `The last ${meta.window_days} days`;
 
   return (
-    <Page title="Analytics" description={`This week leads; the rest is the last ${meta.window_days} days.${generated ? ` Updated ${generated}.` : ""}`}>
+    <Page title="Analytics" description={`${rangeLabel}${generated ? ` · updated ${generated}` : ""}`}>
       <Brief />
       {meta.errors?.length ? <p className="mb-3 text-xs text-amber-700">Some panels are missing: {meta.errors.join("; ")}.</p> : null}
 
-      {/* This week, in six numbers. The last three are the sale, in ZISUN's terms. */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <Stat label="Visits" value={week.sessions.toLocaleString("en-IN")} note="this week" trend={<Trend now={week.sessions} before={week.sessions_previous} />} empty={week.sessions === 0} />
-        <Stat label="Product opens" value={week.opens.toLocaleString("en-IN")} note="this week" trend={<Trend now={week.opens} before={week.opens_previous} />} empty={week.opens === 0} />
-        <Stat label="Added to bag" value={week.bag_adds.toLocaleString("en-IN")} note="this week" trend={<Trend now={week.bag_adds} before={week.bag_adds_previous} />} empty={week.bag_adds === 0} />
-        {/* A click on a WhatsApp button. The site cannot see whether a
-            message was ever sent, so it must never be called a conversation. */}
-        <Stat label="WhatsApp taps" value={week.enquiries.toLocaleString("en-IN")} note={whatsapp.unanswered ? `${whatsapp.unanswered} waiting for a reply` : "opened a chat this week"} trend={<Trend now={week.enquiries} before={week.enquiries_previous} />} empty={week.enquiries === 0} />
-        {/* Orders and revenue are this week only. They used to add a 7-day
-            figure to a 30-day one - the same orders counted twice - and add
-            hand-marked WhatsApp enquiries to real orders on top. */}
-        <Stat label="Orders" value={week.orders.toLocaleString("en-IN")} note="this week" empty={week.orders === 0} />
-        <Stat label="Collected" value={rupees(week.revenue_paise)} note="money in, this week" empty={week.revenue_paise === 0} />
+      {/* One filter row, above everything it scopes. Every tile, the trend,
+          the funnel, sources and products below count the same days. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Date range">
+        {([7, 30, 90] as const).map((d) => (
+          <button key={d} type="button" role="radio" aria-checked={days === d} onClick={() => setDays(d)}
+            className={`h-9 px-3.5 rounded-full text-sm border transition-colors ${days === d ? "bg-ink text-white border-ink" : "bg-white text-gray-700 border-gray-300 hover:border-gray-500"}`}>
+            Last {d} days
+          </button>
+        ))}
+        {isFetching && <span className="text-xs text-gray-500">Updating…</span>}
       </div>
+
+      <div className={`transition-opacity ${isPlaceholderData ? "opacity-50" : ""}`}>
+      {/* The tiles are also the trend chart's tabs: tap one to plot it. */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {TILES.map((t) => (
+          <StatTile key={t.key} label={t.label}
+            value={t.money ? fmtRupees(sum(cur, t.key)) : compact(sum(cur, t.key))}
+            current={sum(cur, t.key)} previous={sum(prev, t.key)}
+            series={cur.map((r) => r[t.key])}
+            note={t.key === "collected_paise" && owed > 0 ? `${fmtRupees(owed)} more owed (COD and marketplaces), not counted here` : t.note}
+            selected={metric === t.key} onSelect={() => setMetric(t.key)} />
+        ))}
+      </div>
+
+      <Section title={`${chosen.label} by day`} hint={chosen.hint}>
+        <Card>
+          <TrendChart
+            label={chosen.label}
+            points={cur.map((r) => ({ date: r.date, value: r[metric] }))}
+            previous={prev.length === cur.length ? prev.map((r) => ({ date: r.date, value: r[metric] })) : undefined}
+            format={chosen.money ? fmtRupees : fmtInt}
+            currentName={`Last ${days} days`} previousName={`${days} days before`}
+          />
+        </Card>
+      </Section>
 
       {/* One sentence she can act on */}
       {insight && (
@@ -308,7 +350,7 @@ export default function AdminAnalytics() {
                 <Card className="!p-3.5 sm:!p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2"><Pill tone={sev(it.severity)}>{it.severity === "critical" ? "Now" : it.severity === "warn" ? "Soon" : "Note"}</Pill><p className="text-sm font-semibold text-gray-900 leading-snug">{it.title}</p></div>
+                      <div className="flex items-center gap-2"><Pill tone={sev(it.severity)}><span className="inline-flex items-center gap-1">{it.severity === "critical" ? <OctagonAlert className="w-3 h-3" aria-hidden /> : it.severity === "warn" ? <AlertTriangle className="w-3 h-3" aria-hidden /> : <Info className="w-3 h-3" aria-hidden />}{it.severity === "critical" ? "Now" : it.severity === "warn" ? "Soon" : "Note"}</span></Pill><p className="text-sm font-semibold text-gray-900 leading-snug">{it.title}</p></div>
                       <p className="mt-1 text-xs text-gray-600 leading-snug">{it.body}</p>
                     </div>
                     {it.href && <LinkButton href={it.href} size="sm" className="shrink-0">Open</LinkButton>}
@@ -352,24 +394,13 @@ export default function AdminAnalytics() {
       {acquisition && acquisition.by_source.length > 0 && (
         <Section title="Where they came from" hint={`${meta.window_days} days, credited to the first visit.`}>
           <Card padded={false}>
-            <ul className="divide-y divide-gray-100">
-              {acquisition.by_source.slice(0, 8).map((s) => (
-                <li key={s.source} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 capitalize">{s.source}</p>
-                    <p className="text-[11px] text-gray-500 tabular-nums">
-                      {s.sessions.toLocaleString("en-IN")} {s.sessions === 1 ? "visit" : "visits"}
-                      {s.visitors > 0 && <> · {s.visitors.toLocaleString("en-IN")} {s.visitors === 1 ? "person" : "people"}</>}
-                      {s.conversion != null && <> · {pct(s.conversion)} ordered</>}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold tabular-nums text-gray-900">{s.orders}</p>
-                    <p className="text-[11px] text-gray-500 tabular-nums">{rupees(s.collected_paise + s.committed_paise)}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="px-4 sm:px-5 pt-4 pb-4">
+              <BarList caption="Visits by where they came from" valueName="Visits"
+                rows={acquisition.by_source.slice(0, 7).map((s) => ({
+                  key: s.source, label: s.source.charAt(0).toUpperCase() + s.source.slice(1), value: s.sessions,
+                  detail: `${fmtInt(s.visitors)} ${s.visitors === 1 ? "person" : "people"} · ${s.orders} ${s.orders === 1 ? "order" : "orders"} · ${fmtRupees(s.collected_paise)} collected${s.committed_paise ? `, ${fmtRupees(s.committed_paise)} owed` : ""}${s.conversion != null ? ` · ${pct(s.conversion)} ordered` : ""}`,
+                }))} />
+            </div>
             {acquisition.partial && (
               <p className="px-4 py-2.5 text-[11px] text-gray-500 border-t border-gray-100">
                 Orders placed before the site started recording a source show as &ldquo;not recorded&rdquo;. They are not direct visits &mdash; they are simply unknown.
@@ -405,21 +436,11 @@ export default function AdminAnalytics() {
       {/* The funnel, in ZISUN's terms */}
       <Section title="From seen to sold" hint="Products shown is a card seen on a page. Opened is a product page. Each later step is a share of the people who opened a product.">
         <Card>
-          <ol className="space-y-3.5">
-            {attention.funnel.map((f, i) => {
-              const base = i === 0 ? null : i === 1 ? shown : opens;
-              const share = base != null && base > 0 ? pct(f.count / base) : null;
-              return (
-                <li key={f.key}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm text-gray-800">{f.label}{share && <span className="ml-2 text-xs text-gray-500">{share} of {i === 1 ? "shown" : "opened"}</span>}</span>
-                    <span className="text-sm tabular-nums text-gray-900 font-semibold">{f.count.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="mt-1.5"><Bar value={f.count} max={maxFunnel} tone={f.key === "enquiry" || f.key === "orders" ? "bg-burgundy" : "bg-ink"} /></div>
-                </li>
-              );
-            })}
-          </ol>
+          <Funnel caption="From seen to sold" stages={attention.funnel.map((f, i) => ({
+            key: f.key, label: f.label, count: f.count,
+            base: i === 0 ? undefined : i === 1 ? shown : opens,
+            baseLabel: i === 1 ? "shown" : "opened",
+          }))} />
           {attention.size_guide_opens != null && attention.size_guide_opens > 0 && <p className="mt-3 text-xs text-gray-500">The size guide was opened {attention.size_guide_opens} times.</p>}
         </Card>
       </Section>
@@ -437,11 +458,11 @@ export default function AdminAnalytics() {
                     <p className="text-sm font-semibold text-gray-900 leading-snug"><span className="text-gray-400 tabular-nums mr-1.5">{i + 1}</span><Link href={`/admin/products/${p.id}/edit`} className="hover:underline underline-offset-2">{p.name}</Link></p>
                     <Journey p={p} />
                     <div className="mt-2.5 grid grid-cols-3 gap-2 text-center">
-                      <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Open rate</p><p className="text-sm font-semibold tabular-nums">{pct(p.ctr)}</p></div>
-                      <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Bag rate</p><p className="text-sm font-semibold tabular-nums">{pct(p.cart_rate)}</p></div>
-                      <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Score</p><p className="text-sm font-semibold tabular-nums">{p.attention}</p></div>
+                      <div><p className="text-[11px] text-gray-500">Open rate</p><p className="text-sm font-semibold tabular-nums">{pct(p.ctr)}</p></div>
+                      <div><p className="text-[11px] text-gray-500">Bag rate</p><p className="text-sm font-semibold tabular-nums">{pct(p.cart_rate)}</p></div>
+                      <div><p className="text-[11px] text-gray-500">Score</p><p className="text-sm font-semibold tabular-nums">{p.attention}</p></div>
                     </div>
-                    <div className="mt-2"><Bar value={p.attention} max={maxAttention} tone="bg-burgundy" /></div>
+                    <div className="mt-2"><Bar value={p.attention} max={maxAttention} /></div>
                   </Card>
                 </li>
               ))}
@@ -480,15 +501,12 @@ export default function AdminAnalytics() {
       <Section title="Stock" hint={`${inventory.units} units across ${inventory.variants} sizes and colours.`} action={<LinkButton href="/admin/inventory" size="sm" variant="ghost">Inventory</LinkButton>}>
         <div className="grid gap-3 lg:grid-cols-2">
           <Card>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-3">Units by size</p>
-            {inventory.by_size.length === 0 ? <p className="text-sm text-gray-500">No stock entered yet.</p> : (
-              <ul className="space-y-2.5">{inventory.by_size.map((s) => (
-                <li key={s.size}><div className="flex items-baseline justify-between text-sm"><span className="text-gray-800">{s.size}</span><span className="tabular-nums text-gray-900 font-semibold">{s.units} <span className="text-xs font-normal text-gray-500">in {s.variants}</span></span></div><div className="mt-1"><Bar value={s.units} max={maxUnits} /></div></li>
-              ))}</ul>
-            )}
+            <p className="text-xs font-medium text-gray-600 mb-3">Units by size</p>
+            <BarList caption="Units in stock by size" valueName="Units" empty="No stock entered yet."
+              rows={inventory.by_size.map((s) => ({ key: s.size, label: s.size, value: s.units, detail: `across ${s.variants} ${s.variants === 1 ? "colour" : "colours"}` }))} />
           </Card>
           <Card padded={false}>
-            <p className="px-4 sm:px-5 pt-4 pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Running low ({inventory.low_stock_threshold} or fewer)</p>
+            <p className="px-4 sm:px-5 pt-4 pb-2 text-xs font-medium text-gray-600">Running low ({inventory.low_stock_threshold} or fewer)</p>
             {inventory.low_stock.length === 0 ? <p className="px-4 sm:px-5 pb-4 text-sm text-gray-500">Nothing is running low.</p> : (
               <ul className="divide-y divide-gray-100">{inventory.low_stock.map((v) => (
                 <li key={v.sku} className="px-4 sm:px-5 py-2.5 flex items-center justify-between gap-3">
@@ -511,6 +529,7 @@ export default function AdminAnalytics() {
           </div>
         </Section>
       )}
+      </div>
     </Page>
   );
 }

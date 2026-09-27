@@ -135,7 +135,9 @@ const FIXTURES = [
   // A fixture that guesses the shape renders an error boundary that looks
   // like a tidy page - which is the whole reason this harness checks for one.
   [/\/dashboard(\?|$)/, {
-    meta: { window_days: 30, generated_at: "2026-09-22T18:30:00+05:30", checkout_enabled: false, launch_mode: "browse", events_recorded: 53, errors: [] },
+    meta: { window_days: 7, window_start: "2026-09-21", generated_at: "2026-09-22T18:30:00+05:30", checkout_enabled: false, launch_mode: "browse", events_recorded: 53, errors: [] },
+    series: {"current": [{"date": "2026-09-21", "sessions": 34, "opens": 12, "bag_adds": 1, "impressions": 102, "enquiries": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-22", "sessions": 41, "opens": 15, "bag_adds": 2, "impressions": 123, "enquiries": 1, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-23", "sessions": 812, "opens": 260, "bag_adds": 9, "impressions": 2436, "enquiries": 6, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-24", "sessions": 120, "opens": 44, "bag_adds": 4, "impressions": 360, "enquiries": 2, "orders": 1, "collected_paise": 112400, "committed_paise": 0}, {"date": "2026-09-25", "sessions": 66, "opens": 23, "bag_adds": 3, "impressions": 198, "enquiries": 1, "orders": 0, "collected_paise": 0, "committed_paise": 99900}, {"date": "2026-09-26", "sessions": 58, "opens": 20, "bag_adds": 2, "impressions": 174, "enquiries": 0, "orders": 1, "collected_paise": 103900, "committed_paise": 0}, {"date": "2026-09-27", "sessions": 72, "opens": 27, "bag_adds": 3, "impressions": 216, "enquiries": 2, "orders": 1, "collected_paise": 0, "committed_paise": 112400}], "previous": [{"date": "2026-09-14", "sessions": 12, "opens": 4, "bag_adds": 0, "impressions": 36, "enquiries": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-15", "sessions": 18, "opens": 6, "bag_adds": 0, "impressions": 54, "enquiries": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-16", "sessions": 15, "opens": 5, "bag_adds": 1, "impressions": 45, "enquiries": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-17", "sessions": 22, "opens": 8, "bag_adds": 0, "impressions": 66, "enquiries": 1, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-18", "sessions": 19, "opens": 6, "bag_adds": 1, "impressions": 57, "enquiries": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-19", "sessions": 25, "opens": 9, "bag_adds": 1, "impressions": 75, "enquiries": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0}, {"date": "2026-09-20", "sessions": 21, "opens": 7, "bag_adds": 0, "impressions": 63, "enquiries": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0}]},
+
     week: { sessions: 41, sessions_previous: 22, opens: 12, opens_previous: 7, bag_adds: 1, bag_adds_previous: 0, enquiries: 2, enquiries_previous: 0, orders: 2, revenue_paise: 112400, committed_paise: 122300, whatsapp_marked_ordered: 0, whatsapp_marked_revenue_paise: 0 },
     whatsapp: { enquiries_window: 0, ordered_window: 0, revenue_window_paise: 0, conversion: null, unanswered: 0 },
     attention_items: [],
@@ -213,7 +215,7 @@ const FIXTURES = [
     // while the page shows "Something went wrong". Screenshots of that look
     // like a tidy page. Console errors are the only signal left.
     page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon/.test(m.text())) errs.push(m.text().slice(0, 200)); });
-    await page.goto(BASE + p, { waitUntil: "domcontentloaded", timeout: 120000 });
+    const resp = await page.goto(BASE + p, { waitUntil: "domcontentloaded", timeout: 120000 });
     await page.waitForTimeout(2500);
     if (process.env.CLICK) {
       for (const b of await page.getByRole("button", { name: process.env.CLICK }).all()) {
@@ -234,7 +236,11 @@ const FIXTURES = [
     });
     const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     // The error boundary renders a tidy page; it must still count as broken.
-    const crashed = await page.evaluate(() => /Something went wrong|Application error|^500\b/m.test(document.body.innerText));
+    // A server error is read from the response status, not from the text:
+    // `^500` in innerText matched a chart's y-axis tick of 500 (SVG text is
+    // part of innerText) and reported a healthy Analytics page as crashed.
+    const crashed = (resp && resp.status() >= 500) ||
+      await page.evaluate(() => /Something went wrong|Application error/.test(document.body.innerText));
     console.log(`${p}: ${crashed ? "CRASHED (error boundary)" : scrolls ? "HORIZONTAL SCROLL" : "fits"}${over.length ? ` | overflow: ${over.join(", ")}` : ""}${errs.length ? `\n    ${errs.slice(0, 3).join("\n    ")}` : ""}`);
     if (crashed || scrolls || over.length || errs.length) bad++;
     await page.close();

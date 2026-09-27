@@ -49,6 +49,24 @@ const config: Config = {
         muted: "#6F6A6C",
         cream: "#F6ECEA",
         line: "rgba(26,20,23,0.10)",
+        // Console charts only (components/admin/charts.tsx). Every value was
+        // validated with the dataviz six-checks script against the white
+        // chart surface, not chosen by eye (2026-09-27):
+        //  accent  brand burgundy's own hue (OKLCH 7.4°) stepped from L 0.395
+        //          into the mark band (L 0.50) - the raw brand hex fails the
+        //          lightness band and reads as ink, not data. 3:1+ on white.
+        //  1..5    ordinal ramp, same hue, light -> dark, for ordered stages
+        //          (the funnel). Monotone L, adjacent dL >= 0.06, light end
+        //          2.86:1 - passes the --ordinal checks.
+        //  prev    the comparison period; de-emphasis grey, 3.43:1.
+        //  grid / axis  hairline chrome, one step off the surface.
+        viz: {
+          accent: "#a23955",
+          1: "#e6768f", 2: "#ca5d77", 3: "#af4560", 4: "#942c4a", 5: "#7a1f3a",
+          prev: "#8f898c",
+          grid: "#ecebea",
+          axis: "#c9c4c7",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],

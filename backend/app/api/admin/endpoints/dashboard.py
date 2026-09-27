@@ -256,6 +256,64 @@ def product_periods_query(now: datetime, live_products):
     ), starts
 
 
+# ── The daily series ─────────────────────────────────────────────────────────
+#
+# Every figure on the board had a total and no shape: nothing said whether
+# the week was rising or falling, or which day the reel landed. The series
+# is each IST calendar day of the window, and of the window before it for
+# comparison, from the same events and orders the totals come from - so a
+# tile's value, its sparkline and the trend chart are one set of numbers.
+
+SERIES_METRICS = ("sessions", "opens", "bag_adds", "impressions", "enquiries",
+                  "orders", "collected_paise", "committed_paise")
+
+
+def ist_day(column):
+    """The IST calendar date of a timestamptz column, in SQL."""
+    return sa.func.date(sa.func.timezone("Asia/Kolkata", column))
+
+
+def build_series(first_day, days: int, event_rows, order_rows, enquiry_rows, now: datetime) -> dict:
+    """{"current": [...days], "previous": [...days]} of per-day figures.
+
+    `first_day` is the IST date the window starts on; the previous window is
+    the `days` before it. Money uses metrics.classify - collected and owed
+    are never added, and a marketplace order counts what it actually paid.
+    """
+    blank = lambda d: {"date": d.isoformat(), **{m: 0 for m in SERIES_METRICS}}  # noqa: E731
+    start_prev = first_day - timedelta(days=days)
+    table = {start_prev + timedelta(days=i): blank(start_prev + timedelta(days=i)) for i in range(days * 2)}
+
+    for d, sessions, opens, bags, impressions in event_rows or []:
+        if d in table:
+            t = table[d]
+            t["sessions"] += int(sessions or 0); t["opens"] += int(opens or 0)
+            t["bag_adds"] += int(bags or 0); t["impressions"] += int(impressions or 0)
+    for d, n in enquiry_rows or []:
+        if d in table:
+            table[d]["enquiries"] += int(n or 0)
+    for status, method, amount, created, settled_at, settled_amount in order_rows or []:
+        if created is None:
+            continue
+        d = created.astimezone(IST).date()
+        if d not in table:
+            continue
+        kind = metrics.classify(status, method, minutes_old=(now - created).total_seconds() / 60,
+                                settled=settled_at is not None)
+        t = table[d]
+        if kind in metrics.REAL:
+            t["orders"] += 1
+        if kind in ("paid", "delivered"):
+            t["collected_paise"] += int(amount or 0)
+        elif kind == "marketplace_settled":
+            t["collected_paise"] += int(settled_amount if settled_amount is not None else (amount or 0))
+        elif kind in ("cod_placed", "marketplace_owed"):
+            t["committed_paise"] += int(amount or 0)
+
+    ordered = [table[k] for k in sorted(table)]
+    return {"previous": ordered[:days], "current": ordered[days:]}
+
+
 def product_periods_rows(rows) -> list[dict]:
     out = []
     for r in rows or []:
@@ -283,7 +341,12 @@ def _views_from_cards():
 
 async def compute_dashboard(days: int = 30) -> dict:
     now = datetime.now(timezone.utc)
-    since = now - timedelta(days=days)
+    # Calendar days in India time, today included. The board used to mix a
+    # rolling window (now minus N days, starting mid-afternoon) with calendar
+    # periods elsewhere, so a tile and a panel could disagree about the same
+    # "last 7 days". Every figure now counts from IST midnight.
+    first_day = period_starts(now)["day"] - timedelta(days=days - 1)
+    since = first_day
     previous = since - timedelta(days=days)
     week = now - timedelta(days=7)
     prev_week = now - timedelta(days=14)
@@ -348,6 +411,21 @@ async def compute_dashboard(days: int = 30) -> dict:
                                Order.channel_id, Order.settled_at, Order.settlement_amount)
                         .where(Order.created_at >= since)),
         channels=_all(select(SalesChannel.id, SalesChannel.code)),
+        # The daily series: this window and the one before it, one row a day.
+        series_events=_all(
+            select(ist_day(AnalyticsEvent.created_at).label("d"),
+                   sa.func.count(sa.distinct(AnalyticsEvent.session_id)),
+                   _count_of("product_viewed"), _count_of("add_to_cart"), _count_of("product_impression"))
+            .where(AnalyticsEvent.created_at >= previous)
+            .group_by("d")),
+        series_orders=_all(
+            select(Order.status, Order.payment_method, Order.total_amount, Order.created_at,
+                   Order.settled_at, Order.settlement_amount)
+            .where(Order.created_at >= previous)),
+        series_enquiries=_all(
+            select(ist_day(WhatsAppEnquiry.created_at).label("d"), sa.func.count(WhatsAppEnquiry.id))
+            .where(WhatsAppEnquiry.created_at >= previous)
+            .group_by("d")),
         captured=_all(select(Payment.order_id).where(Payment.status == PaymentStatus.CAPTURED)),
         # Orders by where they came from. Nothing recorded a source until
         # 0021, so older orders answer "not recorded" rather than "direct" -
@@ -655,7 +733,9 @@ async def compute_dashboard(days: int = 30) -> dict:
             insight = f"{top['name']} is getting the most attention: {top['views']} opens and {top['add_to_cart']} bag adds this month.{tail}"
 
     return {
-        "meta": {"window_days": days, "generated_at": now.isoformat(), "checkout_enabled": settings.checkout_enabled,
+        "series": build_series(first_day.date(), days, r["series_events"], r["series_orders"], r["series_enquiries"], now),
+        "meta": {"window_days": days, "window_start": first_day.date().isoformat(),
+                 "generated_at": now.isoformat(), "checkout_enabled": settings.checkout_enabled,
                  "launch_mode": settings.LAUNCH_MODE or "live", "events_recorded": events_total, "errors": errors},
         "week": {
             "sessions": n("sessions_week"), "sessions_previous": n("sessions_prev_week"),
