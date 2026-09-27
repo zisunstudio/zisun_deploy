@@ -323,7 +323,12 @@ cost one), and a failing panel names itself in `meta.errors` rather than
 taking the page down. The result is cached in-process, served stale while
 it refreshes, and computed at startup by `warm_dashboard()` from the api's
 lifespan. Do not add a panel as a second request from the page, and do not
-route it through Redis.
+route it through Redis. Impressions and opens per piece for today / this week / this month
+/ this year (IST calendar periods) come in the same response, as one
+grouped query of conditional counts (`attention.by_period`), so switching
+period needs no request. The single exception is a custom date range,
+which cannot be precomputed: `GET /dashboard/product-attention?start&end`,
+called only when she picks Custom.
 
 **Two AI providers, and the console names the one that answered.**
 The Anthropic account ran out of credits and every console AI feature died
@@ -402,6 +407,23 @@ typed into the form was unrecoverable. She retyped and saved again, which is
 how one piece ended up with thirteen variant rows under three SKU prefixes.
 `attachRefresh(instance)` is exported from `lib/api.ts` and attached to
 both; a new axios instance that talks to the API must call it.
+
+**Deleted means deleted; off sale means off sale.** The console's Delete
+set `is_active = False` and nothing else, so the row and its stock stayed,
+the inventory page (which lists inactive variants - that is how "off sale"
+shows) brought it back on the next load, and she saw a delete undo itself.
+Now `DELETE /products/{id}/variants/{vid}` locks the row and either removes
+a never-ordered variant outright (with its cart and wishlist lines) or, if
+order lines or stock holds point at it, retires it: `deleted_at` set, stock
+0, off sale (migration 0028). `Product.variants` excludes retired rows in
+its `primaryjoin`, so every loader - console, storefront, journal - drops
+them in one place, while `OrderItem.variant` still resolves for history.
+SKU is unique among live variants only (partial index), so a SKU can be
+listed again. Every stock-restoring path (expired holds, marketplace
+returns) skips a retired variant - an expiring hold once put a unit back
+on a row she had deleted - and `tests/unit/test_variant_retirement.py`
+fails the build on any `.stock +=` without that check or any admin variant
+lookup that could reach a retired row.
 
 **One variant row per size and colour, whatever the SKU says.** Uniqueness
 was checked on SKU alone, which is not the rule a shop has: the console
