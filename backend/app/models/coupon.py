@@ -26,6 +26,12 @@ class Coupon(BaseModel):
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_referral: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # A referral code belongs to someone: the person who earns when it sells.
+    # "creator" earns cash (paid by hand, by UPI); "customer" earns store
+    # credit. NULL on an ordinary coupon. See services/referral.py.
+    owner_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    referral_kind: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    owner_label: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
 
     usages: Mapped[List["CouponUsage"]] = relationship("CouponUsage", back_populates="coupon")
 

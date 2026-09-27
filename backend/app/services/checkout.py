@@ -201,6 +201,7 @@ class CheckoutService:
         payment_method: PaymentMethod = PaymentMethod.RAZORPAY,
         coupon_code: Optional[str] = None,
         idempotency_key: Optional[str] = None,
+        apply_credit: bool = False,
     ) -> Tuple[Order, Optional[str]]:
         """
         Full checkout flow:
@@ -303,6 +304,21 @@ class CheckoutService:
 
         net_total = max(0, gross_total - discount_amount)
 
+        # Store credit (earned by sharing a referral code). Only when the
+        # caller has proven who she is - the guest endpoint passes True only
+        # for a signed-in buyer. Her user row is locked so two orders placed
+        # at once cannot spend the same credit twice.
+        credit_applied = 0
+        if apply_credit and net_total > 0:
+            from app.models.user import User  # noqa: PLC0415
+            from app.services import referral  # noqa: PLC0415
+            await self.db.execute(select(User.id).where(User.id == user_id).with_for_update())
+            await referral.settle(self.db, user_id)
+            # A rupee is always left to pay: a gateway will not take a zero
+            # order, and a free order is not something credit should create.
+            credit_applied = max(0, min(await referral.credit_balance(self.db, user_id), net_total - 100))
+            net_total -= credit_applied
+
         # COD limit check
         if payment_method == PaymentMethod.COD and net_total > COD_MAX_ORDER_VALUE_PAISE:
             raise HTTPException(
@@ -327,6 +343,7 @@ class CheckoutService:
             address_id=address_id,
             payment_method=payment_method,
             discount_amount=discount_amount,
+            credit_applied=credit_applied,
             coupon_id=coupon_obj.id if coupon_obj else None,
             idempotency_key=idempotency_key,
         )
@@ -369,6 +386,8 @@ class CheckoutService:
         if coupon_obj:
             coupon_svc = CouponService(self.db)
             await coupon_svc.record_usage(coupon_obj.id, user_id, order.id)
+            from app.services import referral  # noqa: PLC0415
+            await referral.record(self.db, coupon_obj, order)
 
         # Payment gateway
         razorpay_order_id: Optional[str] = None
@@ -382,17 +401,25 @@ class CheckoutService:
             addr = (await self.db.execute(
                 select(Address).where(Address.id == address_id)
             )).scalar_one_or_none()
+            from app.services.gst import apportion_discount  # noqa: PLC0415
+
+            # Tax is on what she actually pays for the goods: a coupon or
+            # store credit lowers the taxable value, so it is spread across
+            # the pieces before the tax is worked out of each.
             snapshot_tax(
                 order,
-                [
-                    {
-                        "description": (v.product.name if v.product else "Garment"),
-                        "quantity": ci.quantity,
-                        "unit_price_paise": price,
-                        "hsn": getattr(v.product, "hsn_code", None),
-                    }
-                    for ci, v, price in item_snapshots
-                ],
+                apportion_discount(
+                    [
+                        {
+                            "description": (v.product.name if v.product else "Garment"),
+                            "quantity": ci.quantity,
+                            "unit_price_paise": price,
+                            "hsn": getattr(v.product, "hsn_code", None),
+                        }
+                        for ci, v, price in item_snapshots
+                    ],
+                    discount_amount + credit_applied,
+                ),
                 state=getattr(addr, "state", None),
             )
         except Exception:  # noqa: BLE001

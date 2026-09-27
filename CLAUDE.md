@@ -266,6 +266,25 @@ Every order from a channel belongs to that channel's one account
 phone. `channel_listings` maps their SKU to our variant; a SKU listed
 under ZISUN's own code needs no mapping.
 
+**A referral code pays only for a delivered first order.**
+`services/referral.py`: a code with an owner (`coupons.owner_user_id`)
+takes ₹100 off a buyer's *first* website order (₹500 bag or more), never
+its owner's, once per buyer - so a code that leaks to a coupon site buys
+new customers or nothing. The owner's ₹150 is a `referral_rewards` row,
+pending until the order is DELIVERED and `HOLD_DAYS` (7) have passed, void
+if cancelled or returned. A customer earns store credit; a creator earns
+cash the founder pays by UPI and marks paid. Settlement runs when someone
+reads (her account, the console, a checkout spending credit), never on a
+beat schedule - the Upstash budget. Store credit is **derived, never
+stored**: earned credit minus `orders.credit_applied` on orders that are
+not cancelled, so a cancelled order returns its credit by being cancelled.
+It is spent only when the request carries the buyer's own session - the
+guest endpoint must never let a typed phone number spend someone's credit
+- and never takes the goods below ₹1 (a gateway refuses a zero order). A
+coupon or credit lowers the taxable value: `gst.apportion_discount`
+spreads it across the pieces before the tax is worked out. A code shown
+at checkout is previewed first and never blocks an order.
+
 **Money has one definition, and `PAYMENT_PENDING` has two meanings.**
 `app/services/metrics.py` classifies every order by status *and* payment
 method, because a COD order rests in PAYMENT_PENDING by design while a

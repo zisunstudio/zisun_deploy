@@ -112,6 +112,10 @@ class Order(BaseModel):
     )
     coupon_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("coupons.id"), nullable=True)
     discount_amount: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Store credit spent on this order (paise), taken off the total like a
+    # discount. A cancelled order gives it back simply by being cancelled:
+    # the balance is derived, never stored (services/referral.py).
+    credit_applied: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     # Shipping charged on this order, in paise, included in total_amount.
     # 0 for prepaid; the COD charge otherwise (services/pricing.py).
     shipping_amount: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)

@@ -24,6 +24,7 @@ from app.api.admin.endpoints import journal as admin_journal
 from app.api.admin.endpoints import enquiries as admin_enquiries
 from app.api.admin.endpoints import channels as admin_channels
 from app.api.admin.endpoints import catalog_export as admin_catalog_export
+from app.api.admin.endpoints import referrals as admin_referrals
 
 # Read-only overview. Finance sees it too: the payment-method split is the
 # number that decides whether COD is worth running.
@@ -124,6 +125,13 @@ admin_router.include_router(
 )
 
 # The catalogue once, in the shape each marketplace's upload template asks for.
+# Referral codes and what they have earned. Finance too: it pays creators.
+admin_router.include_router(
+    admin_referrals.router,
+    prefix="/referrals",
+    tags=["Admin - Referrals"],
+    dependencies=[Depends(require_role("admin", "finance"))],
+)
 admin_router.include_router(
     admin_catalog_export.router,
     prefix="/catalog-export",

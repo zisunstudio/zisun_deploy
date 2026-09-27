@@ -11,6 +11,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
 import CartDrawer from "@/components/CartDrawer";
 import { SessionRestore } from "@/components/SessionRestore";
+import { ReferralCapture } from "@/components/ReferralCapture";
 import { SignInSheet } from "@/components/SignInSheet";
 import { ViewTransitionSettler } from "@/components/ViewTransitionSettler";
 
@@ -82,6 +83,7 @@ export default function RootLayout({
           }) }}
         />
         <SessionRestore />
+        <ReferralCapture />
         <ViewTransitionSettler />
         <OfflineBanner />
         <WhatsAppFab />

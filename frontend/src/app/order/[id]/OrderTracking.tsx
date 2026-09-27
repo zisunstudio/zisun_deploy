@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { LegalFooter } from "@/components/LegalFooter";
 import { formatPrice } from "@/lib/queries/catalog";
 import { COMPANY } from "@/lib/legal";
+import { ShareCode } from "@/components/ShareCode";
 
 /**
  * Where is my order.
@@ -41,6 +42,10 @@ interface Tracking {
   checkpoints: Array<{ at: string | null; status: string | null; location: string | null }>;
   track_url: string | null;
   live_unavailable: boolean;
+  discount_paise?: number;
+  credit_paise?: number;
+  /** Her own referral code, once the parcel has been delivered. */
+  share?: { code: string; friend_discount_paise: number; reward_paise: number } | null;
   /** Null for orders placed before the breakdown existed - "not recorded". */
   invoice: {
     number: string | null;
@@ -185,6 +190,12 @@ export function OrderTracking({ orderId }: { orderId: string }) {
         <p className="mt-4 text-[14px] text-ink">
           Keep <span className="font-semibold">{formatPrice(data.cod_amount_due)}</span> ready for the courier.
         </p>
+      )}
+
+      {data.share && (
+        <div className="mt-8">
+          <ShareCode code={data.share.code} friendPaise={data.share.friend_discount_paise} rewardPaise={data.share.reward_paise} />
+        </div>
       )}
 
       {/* Every checkpoint, for anyone who wants the detail. */}

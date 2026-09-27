@@ -16,6 +16,7 @@ from .order import (
     PaymentMethod,
 )
 from .coupon import Coupon, CouponUsage, CouponType
+from .referral import ReferralReward
 from .review import Review, ReviewStatus
 from .ml import ProductEmbedding, SearchQuery
 from .content import ContentCard, ContentTag, ContentProduct, ContentStatus, ContentType, TagType
@@ -37,6 +38,7 @@ __all__ = [
     "OrderStatus",
     "PaymentMethod",
     "Coupon", "CouponUsage", "CouponType",
+    "ReferralReward",
     "Review", "ReviewStatus",
     "ProductEmbedding", "SearchQuery",
     "ContentCard", "ContentTag", "ContentProduct", "ContentStatus", "ContentType", "TagType",

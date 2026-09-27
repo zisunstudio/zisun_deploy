@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.api.endpoints import auth, catalog, cart, orders, wishlist, address, checkout, analytics
-from app.api.endpoints import whatsapp, reviews, coupon, enquiries, stylist, journal
+from app.api.endpoints import whatsapp, reviews, coupon, enquiries, stylist, journal, referrals
 
 api_router = APIRouter()
 
@@ -14,6 +14,7 @@ api_router.include_router(checkout.router,  prefix="/checkout",   tags=["Checkou
 api_router.include_router(analytics.router, prefix="/analytics",  tags=["Analytics"])
 api_router.include_router(reviews.router,   prefix="/reviews",    tags=["Reviews"])
 api_router.include_router(coupon.router,    prefix="/coupons",    tags=["Coupons"])
+api_router.include_router(referrals.router, prefix="/referrals",  tags=["Referrals"])
 api_router.include_router(enquiries.router, prefix="/enquiries",  tags=["Enquiries"])
 # The fit stylist - the one customer-facing Claude call, fenced; see the module.
 api_router.include_router(stylist.router,   prefix="/stylist",    tags=["Stylist"])

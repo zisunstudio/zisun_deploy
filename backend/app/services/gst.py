@@ -182,6 +182,37 @@ class TaxInvoice:
         return self.cgst_paise + self.sgst_paise + self.igst_paise
 
 
+def apportion_discount(items: list[dict], discount_paise: int) -> list[dict]:
+    """Spread an order-level discount across its pieces, in whole paise.
+
+    A discount given at the time of sale lowers the transaction value, so
+    the tax has to be worked out of what was actually paid for each piece -
+    otherwise the invoice taxes Rs 1,039 on a sale of Rs 939. Each unit
+    becomes its own line (quantity 1) so every share is a whole number of
+    paise; shares follow each unit's price and the remainder goes to the
+    dearest unit. The lines add back to the goods total minus the discount,
+    exactly. A discount of zero returns the items unchanged.
+    """
+    if discount_paise <= 0 or not items:
+        return items
+    units = [
+        {**it, "quantity": 1}
+        for it in items
+        for _ in range(max(1, int(it.get("quantity") or 1)))
+    ]
+    gross = sum(int(u.get("unit_price_paise") or 0) for u in units)
+    if gross <= 0:
+        return items
+    discount = min(discount_paise, gross)
+    shares = [int(u.get("unit_price_paise") or 0) * discount // gross for u in units]
+    dearest = max(range(len(units)), key=lambda i: int(units[i].get("unit_price_paise") or 0))
+    shares[dearest] += discount - sum(shares)
+    return [
+        {**u, "unit_price_paise": int(u.get("unit_price_paise") or 0) - share}
+        for u, share in zip(units, shares)
+    ]
+
+
 def compute(
     items: Iterable[dict],
     *,

@@ -420,12 +420,34 @@ async def public_order_tracking(
             redis = None
         live = await track_awb(awb, redis=redis)
 
+    # Once the parcel is in her hands she gets her own code to share: a
+    # friend takes Rs 100 off a first order, she earns Rs 150 of credit.
+    # Made here, on the page she already has open when it arrives. It is
+    # safe to show by order id alone: the code only ever earns for her.
+    share = None
+    if order.status == OrderStatus.DELIVERED and order.channel_id is None:
+        from app.models.user import User  # noqa: PLC0415
+        from app.services import referral  # noqa: PLC0415
+
+        buyer = await db.get(User, order.user_id)
+        code = await referral.customer_code(db, buyer) if buyer else None
+        if code is not None:
+            await db.commit()
+            share = {
+                "code": code.code,
+                "friend_discount_paise": referral.BUYER_DISCOUNT_PAISE,
+                "reward_paise": referral.REFERRER_REWARD_PAISE,
+            }
+
     return {
         "order_id": str(order.id),
         "placed_at": order.created_at.isoformat() if order.created_at else None,
         "status": order.status.value,
         "payment_method": order.payment_method.value if order.payment_method else None,
         "cod_amount_due": order.cod_amount_due,
+        "discount_paise": order.discount_amount or 0,
+        "credit_paise": order.credit_applied or 0,
+        "share": share,
         "items": sum(int(i.quantity or 0) for i in (order.items or [])),
         "step": (live or {}).get("step") or own_step,
         "awb": awb,

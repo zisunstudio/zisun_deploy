@@ -31,6 +31,19 @@ const ADMIN = { id: "00000000-0000-0000-0000-000000000001", phone: "+91000000000
 /** Fixtures, by path fragment. First match wins. */
 const FIXTURES = [
   [/\/auth\/refresh/, { user: ADMIN, access_token: "fake.fake.fake", token_type: "bearer" }],
+  // Referrals: one creator owed cash (two orders), one customer with credit.
+  [/\/referrals\//, {
+    rules: { friend_discount_paise: 10000, reward_paise: 15000, min_order_paise: 50000, hold_days: 7 },
+    codes: [
+      { code: "PRIYACREATES", kind: "creator", owner: "Priya Raghavendra Rao", phone: "+919876543210", active: true, orders: 3, pending_paise: 15000, earned_paise: 30000, paid_paise: 0 },
+      { code: "ANU482", kind: "customer", owner: "Anu", phone: "+919812345678", active: true, orders: 1, pending_paise: 0, earned_paise: 15000, paid_paise: 0 },
+    ],
+    rewards: [
+      { id: "r1", code: "PRIYACREATES", owner: "Priya Raghavendra Rao", phone: "+919876543210", kind: "cash", status: "earned", amount_paise: 15000, order_id: "o1", order_total_paise: 93900, order_status: "DELIVERED", created_at: "2026-09-20T10:00:00Z", earned_at: "2026-09-27T10:00:00Z" },
+      { id: "r2", code: "PRIYACREATES", owner: "Priya Raghavendra Rao", phone: "+919876543210", kind: "cash", status: "earned", amount_paise: 15000, order_id: "o2", order_total_paise: 102400, order_status: "DELIVERED", created_at: "2026-09-19T10:00:00Z", earned_at: "2026-09-26T10:00:00Z" },
+      { id: "r3", code: "PRIYACREATES", owner: "Priya Raghavendra Rao", phone: "+919876543210", kind: "cash", status: "pending", amount_paise: 15000, order_id: "o3", order_total_paise: 102400, order_status: "PAYMENT_PENDING", created_at: "2026-09-27T10:00:00Z", earned_at: null },
+    ],
+  }],
   // Channels: the website plus the marketplaces. Specific routes first, or
   // the bare list would answer the listings call and the page would map an
   // object.

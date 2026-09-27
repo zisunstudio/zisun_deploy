@@ -34,6 +34,11 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Image optimization: sharp, AVIF/WebP, year-long cache (48.8MB → 265KB per page) | `frontend/next.config.js` | Live |
 | One presentation system for every photograph: own-colour load-in, focal point, fixed ratio, hairline | `frontend/src/components/Photo.tsx` | Live |
 | Tap-to-set crop point per photograph | `frontend/src/components/admin/MediaUploader.tsx`, `backend/alembic/versions/0022_media_focus.py` | Live |
+| Code box at checkout: any code checked before placing, never blocks the order; discount and store credit shown in the total | `frontend/src/app/checkout/page.tsx`, `backend/app/api/endpoints/checkout.py` | Live |
+| Referral codes: a customer's own code after delivery (₹100 off a friend's first order, ₹150 store credit to her), creator codes paid in cash; `?ref=` links carried to checkout | `backend/app/services/referral.py`, `backend/alembic/versions/0029_referrals.py`, `frontend/src/lib/referral.ts`, `frontend/src/components/ShareCode.tsx` | Live |
+| Store credit: derived balance, spent only by a signed-in buyer, never below ₹1 to pay | `backend/app/services/referral.py`, `backend/app/services/checkout.py` | Live |
+| Tax worked out of the discounted price (coupon and credit spread across pieces) | `backend/app/services/gst.py` (`apportion_discount`) | Live |
+| Console referrals: every code, what is waiting, creators to pay by UPI, mark paid | `frontend/src/app/admin/referrals/page.tsx`, `backend/app/api/admin/endpoints/referrals.py` | Live |
 | Customer order tracking: courier journey, checkpoints, no sign-in | `frontend/src/app/order/[id]/OrderTracking.tsx`, `backend/app/services/shiprocket.py` | Live |
 | COD fee read from the API, never a hard-coded constant | `backend/app/api/endpoints/checkout.py`, `frontend/src/lib/queries/policy.ts` | Live |
 | GST computed out of the inclusive price, per piece, split by place of supply | `backend/app/services/gst.py` | Live |

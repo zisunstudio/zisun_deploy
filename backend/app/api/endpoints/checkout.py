@@ -16,7 +16,9 @@ from app.core.config import settings
 from app.core.database import get_async_db
 from app.core.redis import get_redis_client
 from app.core.launch import require_checkout_enabled
-from app.core.security import get_current_user
+from fastapi.security import HTTPAuthorizationCredentials
+
+from app.core.security import bearer_scheme, decode_token, get_current_user
 from app.models.cart import CartItem
 from app.models.order import (
     Address,
@@ -308,6 +310,56 @@ async def verify_payment(
 # POST /checkout/guest
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _session_user_id(credentials: Optional[HTTPAuthorizationCredentials]) -> Optional[uuid.UUID]:
+    """The signed-in buyer behind this request, or None. Never raises."""
+    if credentials is None:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        if payload.get("type") != "access":
+            return None
+        return uuid.UUID(str(payload.get("sub")))
+    except Exception:  # noqa: BLE001 - an expired token just means no credit
+        return None
+
+
+class CouponPreviewRequest(BaseModel):
+    code: str = Field(..., min_length=1, max_length=50)
+    subtotal_paise: int = Field(..., ge=0, le=10_000_000)
+    phone: Optional[str] = Field(default=None, pattern=r"^\+91[6-9]\d{9}$")
+
+
+@router.post("/coupon-preview", tags=["Checkout"])
+async def coupon_preview(
+    body: CouponPreviewRequest,
+    db: AsyncSession = Depends(get_async_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+):
+    """What a code takes off this bag, or why it does not apply.
+
+    Answers 200 either way ({ok, discount_paise, message}) so a stale code
+    carried in from a shared link can never stop a sale: the page simply
+    shows the reason and places the order without it. With her number (or
+    her session) the first-order and own-code rules are checked too;
+    without, they are checked again when the order is placed.
+    """
+    from app.services.coupon import CouponService  # noqa: PLC0415
+
+    buyer_id = _session_user_id(credentials)
+    if buyer_id is None and body.phone:
+        buyer_id = await db.scalar(select(User.id).where(User.phone == body.phone))
+    try:
+        coupon, discount = await CouponService(db).validate_coupon(body.code.strip(), buyer_id, body.subtotal_paise)
+    except HTTPException as exc:
+        return {"ok": False, "discount_paise": 0, "message": exc.detail if exc.status_code != 404 else "That code is not one of ours."}
+    owner = coupon.owner_label if coupon.owner_user_id else None
+    return {
+        "ok": True,
+        "code": coupon.code,
+        "discount_paise": discount,
+        "message": f"{owner.split(' ')[0]}'s code: ₹{discount // 100} off" if owner else f"₹{discount // 100} off",
+    }
+
 class GuestItem(BaseModel):
     variant_id: uuid.UUID
     quantity: int = Field(default=1, ge=1, le=20)
@@ -322,6 +374,9 @@ class GuestCheckoutRequest(BaseModel):
     address: AddressCreate
     payment_method: PaymentMethod = PaymentMethod.COD
     coupon_code: Optional[str] = Field(default=None, max_length=50)
+    # Spend her store credit. Honoured only for a signed-in buyer whose
+    # account is this phone number; ignored otherwise (see below).
+    apply_credit: bool = False
     idempotency_key: Optional[str] = Field(default=None, max_length=100)
     # Where she came from, as the storefront first saw it. Bounded and
     # optional: an order from someone who blocks analytics still saves, and
@@ -342,6 +397,7 @@ class GuestCheckoutRequest(BaseModel):
 async def guest_checkout(
     body: GuestCheckoutRequest,
     db: AsyncSession = Depends(get_async_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ):
     """Place an order without creating an account first.
 
@@ -409,12 +465,15 @@ async def guest_checkout(
     await db.flush()
     db.expire(cart, ["items"])
 
+    # Store credit is money: typing someone's number here must not spend
+    # theirs. It is applied only when the request carries her own session.
     order, razorpay_order_id = await svc.initiate_checkout(
         user_id=user.id,
         address_id=address.id,
         payment_method=body.payment_method,
-        coupon_code=body.coupon_code,
+        coupon_code=(body.coupon_code or "").strip() or None,
         idempotency_key=body.idempotency_key,
+        apply_credit=body.apply_credit and _session_user_id(credentials) == user.id,
     )
     # Attribution is written after the order exists so a malformed value can
     # never stop a sale: worst case the order is simply un-sourced.

@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 import logging
 from datetime import datetime, timezone
 
@@ -29,7 +30,7 @@ class CouponService:
     async def validate_coupon(
         self,
         code: str,
-        user_id: uuid.UUID,
+        user_id: Optional[uuid.UUID],
         order_total: int,
     ) -> tuple[Coupon, int]:
         """Validate coupon and return (coupon, discount_amount_paise).
@@ -61,7 +62,14 @@ class CouponService:
             if total_uses >= coupon.usage_limit:
                 raise HTTPException(status_code=400, detail="Coupon usage limit reached")
 
-        # Check per-user limit
+        # A referral code: first order only, never its owner's (services/referral).
+        from app.services import referral  # noqa: PLC0415
+        await referral.check_buyer(self.db, coupon, user_id)
+
+        # Check per-user limit. A buyer not known yet (a preview before she
+        # has typed her number) is checked again when the order is placed.
+        if user_id is None:
+            return coupon, self._compute_discount(coupon, order_total)
         user_count_result = await self.db.execute(
             select(func.count(CouponUsage.id)).where(
                 CouponUsage.coupon_id == coupon.id,

@@ -51,7 +51,10 @@ export default function AdminCouponsPage() {
     queryKey: ["admin", "coupons"],
     queryFn: async () => {
       const res = await adminApi.get<Coupon[]>("/coupons/");
-      return res.data;
+      // Referral codes (one per customer, and every creator's) live on
+      // their own page, /admin/referrals; here they would bury the few
+      // codes that are actually advertised.
+      return res.data.filter((c) => !c.is_referral);
     },
   });
 

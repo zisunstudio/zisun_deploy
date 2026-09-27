@@ -7,6 +7,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useAddresses, useCreateAddress, useSetDefaultAddress, useDeleteAddress, AddressCreate } from "@/lib/queries/address";
 import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { ShareCode } from "@/components/ShareCode";
 import { useSignInPrompt } from "@/store/useSignInPrompt";
 
 const INDIAN_STATES = [
@@ -95,6 +97,12 @@ export default function ProfilePage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { user, clearAuth, sessionChecked } = useAuthStore();
+  const { data: referrals } = useQuery<{ code: string | null; friend_discount_paise: number; reward_paise: number; credit_paise: number }>({
+    queryKey: ["referrals", "me", user?.id],
+    queryFn: async () => (await api.get("/referrals/me")).data,
+    enabled: !!user,
+    staleTime: 60_000,
+  });
   const { data: addresses, isLoading: loadingAddresses } = useAddresses();
   const setDefault = useSetDefaultAddress();
   const deleteAddress = useDeleteAddress();
@@ -164,6 +172,13 @@ export default function ProfilePage() {
             <ChevronRight className="w-4 h-4 text-muted" />
           </button>
         </div>
+
+        {/* Her referral code, once she has a delivered order; her credit. */}
+        {referrals?.code && (
+          <div className="px-5 mb-6">
+            <ShareCode code={referrals.code} friendPaise={referrals.friend_discount_paise} rewardPaise={referrals.reward_paise} creditPaise={referrals.credit_paise} />
+          </div>
+        )}
 
         {/* Addresses */}
         <div className="px-5 mb-6">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Loader2, MapPin, MessageCircle, ShieldCheck, Truck } from "lucide-react";
+import { ArrowLeft, Check, Loader2, MapPin, MessageCircle, ShieldCheck, Tag, Truck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -20,6 +20,7 @@ import { POLICY_TERMS } from "@/lib/legal";
 import { arrivalDate, clearExpressItem, getExpressItem, recallBuyer, rememberBuyer } from "@/lib/buyNow";
 import type { CartItem } from "@/store/useCartStore";
 import { ClothWeave } from "@/components/ClothWeave";
+import { clearReferral, storedReferral } from "@/lib/referral";
 import type { WeaveSpec } from "@/lib/weave";
 
 declare global {
@@ -217,6 +218,49 @@ export default function CheckoutPage() {
   const shippingPaise = paymentMethod === "COD" ? codShippingPaise : 0;
   const totalPaise = Math.round(totalRupees * 100);
 
+  // A code (a friend's, a creator's, or an advertised coupon) and her own
+  // store credit. The code is checked by the server before anything is
+  // placed and the answer is shown as a sentence, so a code that does not
+  // apply never stops the order - it is simply left off.
+  const [code, setCode] = useState("");
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeResult, setCodeResult] = useState<{ ok: boolean; code?: string; discount_paise: number; message: string } | null>(null);
+  const [checkingCode, setCheckingCode] = useState(false);
+  const [credit, setCredit] = useState(0);
+  const [useCredit, setUseCredit] = useState(true);
+  useEffect(() => {
+    const carried = storedReferral();
+    if (carried) { setCode(carried); setCodeOpen(true); }
+  }, []);
+  useEffect(() => {
+    if (!user) { setCredit(0); return; }
+    api.get("/referrals/me").then((r) => setCredit(r.data?.credit_paise ?? 0)).catch(() => setCredit(0));
+  }, [user]);
+  async function checkCode(value = code) {
+    const c = value.trim();
+    if (!c) { setCodeResult(null); return; }
+    setCheckingCode(true);
+    try {
+      const phone = /^[6-9]\d{9}$/.test(form.phone.trim()) ? `+91${form.phone.trim()}` : undefined;
+      const r = await api.post("/checkout/coupon-preview", { code: c, subtotal_paise: totalPaise, phone });
+      setCodeResult(r.data);
+    } catch {
+      setCodeResult({ ok: false, discount_paise: 0, message: "Could not check that code just now. You can still place the order." });
+    } finally {
+      setCheckingCode(false);
+    }
+  }
+  // Checked again whenever the bag or the buyer changes, and the first time
+  // the pay step opens with a code carried in from a shared link.
+  useEffect(() => {
+    if (step === "pay" && code.trim()) void checkCode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, totalPaise, form.phone]);
+  const discountPaise = codeResult?.ok ? codeResult.discount_paise : 0;
+  // Mirrors the server: credit never takes the goods below one rupee.
+  const creditPaise = user && useCredit ? Math.max(0, Math.min(credit, totalPaise - discountPaise - 100)) : 0;
+  const payablePaise = Math.max(0, totalPaise - discountPaise - creditPaise);
+
   // Reaching checkout with something in the bag is its own step. Until now
   // the first thing recorded here was `checkout_initiated`, which fires only
   // *after* the order POST succeeds - so everyone who arrived, read the
@@ -298,6 +342,8 @@ export default function CheckoutPage() {
         },
         email: form.email.trim() || null,
         payment_method: paymentMethod,
+        coupon_code: codeResult?.ok ? codeResult.code : null,
+        apply_credit: creditPaise > 0,
         idempotency_key: `zisun-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         // Where she came from, kept on the order itself: events age out of
         // usefulness, an order is permanent, and revenue by channel is the
@@ -305,6 +351,7 @@ export default function CheckoutPage() {
         ...attributionFields(),
       });
       const { order_id, razorpay_order_id, razorpay_key_id, total_amount } = res.data;
+      if (codeResult?.ok) clearReferral();
       trackEvent("checkout_initiated", { order_id, payment_method: paymentMethod, amount: total_amount });
 
       if (paymentMethod === "COD" || !razorpay_order_id) {
@@ -685,7 +732,38 @@ export default function CheckoutPage() {
                   : `The courier charges ${formatPrice(codShippingPaise)} to collect cash at the door, and we pass it on at cost. We will confirm on WhatsApp before packing.`}
               />
             </div>
-            <Total total={totalPaise + shippingPaise} shipping={shippingPaise} />
+            <div className="mt-6">
+              {!codeOpen ? (
+                <button type="button" onClick={() => setCodeOpen(true)} className="inline-flex items-center gap-1.5 min-h-[32px] text-sm text-ink underline underline-offset-4 decoration-burgundy/50">
+                  <Tag className="w-3.5 h-3.5" aria-hidden /> Have a code?
+                </button>
+              ) : (
+                <div>
+                  <label htmlFor="code" className="text-xs text-muted">Code</label>
+                  <div className="mt-1 flex gap-2">
+                    <input id="code" className={`${input} uppercase`} value={code} autoCapitalize="characters" autoComplete="off"
+                      onChange={(e) => { setCode(e.target.value); setCodeResult(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void checkCode(); } }} />
+                    <button type="button" onClick={() => void checkCode()} disabled={checkingCode || !code.trim()}
+                      className="shrink-0 h-11 px-4 rounded-lg border border-ink text-sm font-semibold text-ink disabled:opacity-40">
+                      {checkingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                    </button>
+                  </div>
+                  {codeResult && (
+                    <p role="status" className={`mt-2 text-xs ${codeResult.ok ? "text-moss" : "text-muted"}`}>
+                      {codeResult.ok ? <Check className="inline w-3.5 h-3.5 mr-1 -mt-0.5" aria-hidden /> : null}{codeResult.message}
+                    </p>
+                  )}
+                </div>
+              )}
+              {user && credit > 0 && (
+                <label className="mt-4 flex items-center gap-2.5 min-h-[32px] text-sm text-ink cursor-pointer">
+                  <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} className="w-4 h-4 accent-burgundy" />
+                  Use my store credit ({formatPrice(credit)})
+                </label>
+              )}
+            </div>
+            <Total total={payablePaise + shippingPaise} shipping={shippingPaise} discount={discountPaise} credit={creditPaise} />
             {paymentMethod === "COD" && (
               // An offer, not a correction. "Pay online instead and save Rs99"
               // tells her she has just made the expensive choice.
@@ -698,7 +776,7 @@ export default function CheckoutPage() {
               <Assure Icon={Truck}>Dispatched in {POLICY_TERMS.dispatchTimeframe}.</Assure>
             </ul>
             <Primary disabled={placing} onClick={placeOrder}>
-              {placing ? <><Loader2 className="w-4 h-4 animate-spin" /> Placing…</> : paymentMethod === "COD" ? `Place order · ${formatPrice(totalPaise + shippingPaise)}` : `Pay ${formatPrice(totalPaise)}`}
+              {placing ? <><Loader2 className="w-4 h-4 animate-spin" /> Placing…</> : paymentMethod === "COD" ? `Place order · ${formatPrice(payablePaise + shippingPaise)}` : `Pay ${formatPrice(payablePaise)}`}
             </Primary>
             {!remembered && <BackLink onClick={() => setStep("details")} />}
             {/* The fallback, kept deliberately quiet. Some customers would
@@ -760,9 +838,21 @@ function Field({ label, children, className = "" }: { label: string; children: R
  * before the payment method is chosen (the bag step), when the honest line
  * is the condition itself: free when she pays online.
  */
-function Total({ total, shipping }: { total: number; shipping: number | null }) {
+function Total({ total, shipping, discount = 0, credit = 0 }: { total: number; shipping: number | null; discount?: number; credit?: number }) {
   return (
     <div className="mt-6 border-t border-line pt-4">
+      {discount > 0 && (
+        <div className="mb-2 flex items-baseline justify-between text-sm">
+          <span className="text-muted">Code</span>
+          <span className="text-ink font-medium tabular-nums">−{formatPrice(discount)}</span>
+        </div>
+      )}
+      {credit > 0 && (
+        <div className="mb-2 flex items-baseline justify-between text-sm">
+          <span className="text-muted">Store credit</span>
+          <span className="text-ink font-medium tabular-nums">−{formatPrice(credit)}</span>
+        </div>
+      )}
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-muted">Shipping</span>
         <span className="text-ink font-medium">
