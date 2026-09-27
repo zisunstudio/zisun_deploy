@@ -11,6 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Qu
 
 from app.services import indexnow
 from pydantic import BaseModel, Field
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -154,7 +155,7 @@ async def admin_create_product(
     seen_keys: set[tuple[str, str]] = set()
     for v in data.variants:
         existing = (
-            await db.execute(select(ProductVariant).where(ProductVariant.sku == v.sku))
+            await db.execute(select(ProductVariant).where(ProductVariant.sku == v.sku, ProductVariant.deleted_at.is_(None)))
         ).scalar_one_or_none()
         if existing:
             raise HTTPException(422, f"SKU already exists: {v.sku}")
@@ -264,7 +265,7 @@ async def admin_soft_delete_product(
 
     variants = (
         await db.execute(
-            select(ProductVariant).where(ProductVariant.product_id == product_id)
+            select(ProductVariant).where(ProductVariant.product_id == product_id, ProductVariant.deleted_at.is_(None))
         )
     ).scalars().all()
     for v in variants:
@@ -317,7 +318,8 @@ async def admin_add_variant(
     await _get_product_or_404(product_id, db)
 
     existing = (
-        await db.execute(select(ProductVariant).where(ProductVariant.sku == data.sku))
+        await db.execute(select(ProductVariant).where(ProductVariant.sku == data.sku,
+                                                      ProductVariant.deleted_at.is_(None)))
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(422, f"SKU already exists: {data.sku}")
@@ -352,6 +354,7 @@ async def admin_update_variant(
             select(ProductVariant).where(
                 ProductVariant.id == variant_id,
                 ProductVariant.product_id == product_id,
+                ProductVariant.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
@@ -376,24 +379,61 @@ async def admin_update_variant(
 
 # ── DELETE /{id}/variants/{vid} — deactivate variant ─────────────────────────
 
-@router.delete("/{product_id}/variants/{variant_id}", status_code=204)
+@router.delete("/{product_id}/variants/{variant_id}")
 async def admin_delete_variant(
     product_id: uuid.UUID,
     variant_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_db),
 ):
+    """Delete a size/colour so it stays deleted.
+
+    This used to set `is_active = False` and nothing else. The row and its
+    stock stayed, the inventory page lists inactive variants (that is how
+    "off sale" shows), and the next load brought the "deleted" row back.
+
+    Now, under a row lock so a checkout cannot take the last unit mid-delete:
+    a variant nobody has ever ordered is removed outright, with the cart and
+    wishlist lines that point at it; one with order history or a live stock
+    hold is retired - `deleted_at` set, stock 0, off sale - because an order
+    is a record of what was sold and must keep pointing at it. Either way it
+    is gone from every list. The response says which, and the commit has
+    happened before it is sent.
+    """
+    from app.models.cart import CartItem  # noqa: PLC0415
+    from app.models.order import InventoryLock, OrderItem  # noqa: PLC0415
+    from app.models.wishlist import WishlistItem  # noqa: PLC0415
+
     variant = (
         await db.execute(
             select(ProductVariant).where(
                 ProductVariant.id == variant_id,
                 ProductVariant.product_id == product_id,
-            )
+                ProductVariant.deleted_at.is_(None),
+            ).with_for_update()
         )
     ).scalar_one_or_none()
     if not variant:
         raise HTTPException(404, "Variant not found")
-    variant.is_active = False
+
+    ordered = (await db.execute(
+        select(OrderItem.id).where(OrderItem.product_variant_id == variant_id).limit(1)
+    )).first() is not None
+    held = (await db.execute(
+        select(InventoryLock.id).where(InventoryLock.product_variant_id == variant_id).limit(1)
+    )).first() is not None
+
+    if ordered or held:
+        variant.deleted_at = datetime.now(timezone.utc)
+        variant.is_active = False
+        variant.stock = 0
+        outcome = "retired"
+    else:
+        await db.execute(sa_delete(CartItem).where(CartItem.product_variant_id == variant_id))
+        await db.execute(sa_delete(WishlistItem).where(WishlistItem.product_variant_id == variant_id))
+        await db.execute(sa_delete(ProductVariant).where(ProductVariant.id == variant_id))
+        outcome = "deleted"
     await db.commit()
+    return {"id": str(variant_id), "outcome": outcome}
 
 
 # ── GET /{id}/media/upload-url — presigned URL ────────────────────────────────
@@ -516,6 +556,7 @@ async def admin_update_variant_stock(
             select(ProductVariant).where(
                 ProductVariant.id == variant_id,
                 ProductVariant.product_id == product_id,
+                ProductVariant.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
@@ -548,7 +589,7 @@ async def admin_bulk_stock_update(
     for item in items:
         variant = (
             await db.execute(
-                select(ProductVariant).where(ProductVariant.sku == item.sku.strip())
+                select(ProductVariant).where(ProductVariant.sku == item.sku.strip(), ProductVariant.deleted_at.is_(None))
             )
         ).scalar_one_or_none()
         if not variant:
@@ -599,7 +640,10 @@ async def admin_bulk_stock_update_csv(
     for upd in updates_parsed:
         variant = (
             await db.execute(
-                select(ProductVariant).where(ProductVariant.sku == upd["sku"])
+                # A retired variant's SKU is free for a new row; a stock CSV
+                # must never put stock back on the retired one.
+                select(ProductVariant).where(ProductVariant.sku == upd["sku"],
+                                             ProductVariant.deleted_at.is_(None))
             )
         ).scalar_one_or_none()
         if not variant:
@@ -928,6 +972,7 @@ async def admin_set_media_variant(
                 select(ProductVariant).where(
                     ProductVariant.id == body.variant_id,
                     ProductVariant.product_id == product_id,
+                    ProductVariant.deleted_at.is_(None),
                 )
             )
         ).scalar_one_or_none()

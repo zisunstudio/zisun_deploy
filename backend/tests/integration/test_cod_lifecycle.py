@@ -88,6 +88,7 @@ class TestCODGiveUpRestoresStock:
 
         variant = MagicMock()
         variant.stock = 5
+        variant.deleted_at = None          # a live variant (migration 0028)
 
         locks_result = MagicMock()
         locks_result.scalars.return_value.all.return_value = [lock]
@@ -100,6 +101,34 @@ class TestCODGiveUpRestoresStock:
 
         assert variant.stock == 7, "the reserved units never came back on sale"
         assert lock.status == LockStatus.RELEASED
+
+    async def test_release_does_not_revive_a_deleted_variant(self, mock_db):
+        """The founder deleted a size while an unpaid order held a unit of it.
+        When the hold expired, the unit went back onto the deleted row and the
+        size reappeared in the console with stock 1."""
+        from datetime import datetime, timezone
+        from app.tasks.commerce import _release_locks
+
+        lock = MagicMock()
+        lock.product_variant_id = uuid.uuid4()
+        lock.reserved_qty = 1
+        lock.status = LockStatus.ACTIVE
+
+        variant = MagicMock()
+        variant.stock = 0
+        variant.deleted_at = datetime.now(timezone.utc)
+
+        locks_result = MagicMock()
+        locks_result.scalars.return_value.all.return_value = [lock]
+        variant_result = MagicMock()
+        variant_result.scalar_one_or_none.return_value = variant
+
+        mock_db.execute = AsyncMock(side_effect=[locks_result, variant_result])
+
+        await _release_locks(mock_db, uuid.uuid4())
+
+        assert variant.stock == 0, "a deleted variant got its stock back"
+        assert lock.status == LockStatus.RELEASED, "the hold still ends"
 
 
 class TestLockOutlivesThePaymentWindow:

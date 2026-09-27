@@ -165,7 +165,7 @@ async def _return_stock(db: AsyncSession, order: Order) -> None:
         v = (await db.execute(
             select(ProductVariant).where(ProductVariant.id == item.product_variant_id).with_for_update()
         )).scalar_one_or_none()
-        if v is not None:
+        if v is not None and v.deleted_at is None:
             v.stock += item.quantity
 
 

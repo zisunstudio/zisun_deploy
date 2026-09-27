@@ -152,6 +152,13 @@ const FIXTURES = [
       { source: "not recorded", orders: 1, collected_paise: 103900, committed_paise: 0, sessions: 0, visitors: 0, conversion: null },
     ] },
     attention: {
+      by_period: {
+        starts: { day: "2026-09-27T00:00:00+05:30", week: "2026-09-21T00:00:00+05:30", month: "2026-09-01T00:00:00+05:30", year: "2026-01-01T00:00:00+05:30" },
+        products: [
+          { id: "p2", name: "Purple Rose Embroidered Co-ord Set", periods: { day: { impressions: 32, opens: 20 }, week: { impressions: 141, opens: 100 }, month: { impressions: 486, opens: 450 }, year: { impressions: 2341, opens: 900 } } },
+          { id: "p1", name: "Rich Wine Dabu Cotton Bandhani-Inspired Kurta Set with Dupatta & Palazzo", periods: { day: { impressions: 18, opens: 6 }, week: { impressions: 160, opens: 41 }, month: { impressions: 530, opens: 120 }, year: { impressions: 1980, opens: 610 } } },
+        ],
+      },
       sessions: 41, sessions_previous: 22,
       funnel: [
         { key: "impressions", event: "product_impression", label: "Products shown", count: 40 },

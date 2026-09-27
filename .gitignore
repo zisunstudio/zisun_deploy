@@ -39,3 +39,7 @@ build/
 Thumbs.db
 dump.rdb
 *.tsbuildinfo
+
+# Deep-research working files (not product code)
+research_notes/
+reports/

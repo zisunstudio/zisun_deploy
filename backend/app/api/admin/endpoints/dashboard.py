@@ -205,6 +205,69 @@ def _rate(num: int, den: int):
     return round(num / den, 4) if den else None
 
 
+# ── Attention by calendar period ─────────────────────────────────────────────
+#
+# The founder asked to see each piece's impressions and opens for today, this
+# week, this month and this year, and to switch between them. They are
+# calendar periods in India time, not rolling windows: "today" starts at IST
+# midnight, "this week" on Monday, "this month" on the 1st, "this year" on
+# 1 January. Counted from the events' own timestamps - switching the period
+# changes the number because it changes the rows counted, never just a label.
+
+IST = timezone(timedelta(hours=5, minutes=30))
+PERIODS = ("day", "week", "month", "year")
+
+
+def period_starts(now: datetime) -> dict[str, datetime]:
+    """Start of today / this week / this month / this year, IST, as UTC-aware."""
+    local = now.astimezone(IST)
+    midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    return {
+        "day": midnight,
+        "week": midnight - timedelta(days=midnight.weekday()),
+        "month": midnight.replace(day=1),
+        "year": midnight.replace(month=1, day=1),
+    }
+
+
+def _count_since(event_type: str, start: datetime):
+    return sa.func.count(sa.case((sa.and_(AnalyticsEvent.event_type == event_type,
+                                          AnalyticsEvent.created_at >= start), AnalyticsEvent.id)))
+
+
+def product_periods_query(now: datetime, live_products):
+    """Every live product's impressions and opens for all four periods, in ONE
+    grouped query: the year's events are scanned once and bucketed by
+    conditional counts, so the page switches period with no new request."""
+    starts = period_starts(now)
+    cols = []
+    for period in PERIODS:
+        cols.append(_count_since("product_impression", starts[period]).label(f"impressions_{period}"))
+        cols.append(_count_since("product_viewed", starts[period]).label(f"opens_{period}"))
+    return (
+        select(Product.id, Product.name, *cols)
+        .select_from(Product)
+        .outerjoin(AnalyticsEvent, sa.and_(
+            AnalyticsEvent.event_type.in_(["product_impression", "product_viewed"]),
+            AnalyticsEvent.created_at >= starts["year"],
+            product_id_matches(Product.id)))
+        .where(live_products)
+        .group_by(Product.id, Product.name)
+    ), starts
+
+
+def product_periods_rows(rows) -> list[dict]:
+    out = []
+    for r in rows or []:
+        m = r._mapping
+        out.append({
+            "id": str(m["id"]), "name": m["name"],
+            "periods": {p: {"impressions": int(m[f"impressions_{p}"] or 0), "opens": int(m[f"opens_{p}"] or 0)}
+                        for p in PERIODS},
+        })
+    return out
+
+
 # ── The board ────────────────────────────────────────────────────────────────
 
 def _views_from_cards():
@@ -226,6 +289,7 @@ async def compute_dashboard(days: int = 30) -> dict:
     prev_week = now - timedelta(days=14)
     attention_sq = attention_score_subquery()
     live_products = sa.and_(Product.deleted_at.is_(None), Product.is_active.is_(True))
+    periods_stmt, period_start = product_periods_query(now, live_products)
 
     def sessions_between(a, b):
         return _scalar(select(sa.func.count(sa.distinct(AnalyticsEvent.session_id))).where(
@@ -307,6 +371,8 @@ async def compute_dashboard(days: int = 30) -> dict:
         steps=_all(select(AnalyticsEvent.event_type, sa.func.count(AnalyticsEvent.id))
                    .where(AnalyticsEvent.event_type.in_([e for _, e, _ in FUNNEL_STEPS] + ["size_guide_opened"]), AnalyticsEvent.created_at >= since)
                    .group_by(AnalyticsEvent.event_type)),
+        # Impressions and opens per product for today / week / month / year.
+        product_periods=_all(periods_stmt),
         # Per-product funnel in ONE grouped query. A left join keeps products
         # nobody has opened - those rows are the point.
         products=_all(
@@ -630,6 +696,11 @@ async def compute_dashboard(days: int = 30) -> dict:
             "never_viewed": [p for p in products_by_views if p["views"] == 0],
             "products": products_attention,
             "ranking": {"window_days": WINDOW_DAYS, "half_life_days": round(half_life_days(), 1), "weights": EVENT_WEIGHTS},
+            # Day / week / month / year, calendar periods in IST.
+            "by_period": {
+                "starts": {k: v.isoformat() for k, v in period_start.items()},
+                "products": product_periods_rows(r["product_periods"]),
+            },
         },
         "acquisition": {
             "by_source": acquisition,
@@ -640,6 +711,49 @@ async def compute_dashboard(days: int = 30) -> dict:
         },
         "inventory": {"units": sum(x["units"] for x in by_size), "variants": sum(x["variants"] for x in by_size),
                       "by_size": by_size, "low_stock": low_stock, "low_stock_threshold": LOW_STOCK_THRESHOLD},
+    }
+
+
+@router.get("/dashboard/product-attention", tags=["Admin — Dashboard"])
+async def admin_product_attention(
+    start: str = Query(..., description="First day, YYYY-MM-DD, India time"),
+    end: str = Query(..., description="Last day, YYYY-MM-DD, India time, inclusive"),
+):
+    """Impressions and opens per product for a custom date range.
+
+    The one exception to "the board is one request": a range she types can
+    not be precomputed, and this is asked only when she chooses Custom - the
+    page still opens on a single call. Day / week / month / year come with
+    the board (`attention.by_period`).
+    """
+    from fastapi import HTTPException  # noqa: PLC0415
+    try:
+        d0 = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=IST)
+        d1 = datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=IST) + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(422, "Dates must be YYYY-MM-DD")
+    if d1 <= d0:
+        raise HTTPException(422, "The end date is before the start date")
+    if d1 - d0 > timedelta(days=366 * 2):
+        raise HTTPException(422, "Choose a range of two years or less")
+    live_products = sa.and_(Product.deleted_at.is_(None), Product.is_active.is_(True))
+    stmt = (
+        select(Product.id, Product.name,
+               _count_of("product_impression").label("impressions"),
+               _count_of("product_viewed").label("opens"))
+        .select_from(Product)
+        .outerjoin(AnalyticsEvent, sa.and_(
+            AnalyticsEvent.event_type.in_(["product_impression", "product_viewed"]),
+            AnalyticsEvent.created_at >= d0, AnalyticsEvent.created_at < d1,
+            product_id_matches(Product.id)))
+        .where(live_products)
+        .group_by(Product.id, Product.name)
+    )
+    async with AsyncSessionLocal() as db:
+        rows = (await db.execute(stmt)).all()
+    return {
+        "start": d0.isoformat(), "end": d1.isoformat(),
+        "products": [{"id": str(i), "name": n, "impressions": int(a or 0), "opens": int(o or 0)} for i, n, a, o in rows],
     }
 
 

@@ -56,7 +56,9 @@ export default function AdminInventoryPage() {
   });
   const remove = useMutation({
     mutationFn: ({ productId, variantId }: { productId: string; variantId: string }) => adminApi.delete(`/products/${productId}/variants/${variantId}`),
-    onSuccess: invalidate,
+    // The API commits before it answers, so the refetch below reads the
+    // database's final word: the row is gone, or retired and hidden.
+    onSuccess: () => { setErr(null); invalidate(); },
     onError: (e: any) => setErr(e?.response?.data?.detail ?? "Could not delete"),
   });
   const uploadCsv = useMutation({
@@ -207,7 +209,7 @@ export default function AdminInventoryPage() {
                         <div className="flex items-center gap-2 shrink-0">
                           <StockBadge n={v.stock} />
                           <Button size="sm" onClick={() => startEdit(p.id, v, p.base_price)}>Edit</Button>
-                          <button onClick={() => { if (confirm(`Delete ${v.sku}?`)) remove.mutate({ productId: p.id, variantId: v.id }); }} className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50" aria-label={`Delete ${v.sku}`}><Trash2 className="w-4 h-4" /></button>
+                          <button onClick={() => { if (confirm(`Delete ${v.sku} for good?\n\nIt will disappear from the shop and this list and cannot be undone. To hide it but keep its stock, untick "On sale" instead.`)) remove.mutate({ productId: p.id, variantId: v.id }); }} className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50" aria-label={`Delete ${v.sku}`}><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
                     </li>
@@ -236,7 +238,7 @@ export default function AdminInventoryPage() {
                             <td className={`${td} text-xs`}>{v.is_active ? "Yes" : "No"}</td>
                             <td className={`${td} text-right whitespace-nowrap`}>
                               <Button size="sm" onClick={() => startEdit(p.id, v, p.base_price)}>Edit</Button>
-                              <button onClick={() => { if (confirm(`Delete ${v.sku}?`)) remove.mutate({ productId: p.id, variantId: v.id }); }} className="ml-1 h-9 w-9 inline-flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50" aria-label={`Delete ${v.sku}`}><Trash2 className="w-4 h-4" /></button>
+                              <button onClick={() => { if (confirm(`Delete ${v.sku} for good?\n\nIt will disappear from the shop and this list and cannot be undone. To hide it but keep its stock, untick "On sale" instead.`)) remove.mutate({ productId: p.id, variantId: v.id }); }} className="ml-1 h-9 w-9 inline-flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50" aria-label={`Delete ${v.sku}`}><Trash2 className="w-4 h-4" /></button>
                             </td>
                           </tr>
                         ))}

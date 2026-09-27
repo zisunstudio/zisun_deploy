@@ -1,4 +1,5 @@
 "use client";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Lightbulb, Minus } from "lucide-react";
@@ -47,7 +48,7 @@ type Dash = {
     payment: { attempted: number; succeeded: number; failed: number; abandoned: number; in_flight: number; success_rate: number | null; abandon_rate: number | null; mismatched: number };
   };
   acquisition?: { by_source: Array<{ source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null }>; partial: boolean };
-  attention: { sessions: number; sessions_previous?: number; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
+  attention: { by_period?: ByPeriod; sessions: number; sessions_previous?: number; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
   inventory: { units: number; variants: number; by_size: { size: string; variants: number; units: number }[]; low_stock: { product: string; size: string; colour?: string; sku: string; stock: number }[]; low_stock_threshold: number };
 };
 type BriefPayload = { brief: { headline: string; bullets: string[]; critical: string[]; source: string }; facts?: { as_of?: string } };
@@ -71,6 +72,76 @@ function Stat({ label, value, note, trend, empty }: { label: string; value: Reac
       <p className={`text-[24px] sm:text-[26px] leading-none font-semibold tabular-nums ${empty ? "text-gray-300" : "text-gray-900"}`}>{value}</p>
       <div className="flex items-center justify-between gap-2 mt-1 min-h-[16px]">{note ? <p className="text-[11px] text-gray-500 leading-snug">{note}</p> : <span />}{trend}</div>
     </Card>
+  );
+}
+
+type PeriodKey = "day" | "week" | "month" | "year";
+type PeriodCounts = { impressions: number; opens: number };
+type ByPeriod = { starts: Record<PeriodKey, string>; products: { id: string; name: string; periods: Record<PeriodKey, PeriodCounts> }[] };
+
+const PERIOD_LABEL: Record<PeriodKey | "custom", string> = { day: "Today", week: "This week", month: "This month", year: "This year", custom: "Custom" };
+
+/**
+ * Impressions and opens per piece, for the period she picks.
+ *
+ * Today / week / month / year are calendar periods in India time and arrive
+ * with the board, all four at once, so switching is instant and each number
+ * is counted from the events' own timestamps. Custom asks the API once, only
+ * when chosen. Sorted by opens, so it is still "most opened" for the period.
+ */
+function AttentionByPeriod({ data }: { data?: ByPeriod }) {
+  const [period, setPeriod] = useState<PeriodKey | "custom">("week");
+  const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  const [from, setFrom] = useState(today);
+  const [to, setTo] = useState(today);
+  const custom = useQuery<{ products: { id: string; name: string; impressions: number; opens: number }[] }>({
+    queryKey: ["admin", "product-attention", from, to],
+    enabled: period === "custom" && !!from && !!to && from <= to,
+    queryFn: async () => (await adminApi.get("/dashboard/product-attention", { params: { start: from, end: to } })).data,
+  });
+
+  const rows = useMemo(() => {
+    const list = period === "custom"
+      ? (custom.data?.products ?? []).map((p) => ({ id: p.id, name: p.name, impressions: p.impressions, opens: p.opens }))
+      : (data?.products ?? []).map((p) => ({ id: p.id, name: p.name, ...p.periods[period] }));
+    return [...list].sort((a, b) => b.opens - a.opens || b.impressions - a.impressions);
+  }, [period, data, custom.data]);
+  const max = Math.max(1, ...rows.map((r) => r.impressions));
+
+  if (!data) return null;
+  return (
+    <Section title="Impressions by period" hint="Shown = the piece's card appeared on screen. Opened = someone tapped into it. Periods follow India time; weeks start Monday.">
+      <Card>
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Period">
+          {(["day", "week", "month", "year", "custom"] as const).map((k) => (
+            <button key={k} type="button" role="tab" aria-selected={period === k} onClick={() => setPeriod(k)}
+              className={`h-9 px-3 rounded-full text-sm border ${period === k ? "bg-ink text-white border-ink" : "bg-white text-gray-700 border-gray-300 hover:border-gray-500"}`}>
+              {PERIOD_LABEL[k]}
+            </button>
+          ))}
+        </div>
+        {period === "custom" && (
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="text-xs text-gray-600">From<input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="block mt-1 h-10 rounded-lg border border-gray-300 px-2 text-sm" /></label>
+            <label className="text-xs text-gray-600">To<input type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} className="block mt-1 h-10 rounded-lg border border-gray-300 px-2 text-sm" /></label>
+            {custom.isFetching && <span className="text-xs text-gray-500">Counting…</span>}
+            {custom.isError && <span className="text-xs text-red-700">Could not load that range.</span>}
+          </div>
+        )}
+        <ul className="mt-4 divide-y divide-gray-100">
+          {rows.map((r, i) => (
+            <li key={r.id} className="py-2.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm text-gray-900 min-w-0 truncate"><span className="text-gray-400 tabular-nums mr-1.5">{i + 1}.</span>{r.name}</span>
+                <span className="shrink-0 text-sm tabular-nums text-gray-900">{r.impressions.toLocaleString("en-IN")} <span className="text-xs text-gray-500">shown</span> · {r.opens.toLocaleString("en-IN")} <span className="text-xs text-gray-500">opened</span></span>
+              </div>
+              <div className="mt-1.5"><Bar value={r.impressions} max={max} tone="bg-burgundy" /></div>
+            </li>
+          ))}
+          {rows.length === 0 && <li className="py-3 text-sm text-gray-500">{period === "custom" && custom.isFetching ? "Counting…" : "No live pieces."}</li>}
+        </ul>
+      </Card>
+    </Section>
   );
 }
 
@@ -352,6 +423,8 @@ export default function AdminAnalytics() {
           {attention.size_guide_opens != null && attention.size_guide_opens > 0 && <p className="mt-3 text-xs text-gray-500">The size guide was opened {attention.size_guide_opens} times.</p>}
         </Card>
       </Section>
+
+      <AttentionByPeriod data={attention.by_period} />
 
       {/* Product by product */}
       <Section title="Where attention goes" hint={attention.ranking ? `Score = recent activity, halving every ${attention.ranking.half_life_days} days; it orders the shelf when nothing is pinned. Open rate = opens from a card ÷ times the card was shown. Bag rate = bag adds ÷ opens.` : undefined}>

@@ -1,6 +1,6 @@
 import uuid
 from typing import Optional, List
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Text, Boolean, Enum as SAEnum
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Text, Boolean, Enum as SAEnum, Index, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -182,8 +182,16 @@ class Product(BaseModel):
     # wore cotton every day of her life." The tale in "Tales, Antiqued."
     named_for: Mapped[Optional[str]] = mapped_column(String(160))
 
+    # Retired variants (deleted_at set) are not part of the product any more:
+    # filtering here, once, hides them from the console, the storefront, the
+    # journal and every other loader of `Product.variants` together. Order
+    # lines reach a retired variant through `OrderItem.variant`, which is its
+    # own relationship and still resolves, so history is intact.
     variants: Mapped[List["ProductVariant"]] = relationship(
-        "ProductVariant", back_populates="product", cascade="all, delete-orphan"
+        "ProductVariant",
+        primaryjoin="and_(Product.id == foreign(ProductVariant.product_id), ProductVariant.deleted_at.is_(None))",
+        back_populates="product",
+        cascade="all, delete-orphan",
     )
     media: Mapped[List["ProductMedia"]] = relationship(
         "ProductMedia",
@@ -198,11 +206,17 @@ class Product(BaseModel):
 
 class ProductVariant(BaseModel):
     __tablename__ = "product_variants"
+    __table_args__ = (
+        Index("uq_product_variants_sku", "sku", unique=True,
+              postgresql_where=text("deleted_at IS NULL")),
+    )
 
     product_id: Mapped[str] = mapped_column(
         ForeignKey("products.id"), index=True, nullable=False
     )
-    sku: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    # Unique among live variants only (migration 0028): a retired variant
+    # keeps its SKU for its order history, and the same SKU can be used again.
+    sku: Mapped[str] = mapped_column(String(100), nullable=False)
     size: Mapped[Optional[str]] = mapped_column(String(50))
     color: Mapped[Optional[str]] = mapped_column(String(50))
     stock: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -213,6 +227,10 @@ class ProductVariant(BaseModel):
         Integer, default=1, nullable=False
     )  # Optimistic locking
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    #: Set when the founder deletes a variant that has order history
+    #: (migration 0028). A retired variant has stock 0, is off sale, and is
+    #: hidden everywhere; `is_active` alone means "off sale", which she can undo.
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     product: Mapped["Product"] = relationship("Product", back_populates="variants")
 

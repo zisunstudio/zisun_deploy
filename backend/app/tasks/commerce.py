@@ -133,7 +133,9 @@ async def _cleanup_zombie_orders():
                         .with_for_update()
                     )
                     variant = variant_result.scalar_one_or_none()
-                    if variant:
+                    # A retired variant (deleted in the console) must not get its stock
+                    # back when an old hold expires - that revived a deleted row.
+                    if variant and variant.deleted_at is None:
                         variant.stock += lock.reserved_qty
                     lock.status = LockStatus.RELEASED
 
@@ -177,7 +179,9 @@ async def _release_locks_for_order(db, order_id: uuid.UUID) -> None:
                 .with_for_update()
             )
         ).scalar_one_or_none()
-        if variant:
+        # A retired variant (deleted in the console) must not get its stock
+        # back when an old hold expires - that revived a deleted row.
+        if variant and variant.deleted_at is None:
             variant.stock += lock.reserved_qty
         lock.status = LockStatus.RELEASED
 
@@ -211,7 +215,9 @@ async def _release_expired_locks():
                 .with_for_update()
             )
             variant = variant_result.scalar_one_or_none()
-            if variant:
+            # A retired variant (deleted in the console) must not get its stock
+            # back when an old hold expires - that revived a deleted row.
+            if variant and variant.deleted_at is None:
                 variant.stock += lock.reserved_qty
             lock.status = LockStatus.EXPIRED
 
@@ -414,7 +420,9 @@ async def _release_locks(db, order_id) -> None:
                 .with_for_update()
             )
         ).scalar_one_or_none()
-        if variant:
+        # A retired variant (deleted in the console) must not get its stock
+        # back when an old hold expires - that revived a deleted row.
+        if variant and variant.deleted_at is None:
             variant.stock += lock.reserved_qty
         lock.status = LockStatus.RELEASED
 
