@@ -38,6 +38,7 @@ type ImportResult = {
   kind: string; rows_total: number; orders_created: number; orders_updated: number; orders_unchanged: number;
   rows_skipped: number; stock_adjusted: number; problems: string[];
 };
+type Connection = { configured: boolean; missing: string[]; last_sync_at: string | null; marketplace_id: string; every_minutes: number };
 type ImportRow = {
   id: string; kind: string; filename: string; rows_total: number; orders_created: number;
   orders_updated: number; rows_skipped: number; problems: string[] | null; created_at: string;
@@ -143,12 +144,53 @@ export default function AdminChannelsPage() {
 
       {selected && (
         <div className="space-y-6">
+          {selected.code === "amazon" && <AmazonPanel onDone={refresh} />}
           <ImportPanel channel={selected} onDone={refresh} />
           <ListingsPanel channel={selected} listings={listings ?? []} variants={variants} onChange={refresh} />
           <HistoryPanel imports={imports ?? []} />
         </div>
       )}
     </Page>
+  );
+}
+
+// ── Amazon: the one marketplace with an API ──────────────────────────────────
+
+function AmazonPanel({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
+  const [note, setNote] = useState<string | null>(null);
+  const { data: conn } = useQuery({
+    queryKey: ["admin-amazon-connection"],
+    queryFn: async () => (await adminApi.get<Connection>("/channels/amazon/connection")).data,
+  });
+  const sync = useMutation({
+    mutationFn: async () => adminApi.post("/channels/amazon/sync"),
+    onSuccess: () => { setNote("Asked Amazon. Orders and payouts will appear here within a few minutes."); onDone(); qc.invalidateQueries({ queryKey: ["admin-amazon-connection"] }); },
+    onError: (e: unknown) => setNote(detail(e, "Could not start the sync.")),
+  });
+  if (!conn) return null;
+  return (
+    <Card>
+      <CardHeader
+        title="Amazon connection"
+        meta={conn.configured
+          ? `Connected. Orders and payouts are pulled every ${conn.every_minutes} minutes; last ${when(conn.last_sync_at)}.`
+          : "Not connected. Files still work; connect for orders and payouts to arrive on their own."}
+      />
+      {conn.configured ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="primary" disabled={sync.isPending} onClick={() => sync.mutate()}>
+            {sync.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}<span className="ml-1.5">Sync from Amazon now</span>
+          </Button>
+          {note && <span className="text-sm text-gray-700">{note}</span>}
+        </div>
+      ) : (
+        <div className="text-sm text-gray-700 space-y-1">
+          <p>Needs a Professional seller account and a developer application approved in Seller Central. Then set on <span className="font-mono text-xs">zisun-api</span>, <span className="font-mono text-xs">zisun-worker</span> and <span className="font-mono text-xs">zisun-beat</span>:</p>
+          <ul className="list-disc pl-5 font-mono text-xs">{conn.missing.map((m) => <li key={m}>{m}</li>)}</ul>
+        </div>
+      )}
+    </Card>
   );
 }
 

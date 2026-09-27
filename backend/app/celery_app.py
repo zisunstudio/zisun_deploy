@@ -55,7 +55,7 @@ celery_app = Celery(
     "zisun",
     broker=_REDIS_URL,
     backend=_REDIS_URL,
-    include=["app.tasks.commerce"],
+    include=["app.tasks.commerce", "app.tasks.channels"],
 )
 
 celery_app.conf.beat_schedule = {
@@ -82,6 +82,13 @@ celery_app.conf.beat_schedule = {
     "razorpay-daily-reconciliation": {
         "task": "tasks.razorpay_daily_reconciliation",
         "schedule": crontab(hour=2, minute=0),  # 02:00 UTC daily
+    },
+    # Amazon orders and payouts, when the account is connected; a one-line
+    # skip otherwise. Half-hourly: Amazon allows about one order listing a
+    # minute, and 48 dispatches a day is nothing against the Redis budget.
+    "sync-amazon": {
+        "task": "app.tasks.channels.sync_amazon",
+        "schedule": 1800,
     },
 }
 celery_app.conf.timezone = "Asia/Kolkata"

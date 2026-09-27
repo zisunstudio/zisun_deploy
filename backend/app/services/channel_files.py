@@ -108,7 +108,7 @@ SETTLEMENT: dict[str, list[str]] = {
     "order_id": ["amazonorderid", "orderid", "orderreleaseid", "suborderno", "suborderid", "orderno", "ordernumber"],
     "amount": ["total", "netamount", "amount", "settlementamount", "payoutamount", "finalsettlementamount",
                "netpayable", "totalamount", "amountpaid"],
-    "settled_on": ["settlementenddate", "settlementdate", "paymentdate", "postedon", "posteddate",
+    "settled_on": ["depositdate", "settlementenddate", "settlementdate", "paymentdate", "postedon", "posteddate",
                    "payoutdate", "transactiondate", "date"],
 }
 
@@ -343,6 +343,10 @@ class ExternalOrder:
     pincode: Optional[str] = None
     payment: str = "PREPAID"
     invoice: Optional[str] = None
+    #: False when the marketplace shipped it from its own warehouse (Amazon
+    #: FBA): those units left ZISUN's shelf when they were sent in, so the
+    #: sale must not take them off the count a second time.
+    holds_our_stock: bool = True
 
     @property
     def total_paise(self) -> int:
@@ -413,6 +417,16 @@ def settlements_from_rows(headers: list[str], rows: Iterable[list[str]], mapping
     (item, shipping, commission, tax), and they are summed."""
     idx = {f: headers.index(h) for f, h in mapping.columns.items() if h in headers}
     get = lambda row, f: (row[idx[f]].strip() if f in idx and idx[f] < len(row) else "")  # noqa: E731
+    rows = list(rows)
+    # Amazon's settlement file carries the deposit date once, on a summary
+    # line at the top, and leaves it blank on every order line below. A date
+    # given once for the file is the date for its lines: it is when the
+    # money reached the bank, which is what "settled" means.
+    file_when: Optional[datetime] = None
+    for row in rows:
+        file_when = parse_date(get(row, "settled_on"))
+        if file_when:
+            break
     by_id: dict[str, Settlement] = {}
     problems: list[str] = []
     n = 0
@@ -425,7 +439,7 @@ def settlements_from_rows(headers: list[str], rows: Iterable[list[str]], mapping
         if amt is None:
             problems.append(f"Row {i} ({oid}): amount '{get(row, 'amount')}' is not a number - skipped")
             continue
-        when = parse_date(get(row, "settled_on"))
+        when = parse_date(get(row, "settled_on")) or file_when
         s = by_id.get(oid)
         if s is None:
             by_id[oid] = Settlement(external_id=oid, amount_paise=amt, settled_on=when)

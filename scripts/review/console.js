@@ -34,6 +34,7 @@ const FIXTURES = [
   // Channels: the website plus the marketplaces. Specific routes first, or
   // the bare list would answer the listings call and the page would map an
   // object.
+  [/\/channels\/amazon\/connection/, { configured: false, missing: ["AMAZON_SP_CLIENT_ID", "AMAZON_SP_CLIENT_SECRET", "AMAZON_SP_REFRESH_TOKEN"], last_sync_at: null, marketplace_id: "A21TJRUUN4KGV", every_minutes: 30 }],
   [/\/channels\/[a-z]+\/listings/, [
     { id: "l1", external_sku: "B0CXYZ1234", external_listing_id: "B0CXYZ1234", product_variant_id: "v1", sku: "ZS-WIN-M", product_name: "Rich Wine Dabu Cotton Bandhani-Inspired Kurta Set with Dupatta & Palazzo", size: "M", colour: "Wine", stock: 1 },
   ]],

@@ -148,6 +148,18 @@ class Settings(BaseSettings):
     # Addresses). Every booking names it; a name Shiprocket does not know
     # fails the order at the first step.
     SHIPROCKET_PICKUP_LOCATION: str = "Primary"
+
+    # ── Amazon Selling Partner API ────────────────────────────────────────────
+    # All three come from Seller Central once a Professional seller account
+    # and an approved developer application exist (services/amazon_sp.py).
+    # Unset, the connector refuses to run and the console says which are
+    # missing; nothing is mocked in production.
+    AMAZON_SP_CLIENT_ID: str = ""
+    AMAZON_SP_CLIENT_SECRET: str = ""
+    AMAZON_SP_REFRESH_TOKEN: str = ""
+    # India is served from Amazon's EU region; its marketplace id is fixed.
+    AMAZON_SP_ENDPOINT: str = "https://sellingpartnerapi-eu.amazon.com"
+    AMAZON_MARKETPLACE_ID: str = "A21TJRUUN4KGV"
     # Courier serviceability is cached, but the two halves age differently.
     # Prepaid coverage is stable. The per-pincode COD flag is not: couriers
     # suspend COD to a pincode intraday when RTO spikes there, so a day-old
@@ -301,6 +313,10 @@ class Settings(BaseSettings):
     @property
     def has_gemini(self) -> bool:
         return bool(self.GEMINI_API_KEY)
+
+    @property
+    def has_amazon(self) -> bool:
+        return bool(self.AMAZON_SP_CLIENT_ID and self.AMAZON_SP_CLIENT_SECRET and self.AMAZON_SP_REFRESH_TOKEN)
 
     @property
     def has_any_ai(self) -> bool:

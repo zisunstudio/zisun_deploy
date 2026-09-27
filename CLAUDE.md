@@ -224,9 +224,17 @@ money until the marketplace pays.** ZISUN sells on zisun.in and, as they
 open, on Amazon, Myntra, Meesho and AJIO. None offers a seller of this size
 an API - they export orders and payouts as files from the seller portal -
 so the connector is a file (`services/channel_files.py`, previewed before
-anything is written) feeding `services/channels.ingest_orders`, which the
-day an API exists (Amazon SP-API needs an approved seller account and a
-registered app) feeds the same way. A marketplace order is an ordinary
+anything is written) feeding `services/channels.ingest_orders`. Amazon's
+SP-API connector (`services/amazon_sp.py`) feeds the same function: LWA
+token exchange, orders *updated* since the last sync (so a status change
+needs no second mechanism), `Pending` orders skipped until they have
+items, settlement reports downloaded and read by the same reader as a
+hand-exported file, half-hourly from `tasks/channels.py`. It refuses to
+run without `AMAZON_SP_CLIENT_ID/SECRET/REFRESH_TOKEN` and names what is
+missing - there is no mock - and it is proven only against a faked Amazon
+until a seller account exists. An order Amazon fulfils from its own
+warehouse (`AFN`) does not touch ZISUN's stock count: those units left
+the shelf when they were sent to Amazon (`ExternalOrder.holds_our_stock`). A marketplace order is an ordinary
 `Order` with `channel_id` and `external_order_id` (unique together, so a
 file imported twice changes nothing), the same tax snapshot, and the same
 `FOR UPDATE` stock decrement as a website sale - a sale that already

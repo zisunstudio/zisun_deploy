@@ -23,6 +23,8 @@ from app.schemas.channel import (
     ChannelCreate, ChannelImportOut, ChannelOut, ColumnMatch, ImportPreview, ImportResultOut,
     ListingOut, ListingsUpsert,
 )
+from app.core.config import settings
+from app.services import amazon_sp
 from app.services import channel_files as files
 from app.services import channels as svc
 
@@ -231,3 +233,37 @@ async def list_imports(code: str, db: AsyncSession = Depends(get_async_db)):
         .order_by(ChannelImport.created_at.desc()).limit(30)
     )).scalars().all()
     return rows
+
+
+# ── Amazon: the one channel with an API ──────────────────────────────────────
+
+@router.get("/amazon/connection")
+async def amazon_connection(db: AsyncSession = Depends(get_async_db)):
+    """Whether Amazon is connected, which variables are missing if not, and
+    when it last synced. The console shows this on the Amazon card."""
+    c = await _channel_or_404(db, "amazon")
+    missing = [n for n in ("AMAZON_SP_CLIENT_ID", "AMAZON_SP_CLIENT_SECRET", "AMAZON_SP_REFRESH_TOKEN")
+               if not getattr(settings, n, "")]
+    last = await amazon_sp.last_sync_at(db, c)
+    return {"configured": not missing, "missing": missing, "last_sync_at": last,
+            "marketplace_id": settings.AMAZON_MARKETPLACE_ID, "every_minutes": 30}
+
+
+@router.post("/amazon/sync", status_code=202)
+async def amazon_sync_now():
+    """Ask the worker to pull from Amazon now rather than at the next half hour.
+
+    Queued, not run here: a sync makes one call per order at Amazon's pace
+    and can take minutes, which no request should wait on.
+    """
+    if not amazon_sp.configured(settings):
+        raise HTTPException(409, "Amazon is not connected: set AMAZON_SP_CLIENT_ID, "
+                                 "AMAZON_SP_CLIENT_SECRET and AMAZON_SP_REFRESH_TOKEN on zisun-api, "
+                                 "zisun-worker and zisun-beat.")
+    from app.tasks.channels import sync_amazon  # noqa: PLC0415
+    try:
+        sync_amazon.delay()
+    except Exception as exc:  # noqa: BLE001 - the broker is down; say so
+        raise HTTPException(503, f"Could not reach the job queue: {type(exc).__name__}. "
+                                 "The half-hourly sync will run when it is back.")
+    return {"queued": True}

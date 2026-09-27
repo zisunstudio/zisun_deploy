@@ -219,7 +219,7 @@ async def _create(db: AsyncSession, channel: SalesChannel, user: User, o: Extern
             "unit_price_paise": line.unit_price_paise,
             "hsn": getattr(v.product, "hsn_code", None),
         })
-        if adjust_stock and status in _HOLDS_STOCK:
+        if adjust_stock and o.holds_our_stock and status in _HOLDS_STOCK:
             await _take_stock(db, vid, line.quantity, result, f"{channel.name} {o.external_id}")
 
     # The same tax arithmetic as a website sale, so the GST report is one
