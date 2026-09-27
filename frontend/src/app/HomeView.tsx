@@ -23,7 +23,7 @@ import { SMALL_COLLECTION_AT } from "@/lib/brand";
 import { markOpenSource } from "@/lib/enquiry";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY } from "@/lib/launchMode";
-import { FIREBASE_ENABLED } from "@/lib/firebase";
+import { FIREBASE_ENABLED } from "@/lib/firebaseEnabled";
 import { LegalFooter } from "@/components/LegalFooter";
 import { Wordmark } from "@/components/Wordmark";
 import { FounderNote } from "@/components/FounderNote";

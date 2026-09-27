@@ -105,6 +105,9 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Address from location: one tap fills pincode, road, area, city, state (never the house number) | `backend/app/services/geocode.py`, `frontend/src/app/checkout/page.tsx` | Live (2026-09-27) |
 | Checkout form autofill: real `<form>` with `shipping` tokens, one-tap fill from the browser's saved profile | `frontend/src/app/checkout/page.tsx` | Live (2026-09-27) |
 | Returning buyer on this device goes bag -> pay, skipping details | `frontend/src/app/checkout/page.tsx`, `frontend/src/lib/buyNow.ts` | Live (2026-09-27) |
+| Silent return sign-in: a device that signed in before is signed back in with no prompt, even after the 30-day cookie lapses | `frontend/src/components/SessionRestore.tsx`, `frontend/src/lib/firebase.ts` | Live (2026-09-27) |
+| OTP verifies itself when the SMS code is tapped in or pasted (no Verify button) | `frontend/src/app/(auth)/login/page.tsx` | Live (2026-09-27) |
+| Firebase SDK loaded only where sign-in happens (flag split into `firebaseEnabled.ts`) | `frontend/src/lib/firebaseEnabled.ts` | Live (2026-09-27) |
 | Pincode serviceability, arrival date | `frontend/src/app/checkout/page.tsx` | Live |
 | Prepaid first ("Free shipping" badge); COD +₹99 shipping, ₹5,000 limit, "pay online and save ₹99" | `frontend/src/lib/legal.ts` (`codMaxRupees`, `codShippingRupees`) | Live |
 | Shipping line: free online, ₹99 on COD — charged by the server | `backend/app/services/pricing.py`, `backend/alembic/versions/0018_shipping_amount.py` | Live |

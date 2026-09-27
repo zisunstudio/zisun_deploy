@@ -9,6 +9,7 @@ import {
   resetRecaptcha,
   resendEmailVerification,
   sendPhoneOtp,
+  rememberDevice,
   signInWithEmail,
 } from "@/lib/firebase";
 import type { ConfirmationResult } from "firebase/auth";
@@ -54,6 +55,7 @@ export default function LoginPage() {
     try {
       const idToken = await signInWithEmail(email, password);
       const res = await api.post("/auth/firebase", { id_token: idToken });
+      rememberDevice();
       setAuth(res.data.user, res.data.access_token);
       router.push(landingFor(res.data.user));
     } catch (err: unknown) {
@@ -124,6 +126,7 @@ export default function LoginPage() {
       // before trusting it, so nothing here is taken on the client's word.
       const idToken = await confirmPhoneOtp(confirmation, code);
       const res = await api.post("/auth/firebase", { id_token: idToken });
+      rememberDevice();
       setAuth(res.data.user, res.data.access_token);
       router.push(landingFor(res.data.user));
     } catch (err: unknown) {
@@ -214,9 +217,19 @@ export default function LoginPage() {
             <input
               type="text"
               inputMode="numeric"
-              maxLength={6}
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => {
+                // Keyboards offer the code from the SMS as one tap, and some
+                // paste the whole message. Take the first six-digit run, and
+                // verify the moment it is complete - no button to find.
+                const raw = e.target.value;
+                const next = (raw.match(/\d{6}/)?.[0] ?? raw.replace(/\D/g, "")).slice(0, 6);
+                setCode(next);
+                if (next.length === 6 && !loading) {
+                  const form = e.currentTarget.form;
+                  setTimeout(() => form?.requestSubmit(), 0);
+                }
+              }}
               placeholder="6-digit code"
               className="w-full px-4 py-4 mb-4 text-foreground placeholder-gray-400 text-sm font-medium outline-none bg-white border-2 border-gray-200 rounded-2xl focus:border-primary transition-colors tracking-[0.3em] text-center"
               autoFocus

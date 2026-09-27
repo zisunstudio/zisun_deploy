@@ -56,7 +56,26 @@ export function SessionRestore() {
         try {
           await attempt();
         } catch {
-          /* not signed in */
+          // The cookie is gone - more than 30 days away, or a cleared
+          // cookie jar. If this device has signed in with Firebase before,
+          // its own session usually outlives ours: trade it for a new one,
+          // silently. Loaded only here, only for those devices.
+          try {
+            const fb = await import("@/lib/firebase");
+            if (!cancelled && fb.deviceWasSignedIn()) {
+              const idToken = await fb.silentIdToken();
+              if (idToken && !cancelled) {
+                const { data } = await axios.post(
+                  `${API_V1}/auth/firebase`,
+                  { id_token: idToken },
+                  { withCredentials: true }
+                );
+                if (!cancelled && data?.access_token && data?.user) restoreSession(data.user, data.access_token);
+              }
+            }
+          } catch {
+            /* not signed in */
+          }
         }
       } finally {
         // Always, success or failure: protected pages are waiting on this to

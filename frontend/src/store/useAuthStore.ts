@@ -90,6 +90,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     setAccessToken(null);
     set({ user: null });
     if (typeof window !== "undefined") {
+      // Signing out must also end the device's Firebase session, or the
+      // silent return sign-in (SessionRestore) would put her straight back.
+      import("@/lib/firebase").then(({ forgetDevice }) => forgetDevice());
       import("@sentry/nextjs").then(({ setUser }) => {
         setUser(null);
       });

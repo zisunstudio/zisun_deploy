@@ -13,7 +13,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { trackEvent } from "@/lib/queries/analytics";
 import { BROWSE_ONLY, whatsappOrderUrl, whatsappPrivateUrl } from "@/lib/launchMode";
-import { FIREBASE_ENABLED } from "@/lib/firebase";
+import { FIREBASE_ENABLED } from "@/lib/firebaseEnabled";
 import { RepresentativeImage } from "@/components/RepresentativeImage";
 import { ProductAssurances } from "@/components/ProductAssurances";
 import { BrowseOnlyCTA } from "@/components/BrowseOnlyCTA";

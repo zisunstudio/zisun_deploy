@@ -19,6 +19,7 @@ import {
   type Auth,
   type ConfirmationResult,
 } from "firebase/auth";
+import { FIREBASE_ENABLED } from "./firebaseEnabled";
 
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
@@ -27,10 +28,9 @@ const config = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "",
 };
 
-/** Whether phone sign-in can work at all. The login page renders on this. */
-export const FIREBASE_ENABLED = Boolean(
-  config.apiKey && config.authDomain && config.projectId
-);
+// The flag lives in its own module (firebaseEnabled.ts) so that a page which
+// only needs to know *whether* sign-in exists does not pull in the SDK.
+export { FIREBASE_ENABLED } from "./firebaseEnabled";
 
 let _app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
@@ -127,4 +127,46 @@ export async function resendEmailVerification(): Promise<void> {
   const user = firebaseAuth().currentUser;
   if (!user) throw new Error("No signed-in Firebase user to verify");
   await sendEmailVerification(user);
+}
+
+
+// ── Silent return sign-in ────────────────────────────────────────────────────
+
+/**
+ * Set when this device has signed in with Firebase, so the storefront knows
+ * whether it is worth loading the Firebase SDK to restore a session. Every
+ * other visitor never downloads it - the site was just made four times
+ * faster and a sign-in library on every page view would give that back.
+ */
+export const FIREBASE_DEVICE_KEY = "zisun-signed-in";
+
+export function rememberDevice(): void {
+  try { localStorage.setItem(FIREBASE_DEVICE_KEY, "1"); } catch { /* private mode */ }
+}
+
+export function deviceWasSignedIn(): boolean {
+  try { return localStorage.getItem(FIREBASE_DEVICE_KEY) === "1"; } catch { return false; }
+}
+
+/**
+ * A fresh Firebase ID token for whoever this device last signed in as, with
+ * no prompt, no SMS and no tap - or null.
+ *
+ * Firebase keeps its own session in IndexedDB and renews it indefinitely
+ * until she signs out or clears the site's data. Our refresh cookie lasts
+ * 30 days from her last visit; this is what signs her back in after a
+ * longer absence without asking her for a code she has to wait for.
+ */
+export async function silentIdToken(): Promise<string | null> {
+  if (!FIREBASE_ENABLED) return null;
+  const auth = firebaseAuth();
+  await auth.authStateReady();
+  return auth.currentUser ? auth.currentUser.getIdToken() : null;
+}
+
+/** Sign out here and in Firebase, so the silent path cannot sign her back in. */
+export async function forgetDevice(): Promise<void> {
+  try { localStorage.removeItem(FIREBASE_DEVICE_KEY); } catch { /* nothing kept */ }
+  if (!FIREBASE_ENABLED) return;
+  try { await firebaseAuth().signOut(); } catch { /* already signed out */ }
 }
