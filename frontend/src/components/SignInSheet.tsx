@@ -170,7 +170,7 @@ export function SignInSheet() {
       setDone(true);
       setTimeout(() => close(false), 1400);
     } catch {
-      setError("That code did not work. Check the SMS and try again.");
+      setError("That code didn\u2019t match. Please try once more.");
       setCode("");
       trackEvent("signin_code_rejected", { reason, via });
     } finally {
@@ -194,14 +194,18 @@ export function SignInSheet() {
 
       {done ? (
         <p className="flex items-center gap-2 text-sm text-ink py-1">
-          <Check className="w-4 h-4 text-moss" /> Signed in. Your bag and wishlist are saved.
+          <Check className="w-4 h-4 text-moss" /> Welcome to ZISUN. Everything you love, kept for you.
         </p>
       ) : !confirmation ? (
         <form onSubmit={(e) => { e.preventDefault(); sendCode(); }} autoComplete="on">
           <p className="font-display text-[19px] leading-tight text-ink pr-7">
-            {reason === "wishlist" ? "Sign in to keep this piece" : "Keep your bag and address"}
+            {reason === "wishlist" ? "Keep this piece close" : "Stay a little longer"}
           </p>
-          <p className="text-xs text-muted mt-1 mb-3">One code by SMS. No password, no new page.</p>
+          <p className="text-xs text-muted mt-1 mb-3">
+            {reason === "wishlist"
+              ? "We\u2019ll hold it for you, wherever you shop from next."
+              : "Your bag, your size and your address, kept for when you return."}
+          </p>
           {known ? (
             <p className="text-sm text-ink mb-3">
               +91 {masked(phone)}{" "}
@@ -221,15 +225,13 @@ export function SignInSheet() {
           {error && <p className="text-[12px] text-burgundy mb-2">{error}</p>}
           <button type="submit" disabled={busy || !/^[6-9]\d{9}$/.test(phone)}
             className="w-full rounded-full bg-burgundy text-white py-3 text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : known ? "Send me the code" : "Continue"}
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue"}
           </button>
         </form>
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); verify(code, "typed"); }} autoComplete="on">
-          <p className="font-display text-[19px] leading-tight text-ink pr-7">Enter the code we sent</p>
-          <p className="text-xs text-muted mt-1 mb-3">
-            To +91 {masked(phone)}. Your keyboard will offer it when the SMS arrives.
-          </p>
+          <p className="font-display text-[19px] leading-tight text-ink pr-7">Almost there</p>
+          <p className="text-xs text-muted mt-1 mb-3">Sent to +91 {masked(phone)}</p>
           <input
             ref={codeRef}
             name="one-time-code" inputMode="numeric" autoComplete="one-time-code"
@@ -250,7 +252,7 @@ export function SignInSheet() {
           {error && <p className="text-[12px] text-burgundy mt-2">{error}</p>}
           <div className="mt-2.5 flex items-center justify-between text-[12px] text-muted">
             <span className="inline-flex items-center gap-1.5">
-              {busy ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking…</> : <>Waiting for the SMS… {waited}s</>}
+              {busy ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking…</> : <>On its way… {waited}s</>}
             </span>
             {waited >= RESEND_AFTER_S ? (
               <button type="button" onClick={() => sendCode(true)} disabled={busy} className="underline underline-offset-2 text-ink">Resend code</button>
