@@ -33,6 +33,7 @@ type Order = {
   pickup_scheduled_at?: string | null;
   courier_name?: string | null;
   shipment_problem?: boolean;
+  channel_code?: string | null;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -132,6 +133,11 @@ export default function AdminOrdersPage() {
   };
   // For a packed parcel the question is "when is the courier coming?", so
   // the list answers it without opening the order.
+  // Where it was sold. The website says nothing; a marketplace order is
+  // named, because it is shipped by that marketplace and paid on its cycle.
+  const ChannelPill = ({ order }: { order: Order }) =>
+    order.channel_code ? <Pill tone="neutral">{order.channel_code.charAt(0).toUpperCase() + order.channel_code.slice(1)}</Pill> : null;
+
   const PickupPill = ({ order }: { order: Order }) => {
     if (order.status !== "PACKED") return null;
     if (order.shipment_problem) return <Pill tone="warn">No courier booked</Pill>;
@@ -165,7 +171,7 @@ export default function AdminOrdersPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900 tabular-nums">{formatPrice(order.total_amount)}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /><PickupPill order={order} /></div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><ChannelPill order={order} /><CodPill order={order} /><PickupPill order={order} /></div>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 items-center">
@@ -199,7 +205,7 @@ export default function AdminOrdersPage() {
                       <td className={`${td} text-gray-600`}>{when(order.created_at)}</td>
                       <td className={`${td} text-gray-600`}>{order.items.length}</td>
                       <td className={`${td} font-semibold tabular-nums`}>{formatPrice(order.total_amount)}</td>
-                      <td className={td}><div className="flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><CodPill order={order} /><PickupPill order={order} /></div></td>
+                      <td className={td}><div className="flex flex-wrap items-center gap-1.5"><StatusPill s={order.status} /><ChannelPill order={order} /><CodPill order={order} /><PickupPill order={order} /></div></td>
                       <td className={`${td} text-right whitespace-nowrap`}><div className="inline-flex gap-1.5"><Actions order={order} /></div></td>
                     </tr>
                     {openId === order.id && (

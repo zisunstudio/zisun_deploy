@@ -46,6 +46,7 @@ async def admin_list_orders(
             selectinload(Order.items),
             selectinload(Order.payment),
             selectinload(Order.fulfillment),
+            selectinload(Order.channel),
         )
         .order_by(Order.created_at.desc())
     )
@@ -66,7 +67,12 @@ async def admin_list_orders(
     rows = []
     for order in result.scalars().all():
         row = AdminOrderRow.model_validate(order)
+        row.channel_code = order.channel.code if order.channel else None
         f = order.fulfillment
+        if order.channel_id is not None:
+            # The marketplace ships it. Nothing to book, nothing to warn about.
+            rows.append(row)
+            continue
         if f:
             row.pickup_scheduled_at = f.pickup_scheduled_at
             row.courier_name = f.courier_name
@@ -102,6 +108,7 @@ async def admin_get_order(
             selectinload(Order.fulfillment),
             selectinload(Order.address),
             selectinload(Order.user),
+            selectinload(Order.channel),
         )
         .where(Order.id == order_id)
     )
@@ -111,6 +118,7 @@ async def admin_get_order(
         raise HTTPException(404, "Order not found")
 
     out = AdminOrderDetail.model_validate(order)
+    out.channel_code = order.channel.code if order.channel else None
     user = order.user
     out.customer_name = getattr(user, "name", None)
     out.customer_phone = getattr(user, "phone", None)
@@ -192,7 +200,7 @@ async def admin_update_order_status(
     # Packed means a courier should come for it: book one now. A booking that
     # fails does not undo the packing - the reason is kept on the fulfilment
     # and the console offers a retry and a way to enter it by hand.
-    if body.status == OrderStatus.PACKED:
+    if body.status == OrderStatus.PACKED and order.channel_id is None:
         await _book_courier(db, order)
 
     await db.commit()
@@ -397,6 +405,8 @@ async def admin_book_shipment(order_id: uuid.UUID, db: AsyncSession = Depends(ge
     order = await _locked_order(db, order_id)
     if order.status != OrderStatus.PACKED:
         raise HTTPException(409, "A courier is booked for packed orders only. Mark it packed first.")
+    if order.channel_id is not None:
+        raise HTTPException(409, "This order was sold on a marketplace, which books its own courier.")
     if order.fulfillment and order.fulfillment.carrier != "shiprocket":
         raise HTTPException(409, "This parcel was booked by hand. Edit that booking instead.")
     await _book_courier(db, order)

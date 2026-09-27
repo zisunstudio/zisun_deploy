@@ -219,6 +219,30 @@ width with a faked session and exits non-zero on any horizontal overflow —
 run it before calling a console change done. It lived in `scratchpad/` and
 was lost three times to a wipe; it is in the repo now.
 
+**A marketplace order is one order, on the one stock count, and it is not
+money until the marketplace pays.** ZISUN sells on zisun.in and, as they
+open, on Amazon, Myntra, Meesho and AJIO. None offers a seller of this size
+an API - they export orders and payouts as files from the seller portal -
+so the connector is a file (`services/channel_files.py`, previewed before
+anything is written) feeding `services/channels.ingest_orders`, which the
+day an API exists (Amazon SP-API needs an approved seller account and a
+registered app) feeds the same way. A marketplace order is an ordinary
+`Order` with `channel_id` and `external_order_id` (unique together, so a
+file imported twice changes nothing), the same tax snapshot, and the same
+`FOR UPDATE` stock decrement as a website sale - a sale that already
+happened cannot be refused for want of stock, so a count that would go
+negative is set to zero and named. Its `payment_method` is MARKETPLACE:
+the customer paid Amazon, not Razorpay and not the courier, and
+`metrics.classify` counts it as *committed* until a settlement file sets
+`settled_at`, after which `settlement_amount` - what arrived after fees,
+never the list price - is what counts as collected. The marketplace ships
+it: a channel order is never sent to Shiprocket and never gets a ZISUN
+invoice number (the marketplace issued that invoice under its own series).
+Every order from a channel belongs to that channel's one account
+("Amazon customer"), because marketplaces do not give sellers the buyer's
+phone. `channel_listings` maps their SKU to our variant; a SKU listed
+under ZISUN's own code needs no mapping.
+
 **Money has one definition, and `PAYMENT_PENDING` has two meanings.**
 `app/services/metrics.py` classifies every order by status *and* payment
 method, because a COD order rests in PAYMENT_PENDING by design while a

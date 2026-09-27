@@ -110,6 +110,13 @@ class OrderResponse(BaseModel):
     cod_confirmation: Optional[CODConfirmation] = None
     cod_amount_due: Optional[int] = None
 
+    # Where it was sold. None is the website; set by the endpoints from the
+    # loaded channel, because the ORM attribute is a relationship, not a code.
+    channel_code: Optional[str] = None
+    external_order_id: Optional[str] = None
+    settled_at: Optional[datetime] = None
+    settlement_amount: Optional[int] = None
+
     class Config:
         from_attributes = True
 

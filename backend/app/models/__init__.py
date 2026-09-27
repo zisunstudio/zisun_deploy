@@ -44,3 +44,4 @@ __all__ = [
 ]
 from .enquiry import WhatsAppEnquiry, EnquiryStatus, EnquirySource
 from .journal import JournalArticle
+from .channel import SalesChannel, ChannelListing, ChannelImport

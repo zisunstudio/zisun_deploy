@@ -22,6 +22,7 @@ from app.api.admin.endpoints import reviews as admin_reviews
 from app.api.admin.endpoints import ai as admin_ai
 from app.api.admin.endpoints import journal as admin_journal
 from app.api.admin.endpoints import enquiries as admin_enquiries
+from app.api.admin.endpoints import channels as admin_channels
 
 # Read-only overview. Finance sees it too: the payment-method split is the
 # number that decides whether COD is worth running.
@@ -111,3 +112,12 @@ async def get_reconciliation(
         "captured_total_paise": int(row.total or 0),
         "captured_total_inr": (row.total or 0) / 100,
     }
+
+# Marketplaces and the website as one business. Operations imports the
+# order files; finance imports the settlements, which is where money is.
+admin_router.include_router(
+    admin_channels.router,
+    prefix="/channels",
+    tags=["Admin - Channels"],
+    dependencies=[Depends(require_role("admin", "operations", "finance"))],
+)

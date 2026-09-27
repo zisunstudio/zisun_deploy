@@ -3,12 +3,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings, BookOpen } from "lucide-react";
+import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings, BookOpen, Store } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Analytics", Icon: Gauge },
   { href: "/admin/enquiries", label: "Enquiries", Icon: MessageCircle },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingBag },
+  { href: "/admin/channels", label: "Channels", Icon: Store },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/shelf", label: "Shelf", Icon: LayoutGrid },
   { href: "/admin/categories", label: "Categories", Icon: Tag },

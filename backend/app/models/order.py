@@ -13,6 +13,9 @@ from .base import BaseModel
 class PaymentMethod(str, enum.Enum):
     RAZORPAY = "RAZORPAY"
     COD = "COD"
+    #: The customer paid a marketplace, which pays ZISUN later, less fees.
+    #: Neither of the other two would be true (migration 0027).
+    MARKETPLACE = "MARKETPLACE"
 
 
 class OrderStatus(str, enum.Enum):
@@ -112,6 +115,18 @@ class Order(BaseModel):
     # Shipping charged on this order, in paise, included in total_amount.
     # 0 for prepaid; the COD charge otherwise (services/pricing.py).
     shipping_amount: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+    # ── Where it was sold (migration 0027). NULL is the website. ──────────────
+    channel_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sales_channels.id"), nullable=True, index=True)
+    external_order_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    #: The marketplace's own invoice number when it issued the invoice, so
+    #: ZISUN's consecutive series is not burnt on it.
+    external_invoice_number: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    #: When the marketplace paid, and what actually arrived after its fees.
+    #: Until settled_at is set a marketplace order is committed, not collected.
+    settled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    settlement_amount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    channel: Mapped[Optional["SalesChannel"]] = relationship("SalesChannel")  # noqa: F821
 
     user: Mapped["User"] = relationship("User", back_populates="orders")
     items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="order")

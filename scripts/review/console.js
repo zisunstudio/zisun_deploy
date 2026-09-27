@@ -31,6 +31,22 @@ const ADMIN = { id: "00000000-0000-0000-0000-000000000001", phone: "+91000000000
 /** Fixtures, by path fragment. First match wins. */
 const FIXTURES = [
   [/\/auth\/refresh/, { user: ADMIN, access_token: "fake.fake.fake", token_type: "bearer" }],
+  // Channels: the website plus the marketplaces. Specific routes first, or
+  // the bare list would answer the listings call and the page would map an
+  // object.
+  [/\/channels\/[a-z]+\/listings/, [
+    { id: "l1", external_sku: "B0CXYZ1234", external_listing_id: "B0CXYZ1234", product_variant_id: "v1", sku: "ZS-WIN-M", product_name: "Rich Wine Dabu Cotton Bandhani-Inspired Kurta Set with Dupatta & Palazzo", size: "M", colour: "Wine", stock: 1 },
+  ]],
+  [/\/channels\/[a-z]+\/imports/, [
+    { id: "i1", kind: "orders", filename: "amazon-orders-2026-09-26.txt", rows_total: 14, orders_created: 9, orders_updated: 2, rows_skipped: 1, problems: ["Amazon order 403-1: SKU B0NOPE is not a ZISUN piece - order skipped. Map it under Listings."], created_at: "2026-09-26T09:00:00Z" },
+  ]],
+  [/\/channels\/?(\?|$)/, [
+    { id: "c0", code: "web", name: "zisun.in", is_marketplace: false, is_active: true, settlement_days: null, orders: 3, gross_paise: 336000, settled_paise: 0, orders_settled: 0, listings: 0, last_import_at: null },
+    { id: "c1", code: "amazon", name: "Amazon", is_marketplace: true, is_active: true, settlement_days: 7, orders: 11, gross_paise: 1236400, settled_paise: 540000, orders_settled: 5, listings: 1, last_import_at: "2026-09-26T09:00:00Z" },
+    { id: "c2", code: "myntra", name: "Myntra", is_marketplace: true, is_active: true, settlement_days: 15, orders: 0, gross_paise: 0, settled_paise: 0, orders_settled: 0, listings: 0, last_import_at: null },
+    { id: "c3", code: "meesho", name: "Meesho", is_marketplace: true, is_active: true, settlement_days: 7, orders: 0, gross_paise: 0, settled_paise: 0, orders_settled: 0, listings: 0, last_import_at: null },
+    { id: "c4", code: "ajio", name: "AJIO", is_marketplace: true, is_active: true, settlement_days: 15, orders: 0, gross_paise: 0, settled_paise: 0, orders_settled: 0, listings: 0, last_import_at: null },
+  ]],
   [/\/journal\/ideas/, {
     searches: [{ query: "cotton kurti", times: 7, found_nothing: false }, { query: "size 3xl", times: 3, found_nothing: true }],
     suggestions: [{ kind: "fabric", title: "What is dabu cotton, and how does it wear?", why: "Dhabu cotton is in the shop" },

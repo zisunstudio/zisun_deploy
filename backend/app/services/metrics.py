@@ -48,6 +48,7 @@ RETURNED = "RETURNED"
 
 COD = "COD"
 RAZORPAY = "RAZORPAY"
+MARKETPLACE = "MARKETPLACE"
 
 #: Statuses that mean the shop owes the customer a garment.
 OPEN = (PAID, PACKED, SHIPPED)
@@ -69,12 +70,18 @@ def _status(value) -> str:
     return str(getattr(value, "value", value) or "").upper()
 
 
-def classify(status, payment_method, *, minutes_old: Optional[float] = None) -> str:
+def classify(status, payment_method, *, minutes_old: Optional[float] = None,
+             settled: bool = False) -> str:
     """One word for what this order actually is.
 
     `minutes_old` separates a prepaid order still at the payment sheet from
     one the customer walked away from; without it, an unpaid prepaid order is
     assumed abandoned, which is the safe direction for a money figure.
+
+    A MARKETPLACE order is one the customer paid Amazon or Myntra for. That
+    money reaches ZISUN on the marketplace's payout cycle, less its fees, so
+    it is *owed* until a settlement file says it was paid (`settled`), and
+    what was paid - not the list price - is what counts then.
     """
     s, m = _status(status), _method(payment_method)
     if s == RETURNED:
@@ -83,6 +90,8 @@ def classify(status, payment_method, *, minutes_old: Optional[float] = None) -> 
         return "cancelled"
     if s == FAILED_PAYMENT:
         return "payment_failed"
+    if m == MARKETPLACE:
+        return "marketplace_settled" if settled else "marketplace_owed"
     if s == DELIVERED:
         return "delivered"
     if s in (PAID, PACKED, SHIPPED):
@@ -97,7 +106,7 @@ def classify(status, payment_method, *, minutes_old: Optional[float] = None) -> 
 
 
 #: A real order someone placed, whether or not the money has arrived.
-REAL = ("paid", "delivered", "cod_placed")
+REAL = ("paid", "delivered", "cod_placed", "marketplace_owed", "marketplace_settled")
 
 
 @dataclass
@@ -108,25 +117,37 @@ class Money:
     refunded_paise: int = 0      # returned after the fact
     orders: int = 0              # real orders (collected + committed)
     by_kind: dict = field(default_factory=dict)
+    #: The same four figures per sales channel ("web", "amazon", ...), so the
+    #: console can say where the money came from without adding the columns.
+    by_channel: dict = field(default_factory=dict)
 
 
 def summarise(rows: Iterable[dict]) -> Money:
     """Roll up orders. Each row: {status, payment_method, total_amount, minutes_old?}."""
     out = Money()
     for r in rows:
-        kind = classify(r.get("status"), r.get("payment_method"), minutes_old=r.get("minutes_old"))
+        kind = classify(r.get("status"), r.get("payment_method"), minutes_old=r.get("minutes_old"),
+                        settled=bool(r.get("settled")))
         amount = int(r.get("total_amount") or 0)
         out.by_kind[kind] = out.by_kind.get(kind, 0) + 1
+        ch = out.by_channel.setdefault(r.get("channel") or "web", {
+            "orders": 0, "collected_paise": 0, "committed_paise": 0, "lost_paise": 0, "refunded_paise": 0})
         if kind in ("paid", "delivered"):
-            out.collected_paise += amount
-            out.orders += 1
-        elif kind == "cod_placed":
-            out.committed_paise += amount
-            out.orders += 1
+            out.collected_paise += amount; ch["collected_paise"] += amount
+            out.orders += 1; ch["orders"] += 1
+        elif kind == "marketplace_settled":
+            # What actually arrived, after the marketplace's commission.
+            paid = r.get("settlement_amount")
+            paid = int(paid) if paid is not None else amount
+            out.collected_paise += paid; ch["collected_paise"] += paid
+            out.orders += 1; ch["orders"] += 1
+        elif kind in ("cod_placed", "marketplace_owed"):
+            out.committed_paise += amount; ch["committed_paise"] += amount
+            out.orders += 1; ch["orders"] += 1
         elif kind in ("payment_abandoned", "payment_failed"):
-            out.lost_paise += amount
+            out.lost_paise += amount; ch["lost_paise"] += amount
         elif kind == "returned":
-            out.refunded_paise += amount
+            out.refunded_paise += amount; ch["refunded_paise"] += amount
     return out
 
 

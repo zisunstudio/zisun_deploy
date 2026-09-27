@@ -38,6 +38,7 @@ from app.models.catalog import Product, ProductMedia, ProductVariant
 from app.models.coupon import Coupon
 from app.models.enquiry import EnquiryStatus, WhatsAppEnquiry
 from app.models.order import Order, OrderItem, OrderStatus, Payment, PaymentMethod, PaymentStatus
+from app.models.channel import SalesChannel
 from app.models.user import User, UserRole
 from app.services import ai, metrics
 from app.services.shelf import (
@@ -279,15 +280,18 @@ async def compute_dashboard(days: int = 30) -> dict:
         # Raw rows, classified in services/metrics.py. The old query summed
         # every order in the window whatever its status, so an abandoned
         # prepaid attempt and a cancelled order both counted as revenue.
-        order_rows=_all(select(Order.id, Order.status, Order.payment_method, Order.total_amount, Order.created_at)
+        order_rows=_all(select(Order.id, Order.status, Order.payment_method, Order.total_amount, Order.created_at,
+                               Order.channel_id, Order.settled_at, Order.settlement_amount)
                         .where(Order.created_at >= since)),
+        channels=_all(select(SalesChannel.id, SalesChannel.code)),
         captured=_all(select(Payment.order_id).where(Payment.status == PaymentStatus.CAPTURED)),
         # Orders by where they came from. Nothing recorded a source until
         # 0021, so older orders answer "not recorded" rather than "direct" -
         # calling an unknown source direct would quietly credit the channel
         # that needs no credit.
         orders_by_source=_all(
-            select(Order.source, Order.status, Order.payment_method, Order.total_amount, Order.created_at)
+            select(Order.source, Order.status, Order.payment_method, Order.total_amount, Order.created_at,
+                   Order.settled_at, Order.settlement_amount)
             .where(Order.created_at >= since)),
         # Sessions and visitors per source, so a channel can be judged on
         # what it converts and not only on what it sends.
@@ -376,10 +380,16 @@ async def compute_dashboard(days: int = 30) -> dict:
     events_total = int(totals.events_total or 0) if totals else 0
     # One definition of money, in two columns that are never added together:
     # collected (it is in) and committed (a real order still owes it).
+    # A NULL channel is the website; a marketplace order is owed until its
+    # settlement file arrives, and then what the marketplace actually paid
+    # is what counts (services/metrics.py).
+    _chan = {cid: code for cid, code in (r["channels"] or [])}
     _rows = [
         {"id": oid, "status": st, "payment_method": pm, "total_amount": amt,
-         "minutes_old": (now - created).total_seconds() / 60 if created else None}
-        for oid, st, pm, amt, created in (r["order_rows"] or [])
+         "minutes_old": (now - created).total_seconds() / 60 if created else None,
+         "channel": _chan.get(cid, "web") if cid else "web",
+         "settled": settled_at is not None, "settlement_amount": samt}
+        for oid, st, pm, amt, created, cid, settled_at, samt in (r["order_rows"] or [])
     ]
     _captured = {row[0] for row in (r["captured"] or [])}
     _money = metrics.summarise(_rows)
@@ -464,14 +474,20 @@ async def compute_dashboard(days: int = 30) -> dict:
         })
     # ── Acquisition: what each channel sends, and what it is worth ──────────
     by_source: dict[str, dict] = {}
-    for src, st, pm, amt, created in (r["orders_by_source"] or []):
+    for src, st, pm, amt, created, settled_at, samt in (r["orders_by_source"] or []):
         key = (src or "not recorded").lower()
         row = by_source.setdefault(key, {"source": key, "orders": 0, "collected_paise": 0, "committed_paise": 0, "sessions": 0, "visitors": 0})
-        kind = metrics.classify(st, pm, minutes_old=(now - created).total_seconds() / 60 if created else None)
+        kind = metrics.classify(st, pm, minutes_old=(now - created).total_seconds() / 60 if created else None,
+                                settled=settled_at is not None)
         if kind in ("paid", "delivered"):
             row["orders"] += 1
             row["collected_paise"] += int(amt or 0)
-        elif kind == "cod_placed":
+        elif kind == "marketplace_settled":
+            # A marketplace order's source is the marketplace; what it paid
+            # after fees is what it was worth.
+            row["orders"] += 1
+            row["collected_paise"] += int(samt if samt is not None else (amt or 0))
+        elif kind in ("cod_placed", "marketplace_owed"):
             row["orders"] += 1
             row["committed_paise"] += int(amt or 0)
     for src, sessions, visitors in (r["sessions_by_source"] or []):
@@ -602,7 +618,8 @@ async def compute_dashboard(days: int = 30) -> dict:
             # not silently handed a larger, unearned number.
             "revenue_window_paise": revenue_window_checkout,
             **metrics.as_dict(_money, _pay),
-            "by_payment_method": by_method, "by_status": by_status, "customers": customers,
+            "by_payment_method": by_method, "by_channel": _money.by_channel,
+            "by_status": by_status, "customers": customers,
             "contribution_margin": None,
             "contribution_margin_blocked_on": ["cost per garment", "shipping cost per parcel", "payment gateway fee", "RTO reserve"],
         },
