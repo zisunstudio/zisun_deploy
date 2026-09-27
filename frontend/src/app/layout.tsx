@@ -11,6 +11,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
 import CartDrawer from "@/components/CartDrawer";
 import { SessionRestore } from "@/components/SessionRestore";
+import { SignInSheet } from "@/components/SignInSheet";
 import { ViewTransitionSettler } from "@/components/ViewTransitionSettler";
 
 // Three faces, one job each. Instrument Serif is the voice: a contemporary,
@@ -87,6 +88,7 @@ export default function RootLayout({
         {/* Mounted once, here: the bag opens from every product page, not
             just the home page where it used to live. */}
         <CartDrawer />
+        <SignInSheet />
         <ReactQueryProvider>
         <ToastProvider>
           <ErrorBoundary>

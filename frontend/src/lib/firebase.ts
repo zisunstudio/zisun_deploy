@@ -47,6 +47,7 @@ function firebaseAuth(): Auth {
 }
 
 let _verifier: RecaptchaVerifier | null = null;
+let _verifierFor: string | null = null;
 
 /**
  * Phone sign-in needs a reCAPTCHA to exist in the DOM before it is called.
@@ -55,10 +56,18 @@ let _verifier: RecaptchaVerifier | null = null;
  * solving, so the second OTP request hangs with no error.
  */
 function verifier(containerId: string): RecaptchaVerifier {
-  if (_verifier) return _verifier;
+  // Two places sign in now - /login and the in-page card - each with its own
+  // container. A verifier bound to a container that is no longer on the page
+  // (she navigated) or to the other one would hang the send with no error,
+  // so it is rebuilt whenever the container it was made for is not the one
+  // asked for, or has left the DOM.
+  const attached = typeof document !== "undefined" && document.getElementById(containerId);
+  if (_verifier && _verifierFor === containerId && attached) return _verifier;
+  resetRecaptcha();
   _verifier = new RecaptchaVerifier(firebaseAuth(), containerId, {
     size: "invisible",
   });
+  _verifierFor = containerId;
   return _verifier;
 }
 
@@ -92,6 +101,7 @@ export function resetRecaptcha(): void {
     /* already gone */
   }
   _verifier = null;
+  _verifierFor = null;
 }
 
 /**

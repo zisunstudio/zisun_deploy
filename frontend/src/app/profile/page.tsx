@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useAddresses, useCreateAddress, useSetDefaultAddress, useDeleteAddress, AddressCreate } from "@/lib/queries/address";
 import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
+import { useSignInPrompt } from "@/store/useSignInPrompt";
 
 const INDIAN_STATES = [
   "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana",
@@ -119,7 +120,7 @@ export default function ProfilePage() {
       <div className="flex flex-col items-center justify-center h-full px-6 gap-4">
         <User className="w-12 h-12 text-gray-200" />
         <p className="text-foreground font-semibold text-base text-center">Sign in to view your profile</p>
-        <button onClick={() => router.push("/login")} className="bg-primary text-white px-8 py-3 rounded-full font-semibold text-sm">
+        <button onClick={() => useSignInPrompt.getState().show("profile")} className="bg-primary text-white px-8 py-3 rounded-full font-semibold text-sm">
           Sign in
         </button>
       </div>

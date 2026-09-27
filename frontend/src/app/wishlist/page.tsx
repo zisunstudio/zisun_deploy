@@ -10,6 +10,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { ProductCardSkeleton } from "@/components/skeletons/Skeleton";
 import { BROWSE_ONLY } from "@/lib/launchMode";
 import { Photo } from "@/components/Photo";
+import { useSignInPrompt } from "@/store/useSignInPrompt";
 
 const FALLBACK_IMAGE = "/placeholder-product.svg";
 
@@ -32,7 +33,7 @@ export default function WishlistPage() {
         <Heart className="w-12 h-12 text-gray-200" />
         <p className="text-foreground font-semibold text-base text-center">Sign in to see your wishlist</p>
         <button
-          onClick={() => router.push("/login")}
+          onClick={() => useSignInPrompt.getState().show("wishlist")}
           className="bg-primary text-white px-8 py-3 rounded-full font-semibold text-sm"
         >
           Sign in

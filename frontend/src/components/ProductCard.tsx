@@ -13,6 +13,7 @@ import { useImpression } from "@/lib/useImpression";
 import { swatchStyle } from "@/lib/colours";
 import { Photo } from "@/components/Photo";
 import { markOpenSource } from "@/lib/enquiry";
+import { useSignInPrompt } from "@/store/useSignInPrompt";
 
 interface Props {
   product: Product;
@@ -45,7 +46,7 @@ export function ProductCard({ product, className = "", markNew = true }: Props) 
 
   function handleWishlistToggle(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!isAuthenticated) { router.push("/login"); return; }
+    if (!isAuthenticated) { useSignInPrompt.getState().show("wishlist"); return; }
     if (!firstVariant) return;
     if (inWishlist) {
       removeFromWishlist.mutate(firstVariant.id);

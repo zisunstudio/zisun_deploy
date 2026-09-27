@@ -39,6 +39,7 @@ import { FitStylist, askFit, answerLocally, readFitProfile, stockSizes, type Fit
 import { chartForCategory } from "@/lib/sizeGuide";
 import { COMPANY } from "@/lib/legal";
 import { normSize, type Chart } from "@/lib/fitMath";
+import { useSignInPrompt } from "@/store/useSignInPrompt";
 
 /**
  * The interactive product page. Rendered inside the server shell in
@@ -212,7 +213,7 @@ export default function ProductView({ params, initial, articles }: { params: { i
   const inWishlist = wishlist?.items.some((i) => i.variant?.product?.id === product.id);
 
   function handleWishlistToggle() {
-    if (!isAuthenticated) { router.push("/login"); return; }
+    if (!isAuthenticated) { useSignInPrompt.getState().show("wishlist"); return; }
     if (!selectedVariant) return;
     if (inWishlist) {
       removeFromWishlist.mutate(selectedVariant.id);
@@ -616,7 +617,7 @@ export default function ProductView({ params, initial, articles }: { params: { i
       {/* Sticky rather than a flex sibling: the page scrolls with the document
           now, and the buy action should not scroll away from a shopper reading
           the declarations. */}
-      <div className="sticky bottom-0 z-30 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-line bg-background/90 backdrop-blur-md lg:max-w-3xl lg:mx-auto lg:w-full">
+      <div data-buy-bar className="sticky bottom-0 z-30 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-line bg-background/90 backdrop-blur-md lg:max-w-3xl lg:mx-auto lg:w-full">
         {BROWSE_ONLY ? (
           // The bag works while checkout is closed; it ends in a WhatsApp
           // order instead of a payment page. A direct line for this one piece
