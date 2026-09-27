@@ -355,7 +355,9 @@ export default function CheckoutPage() {
           reason: e.reason ?? null,
           code: e.code ?? null,
           step: e.step ?? null,
-          source: e.source ?? null,
+          // Razorpay's error source (customer, bank, gateway). Not `source`:
+          // attribution owns that name and was overwriting this one.
+          error_source: e.source ?? null,
           description: e.description ?? null,
         });
       });

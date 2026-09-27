@@ -114,7 +114,11 @@ export default function ProductView({ params, initial, articles }: { params: { i
 
   // Track product view on mount
   useEffect(() => {
-    trackEvent("product_viewed", { product_id: params.id, source: takeOpenSource() });
+    // `opened_from`, not `source`: every event also carries the visitor's
+    // traffic source as `source` (lib/attribution.ts), spread after these
+    // properties, and from 2026-09-23 it silently overwrote this - so no
+    // open was ever recorded as coming from a card and the open rate read 0.
+    trackEvent("product_viewed", { product_id: params.id, opened_from: takeOpenSource() });
   }, [params.id]);
 
   if (isLoading) return <ProductDetailSkeleton />;

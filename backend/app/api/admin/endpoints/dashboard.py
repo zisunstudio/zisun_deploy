@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
 from fastapi import APIRouter, Query
 from sqlalchemy.future import select
 
@@ -335,8 +336,28 @@ def _views_from_cards():
     impressions is how a product reports a 273% open rate."""
     return sa.func.count(sa.case((sa.and_(
         AnalyticsEvent.event_type == "product_viewed",
-        AnalyticsEvent.properties.op("->>")("source") == "card",
+        sa.or_(
+            AnalyticsEvent.properties.op("->>")("opened_from") == "card",
+            # Before 2026-09-23 the same fact was stored as `source`. No
+            # traffic source is ever called "card", so this cannot confuse
+            # the two - and it keeps the older weeks' open rate honest.
+            AnalyticsEvent.properties.op("->>")("source") == "card",
+        ),
     ), AnalyticsEvent.id)))
+
+
+def traffic_source():
+    """The visitor's first-touch traffic source on an event, or NULL.
+
+    `source` meant two things. Events from lib/attribution.ts (which also
+    carry `medium`) hold where the visitor came from - fb, instagram,
+    direct. Older product-page events held where on OUR site she tapped -
+    card, hero, bag - under the same name, and the sources panel listed
+    those as if they were channels. Only an attributed event's `source` is
+    a traffic source.
+    """
+    props = sa.cast(AnalyticsEvent.properties, JSONB)
+    return sa.case((props.has_key("medium"), AnalyticsEvent.properties.op("->>")("source")), else_=None)
 
 
 async def compute_dashboard(days: int = 30) -> dict:
@@ -437,12 +458,15 @@ async def compute_dashboard(days: int = 30) -> dict:
             .where(Order.created_at >= since)),
         # Sessions and visitors per source, so a channel can be judged on
         # what it converts and not only on what it sends.
+        # One row per visit, with its one traffic source. Grouping events by
+        # `source` directly counted a visit under every value its events
+        # carried - a Facebook visitor who tapped a card was "Fb" and "Card".
         sessions_by_source=_all(
-            select(AnalyticsEvent.properties.op("->>")("source").label("src"),
-                   sa.func.count(sa.distinct(AnalyticsEvent.session_id)),
-                   sa.func.count(sa.distinct(AnalyticsEvent.properties.op("->>")("visitor"))))
+            select(AnalyticsEvent.session_id,
+                   sa.func.max(AnalyticsEvent.properties.op("->>")("visitor")),
+                   sa.func.max(traffic_source()))
             .where(AnalyticsEvent.created_at >= since, AnalyticsEvent.session_id.isnot(None))
-            .group_by("src")),
+            .group_by(AnalyticsEvent.session_id)),
         by_method=_all(select(Order.payment_method, sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
                        .where(Order.created_at >= since).group_by(Order.payment_method)),
         by_status=_all(select(Order.status, sa.func.count(Order.id)).group_by(Order.status)),
@@ -634,10 +658,15 @@ async def compute_dashboard(days: int = 30) -> dict:
         elif kind in ("cod_placed", "marketplace_owed"):
             row["orders"] += 1
             row["committed_paise"] += int(amt or 0)
-    for src, sessions, visitors in (r["sessions_by_source"] or []):
+    people: dict[str, set] = {}
+    for _session, visitor, src in (r["sessions_by_source"] or []):
         key = (src or "not recorded").lower()
         row = by_source.setdefault(key, {"source": key, "orders": 0, "collected_paise": 0, "committed_paise": 0, "sessions": 0, "visitors": 0})
-        row["sessions"], row["visitors"] = int(sessions or 0), int(visitors or 0)
+        row["sessions"] += 1
+        if visitor:
+            people.setdefault(key, set()).add(visitor)
+    for key, who in people.items():
+        by_source[key]["visitors"] = len(who)
     for row in by_source.values():
         # Orders per hundred sessions. None, not zero, when a channel has sent
         # no session yet - an unmeasured channel is not a bad one.

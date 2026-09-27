@@ -78,3 +78,36 @@ def test_the_series_queries_compile_with_ist_dates():
     from app.models.analytics import AnalyticsEvent
     sql = str(sa.select(d.ist_day(AnalyticsEvent.created_at)).compile(dialect=postgresql.dialect()))
     assert "timezone(" in sql and "date(" in sql
+
+
+def test_open_rate_counts_card_opens_under_the_new_key_and_the_old_one():
+    """`opened_from` since 2026-09-27; `source == "card"` before 23 Sep. In
+    between, attribution overwrote `source`, which is why open rate read 0."""
+    import sqlalchemy as sa
+    from sqlalchemy.dialects import postgresql
+    compiled = sa.select(d._views_from_cards()).compile(dialect=postgresql.dialect())
+    values = set(compiled.params.values())
+    assert {"opened_from", "source", "card", "product_viewed"} <= values
+
+
+def test_only_an_attributed_event_supplies_a_traffic_source():
+    """Old product-page events stored where she tapped (card, hero, bag) as
+    `source`; the sources panel listed them as channels."""
+    import sqlalchemy as sa
+    from sqlalchemy.dialects import postgresql
+    sql = str(sa.select(d.traffic_source()).compile(dialect=postgresql.dialect()))
+    assert "CAST(analytics_events.properties AS JSONB) ?" in sql, "keyed on the attribution fields being present"
+
+
+def test_frontend_never_reuses_an_attribution_key():
+    """Attribution is spread last in trackEvent and owns these names."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[3] / "frontend/src"
+    owned = ("source", "medium", "campaign", "content", "referrer_domain")
+    offenders = []
+    for f in root.rglob("*.ts*"):
+        for m in re.finditer(r"trackEvent\(\s*\"[a-z_]+\"\s*,\s*\{([^}]*)\}", f.read_text()):
+            keys = re.findall(r"(\w+)\s*:", m.group(1))
+            offenders += [f"{f.name}: {k}" for k in keys if k in owned]
+    assert not offenders, f"these would be overwritten by attribution: {offenders}"

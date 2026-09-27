@@ -69,6 +69,50 @@ const TILES: { key: MetricKey; label: string; money?: boolean; note?: string; hi
   { key: "collected_paise", label: "Collected", money: true, hint: "Money in, by the day the order was placed: prepaid paid, COD delivered, marketplace settled." },
 ];
 
+/**
+ * A traffic source in words she would use. The stored value is whatever
+ * the link or the ad said - "fb", "ig", "l.instagram.com" - and the panel
+ * used to print it as is, which is how "Fb" and "Hero" reached the founder.
+ */
+const SOURCE_NAMES: Record<string, string> = {
+  fb: "Facebook", facebook: "Facebook", "facebook.com": "Facebook", "m.facebook.com": "Facebook", meta: "Facebook",
+  ig: "Instagram", instagram: "Instagram", "instagram.com": "Instagram", "l.instagram.com": "Instagram",
+  google: "Google", "google.com": "Google", "google.co.in": "Google",
+  whatsapp: "WhatsApp", wa: "WhatsApp", "wa.me": "WhatsApp",
+  youtube: "YouTube", "youtube.com": "YouTube", yt: "YouTube",
+  pinterest: "Pinterest", "pinterest.com": "Pinterest", "in.pinterest.com": "Pinterest",
+  bing: "Bing", "bing.com": "Bing", chatgpt: "ChatGPT", "chatgpt.com": "ChatGPT",
+  direct: "Typed in or saved link",
+  "not recorded": "Before tracking started",
+};
+const SOURCE_NOTES: Record<string, string> = {
+  direct: "They typed zisun.in, used a bookmark, or tapped a link that did not say where it came from (a WhatsApp forward often looks like this).",
+  "not recorded": "Visits from before 23 Sept, when the site started noting where each visitor came from. Unknown, not direct.",
+};
+function sourceName(raw: string): string {
+  const k = raw.toLowerCase().trim();
+  if (SOURCE_NAMES[k]) return SOURCE_NAMES[k];
+  const host = k.replace(/^(www|m|l|lm)\./, "");
+  if (SOURCE_NAMES[host]) return SOURCE_NAMES[host];
+  const word = host.replace(/\.(com|in|co\.in|net|org)$/, "");
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+type SourceRow = { source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null };
+/** "fb" and "facebook" are one channel; show one row, largest first. */
+function mergeSources(rows: SourceRow[]): SourceRow[] {
+  const by = new Map<string, SourceRow>();
+  for (const r of rows) {
+    const name = sourceName(r.source);
+    const m = by.get(name);
+    if (!m) { by.set(name, { ...r }); continue; }
+    m.sessions += r.sessions; m.visitors += r.visitors; m.orders += r.orders;
+    m.collected_paise += r.collected_paise; m.committed_paise += r.committed_paise;
+    m.conversion = m.sessions ? m.orders / m.sessions : null;
+  }
+  return Array.from(by.values()).sort((a, b) => b.sessions - a.sessions);
+}
+
 const rupees = (paise: number) => "₹" + Math.round(paise / 100).toLocaleString("en-IN");
 const pct = (r: number | null | undefined) => (r == null ? "—" : `${Math.round(r * 100)}%`);
 
@@ -392,18 +436,18 @@ export default function AdminAnalytics() {
       {/* Where they came from. Nothing recorded this before 2026-09-23, so
           the panel says what it cannot yet see rather than implying a split. */}
       {acquisition && acquisition.by_source.length > 0 && (
-        <Section title="Where they came from" hint={`${meta.window_days} days, credited to the first visit.`}>
+        <Section title="Where they came from" hint="Each visit counted once, under where the visitor first came from. Tap a row for details. Paid ads show under Facebook or Instagram.">
           <Card padded={false}>
             <div className="px-4 sm:px-5 pt-4 pb-4">
               <BarList caption="Visits by where they came from" valueName="Visits"
-                rows={acquisition.by_source.slice(0, 7).map((s) => ({
-                  key: s.source, label: s.source.charAt(0).toUpperCase() + s.source.slice(1), value: s.sessions,
-                  detail: `${fmtInt(s.visitors)} ${s.visitors === 1 ? "person" : "people"} · ${s.orders} ${s.orders === 1 ? "order" : "orders"} · ${fmtRupees(s.collected_paise)} collected${s.committed_paise ? `, ${fmtRupees(s.committed_paise)} owed` : ""}${s.conversion != null ? ` · ${pct(s.conversion)} ordered` : ""}`,
+                rows={mergeSources(acquisition.by_source).slice(0, 7).map((s) => ({
+                  key: s.source, label: sourceName(s.source), value: s.sessions,
+                  detail: `${SOURCE_NOTES[s.source] ? SOURCE_NOTES[s.source] + " " : ""}${fmtInt(s.visitors)} ${s.visitors === 1 ? "person" : "people"} · ${s.orders} ${s.orders === 1 ? "order" : "orders"} · ${fmtRupees(s.collected_paise)} collected${s.committed_paise ? `, ${fmtRupees(s.committed_paise)} owed` : ""}${s.conversion != null ? ` · ${pct(s.conversion)} ordered` : ""}`,
                 }))} />
             </div>
             {acquisition.partial && (
               <p className="px-4 py-2.5 text-[11px] text-gray-500 border-t border-gray-100">
-                Orders placed before the site started recording a source show as &ldquo;not recorded&rdquo;. They are not direct visits &mdash; they are simply unknown.
+                &ldquo;Before tracking started&rdquo; is visits and orders from before 23 Sept, when the site began noting where each visitor came from. They are not direct visits &mdash; they are simply unknown, and this row shrinks as the date range moves past it.
               </p>
             )}
           </Card>

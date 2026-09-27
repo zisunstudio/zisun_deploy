@@ -149,11 +149,7 @@ const FIXTURES = [
       money: { collected_paise: 112400, committed_paise: 122300, lost_paise: 216300, refunded_paise: 0, orders: 3, by_kind: { paid: 1, cod_placed: 1, payment_abandoned: 1 } },
       payment: { attempted: 4, succeeded: 1, failed: 1, abandoned: 1, in_flight: 1, success_rate: 33.3, abandon_rate: 33.3, mismatched: 1 },
     },
-    acquisition: { partial: true, by_source: [
-      { source: "instagram", orders: 2, collected_paise: 112400, committed_paise: 122300, sessions: 31, visitors: 27, conversion: 6.5 },
-      { source: "direct", orders: 0, collected_paise: 0, committed_paise: 0, sessions: 8, visitors: 7, conversion: 0 },
-      { source: "not recorded", orders: 1, collected_paise: 103900, committed_paise: 0, sessions: 0, visitors: 0, conversion: null },
-    ] },
+    acquisition: { partial: true, by_source: [{ source: "direct", sessions: 72, visitors: 15, orders: 1, collected_paise: 112400, committed_paise: 0, conversion: 0.014 }, { source: "not recorded", sessions: 623, visitors: 580, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "fb", sessions: 18, visitors: 15, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "facebook", sessions: 6, visitors: 5, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "ig", sessions: 3, visitors: 3, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "l.instagram.com", sessions: 4, visitors: 4, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }] },
     attention: {
       by_period: {
         starts: { day: "2026-09-27T00:00:00+05:30", week: "2026-09-21T00:00:00+05:30", month: "2026-09-01T00:00:00+05:30", year: "2026-01-01T00:00:00+05:30" },

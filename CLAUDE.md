@@ -285,6 +285,21 @@ sent. The payload says `whatsapp_clicks` and `whatsapp_marked_ordered`
 (the founder ticking an enquiry by hand) and neither may sit unlabelled
 beside real orders or be added to them.
 
+**Attribution owns `source`, `medium`, `campaign`, `content` and
+`referrer_domain` on every event.** `trackEvent` spreads them after the
+event's own properties, so an event that uses one of those names for
+something else is silently overwritten. It happened twice: the product
+page stored where on the site an open was tapped (card, hero) as `source`,
+so from 2026-09-23 no open was recorded as coming from a card and the open
+rate read zero; and a failed payment's Razorpay error source was lost the
+same way. They are `opened_from` and `error_source` now, and a unit test
+fails the build on any `trackEvent` that reuses an attribution key. Older
+events stored the placement as `source` with no attribution fields beside
+it, so the sources panel reads a traffic source only from events that carry
+`medium` (`traffic_source()`), counts each visit once, and the console names
+sources in words ("fb" -> Facebook, "not recorded" -> Before tracking
+started) and merges rows that share a name.
+
 **Buy now is not an event.** The storefront sends `add_to_cart` with
 `properties.via = "buy_now"`. A dashboard column counting an event named
 `buy_now` was always zero, and `intent = bags + buy_now` double-counted

@@ -59,6 +59,9 @@ export function trackEvent(event_type: string, properties: Record<string, unknow
   _queue.push({
     event_type,
     session_id: sessionId(),
+    // Attribution is spread last and owns `source`, `medium`, `campaign`,
+    // `content` and `referrer_domain`. An event must never use those names
+    // for anything else - they will be overwritten (see `opened_from`).
     properties: { ...properties, ...attributionFields(), visitor: visitorId(), returning: isReturning() },
   });
   if (_timer) clearTimeout(_timer);
