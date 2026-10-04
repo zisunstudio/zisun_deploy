@@ -40,14 +40,26 @@ function sessionId(): string {
   }
 }
 
-function flush() {
+/**
+ * `leaving` = the page is being hidden or closed. A plain fetch started then
+ * is often dropped by a phone's in-app browser; a beacon is handed to the
+ * browser to send after the page is gone, which is the only way the last
+ * events of a visit (how long she stayed, how far she read) arrive at all.
+ */
+function flush(leaving = false) {
   if (_queue.length === 0) return;
   const events = _queue.splice(0);
+  const body = JSON.stringify({ events });
+  if (leaving) {
+    try {
+      if (navigator.sendBeacon?.(`${API_V1}/analytics/events`, new Blob([body], { type: "application/json" }))) return;
+    } catch { /* fall through to fetch */ }
+  }
   // Fire-and-forget — never block the UI
   fetch(`${API_V1}/analytics/events`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ events }),
+    body,
     keepalive: true,
   }).catch(() => {});
 }
@@ -68,20 +80,20 @@ export function trackEvent(event_type: string, properties: Record<string, unknow
   // seconds, and an in-app browser that is swiped away does not always fire
   // the events the unload flush below relies on.
   if (_timer) clearTimeout(_timer);
-  _timer = setTimeout(flush, 3_000);
+  _timer = setTimeout(() => flush(), 3_000);
 }
 
 /** Send what is queued now - for the moment a page is being left. */
-export function flushEvents(): void {
+export function flushEvents(leaving = false): void {
   if (_timer) { clearTimeout(_timer); _timer = null; }
-  flush();
+  flush(leaving || (typeof document !== "undefined" && document.visibilityState === "hidden"));
 }
 
 // Flush on page unload
 if (typeof window !== "undefined") {
-  window.addEventListener("beforeunload", flush);
-  window.addEventListener("pagehide", flush);
+  window.addEventListener("beforeunload", () => flush(true));
+  window.addEventListener("pagehide", () => flush(true));
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flush();
+    if (document.visibilityState === "hidden") flush(true);
   });
 }

@@ -77,15 +77,16 @@ export function PageTracker() {
     const pause = () => {
       if (visibleSince !== null) { visibleMs += Date.now() - visibleSince; visibleSince = null; }
     };
-    const send = () => {
+    const send = (leaving = false) => {
       if (sent) return;
       sent = true;
       pause();
       trackEvent("page_engaged", { page, path: pathname, seconds: Math.round(visibleMs / 1000), scroll_pct: maxScroll });
-      flushEvents();
+      flushEvents(leaving);
     };
+    const onHide = () => send(true);
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") send();
+      if (document.visibilityState === "hidden") send(true);
       else if (visibleSince === null) visibleSince = Date.now();
     };
     const onClick = (e: MouseEvent) => {
@@ -96,13 +97,13 @@ export function PageTracker() {
 
     document.addEventListener("scroll", onScroll, { capture: true, passive: true });
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", send);
+    window.addEventListener("pagehide", onHide);
     document.addEventListener("click", onClick, { capture: true });
     return () => {
       send();
       document.removeEventListener("scroll", onScroll, { capture: true });
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", send);
+      window.removeEventListener("pagehide", onHide);
       document.removeEventListener("click", onClick, { capture: true });
     };
   }, [pathname]);
