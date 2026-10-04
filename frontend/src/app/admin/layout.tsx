@@ -41,7 +41,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!sessionChecked) return;
-    if (!isAuthenticated) { router.push("/login"); return; }
+    if (!isAuthenticated) {
+      // Remember where she was. A session that expires half-way through a
+      // listing used to drop her on the console's front page after signing
+      // in; her draft was kept (lib/formDraft) but she had to find the form.
+      try { sessionStorage.setItem("zisun.return_to", window.location.pathname + window.location.hash); } catch { /* private mode */ }
+      router.push("/login");
+      return;
+    }
     if (user?.role !== "admin" && user?.role !== "operations" && user?.role !== "finance") {
       router.push("/");
     }

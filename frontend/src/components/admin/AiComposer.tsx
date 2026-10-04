@@ -42,6 +42,9 @@ export interface AiDraft {
 
 interface Props {
   onDraft: (draft: AiDraft, categoryId: string | null) => void;
+  /** What she had typed before a refresh, and a way to report it as she types (lib/formDraft). */
+  initialText?: string;
+  onTextChange?: (text: string) => void;
 }
 
 type Recogniser = {
@@ -61,8 +64,11 @@ function makeRecogniser(): Recogniser | null {
   return r;
 }
 
-export default function AiComposer({ onDraft }: Props) {
-  const [text, setText] = useState("");
+export default function AiComposer({ onDraft, initialText = "", onTextChange }: Props) {
+  const [text, setText] = useState(initialText);
+  // Her description is the longest thing typed (or spoken) on this page, so
+  // the page keeps it with the rest of its draft.
+  useEffect(() => { onTextChange?.(text); }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
   const [interim, setInterim] = useState("");
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);

@@ -84,7 +84,17 @@ export default function LoginPage() {
   /** Staff belong in the admin, everyone else on the storefront. */
   function landingFor(u: { role?: string } | null | undefined): string {
     const r = u?.role;
-    return r === "admin" || r === "operations" || r === "finance" ? "/admin" : "/";
+    const staff = r === "admin" || r === "operations" || r === "finance";
+    if (staff) {
+      // Back to the console page her session expired on (admin/layout.tsx).
+      // Only ever a path inside the console - never an address from a link.
+      try {
+        const back = sessionStorage.getItem("zisun.return_to");
+        sessionStorage.removeItem("zisun.return_to");
+        if (back && back.startsWith("/admin") && !back.startsWith("//")) return back;
+      } catch { /* private mode */ }
+    }
+    return staff ? "/admin" : "/";
   }
 
   async function handleSendOTP(e: React.FormEvent) {

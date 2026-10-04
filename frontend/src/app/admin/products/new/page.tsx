@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
@@ -9,7 +9,14 @@ import ProductForm, {
   priceToPaise,
   type ProductFormData,
 } from "@/components/admin/ProductForm";
-import VariantEditor, { gridVariants, type VariantRow, type VariantEditorHandle } from "@/components/admin/VariantEditor";
+import VariantEditor, { gridVariants, type Draft as VariantDraft, type VariantRow, type VariantEditorHandle } from "@/components/admin/VariantEditor";
+import { DraftKept, DraftRestored } from "@/components/admin/DraftNotice";
+import { useToast } from "@/components/ui/ToastProvider";
+import { readDraft, useDraftAutosave } from "@/lib/formDraft";
+
+/** Everything she can type on this page before a product exists. */
+type NewDraft = { form: ProductFormData; variants: VariantRow[]; row: VariantDraft | null; words: string };
+const DRAFT_KEY = "product:new";
 import AiComposer, { type AiDraft } from "@/components/admin/AiComposer";
 
 export default function NewProductPage() {
@@ -18,6 +25,40 @@ export default function NewProductPage() {
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const variantEditor = useRef<VariantEditorHandle>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Her typing is kept on this phone until the product is created (see
+  // lib/formDraft). On opening the page an earlier draft is put back first;
+  // autosave starts only after that, or the empty form would overwrite it.
+  const [pristine] = useState<NewDraft>(() => ({ form: emptyProductForm(), variants: [], row: null, words: "" }));
+  const [row, setRow] = useState<VariantDraft | null>(null);
+  // Her own description in the "describe it" box, before it becomes a draft listing.
+  const [words, setWords] = useState("");
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
+  const { showToast } = useToast();
+  // Remounts the variant editor so it opens with the restored row.
+  const [editorKey, setEditorKey] = useState(0);
+  useEffect(() => {
+    const d = readDraft<NewDraft>(DRAFT_KEY);
+    if (d) {
+      setForm({ ...emptyProductForm(), ...d.data.form });
+      setVariants(d.data.variants ?? []);
+      setRow(d.data.row ?? null);
+      setWords(d.data.words ?? "");
+      setRestoredAt(d.at);
+      setEditorKey((k) => k + 1);
+      // The notice sits at the top of a long form; say it where she is too.
+      showToast("What you typed earlier is back. It is not saved yet.", "info");
+    }
+    setReady(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const { savedAt, forget } = useDraftAutosave<NewDraft>(DRAFT_KEY, { form, variants, row, words }, { enabled: ready, pristine });
+  function startFresh() {
+    forget();
+    setForm(emptyProductForm()); setVariants([]); setRow(null); setWords("");
+    setRestoredAt(null); setError(null);
+    setEditorKey((k) => k + 1);
+  }
 
   const { data: categories = [] } = useQuery({
     queryKey: ["admin", "categories"],
@@ -135,14 +176,16 @@ export default function NewProductPage() {
       const res = await adminApi.post("/products/", payload);
       return res.data;
     },
-    onSuccess: (product) => router.push(`/admin/products/${product.id}/edit#photos`),
+    onSuccess: (product) => { forget(); router.push(`/admin/products/${product.id}/edit#photos`); },
     // A 422 detail is a list, not a string; rendering it crashed the page.
     onError: (e: any) => {
       const d = e?.response?.data?.detail;
       setError(
         Array.isArray(d)
           ? d.map((x: any) => String(x?.msg ?? x).replace(/^Value error, /, "")).join(" · ")
-          : typeof d === "string" ? d : (e?.message ?? "Failed to create product"),
+          : e?.response?.status === 401
+            ? "Your sign-in has expired. What you typed is kept on this phone: refresh, sign in again, and it will be here."
+            : typeof d === "string" ? d : (e?.message ?? "Failed to create product"),
       );
     },
   });
@@ -162,8 +205,10 @@ export default function NewProductPage() {
         </div>
       )}
 
+      <DraftRestored restoredAt={restoredAt} discardLabel="Start fresh" onDiscard={startFresh} />
+
       <div className="mb-4">
-        <AiComposer onDraft={applyDraft} />
+        <AiComposer key={editorKey} initialText={words} onTextChange={setWords} onDraft={applyDraft} />
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
         <ProductForm data={form} onChange={setForm} categories={categories}  compact />
@@ -171,6 +216,8 @@ export default function NewProductPage() {
         <hr className="border-gray-100" />
 
         <VariantEditor
+          key={editorKey}
+          persistRow={{ initial: row, onChange: setRow }}
           ref={variantEditor}
           variants={variants}
           onChange={setVariants}
@@ -195,6 +242,7 @@ export default function NewProductPage() {
             Cancel
           </button>
         </div>
+        <DraftKept savedAt={savedAt} />
       </div>
     </div>
   );

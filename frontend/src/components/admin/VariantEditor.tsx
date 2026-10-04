@@ -1,5 +1,5 @@
 "use client";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Plus, Trash2, Check, X, Grid3X3 } from "lucide-react";
 import { PALETTE, SIZE_PRESETS, colourCode, swatchStyle } from "@/lib/colours";
 
@@ -22,6 +22,12 @@ interface Props {
   basePricePaise?: number;
   /** Stem for generated SKUs, e.g. "MANG-KURTI". Defaults to "ZS". */
   skuPrefix?: string;
+  /**
+   * The row she is adding but has not ticked yet, so the page can keep it
+   * with the rest of its draft (lib/formDraft). `initial` reopens it after a
+   * refresh; `onChange` reports it as she types, or null when none is open.
+   */
+  persistRow?: { initial: Draft | null; onChange: (row: Draft | null) => void };
 }
 
 /**
@@ -55,7 +61,7 @@ export function gridVariants(
  * variant's own selling price in rupees - the founder thinks in prices, not
  * in paise added to a base - and becomes a delta only at commit.
  */
-interface Draft {
+export interface Draft {
   sku: string;
   size: string;
   color: string;
@@ -103,6 +109,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
   onDeleteRow,
   basePricePaise = 0,
   skuPrefix = "ZS",
+  persistRow,
 }: Props, ref) {
   const [gridOpen, setGridOpen] = useState(false);
   const [gridColours, setGridColours] = useState<string[]>([]);
@@ -125,12 +132,15 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
     }
   }
   const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [draft, setDraft] = useState<Draft>(EMPTY);
-  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<Draft>(persistRow?.initial ?? EMPTY);
+  const [adding, setAdding] = useState(Boolean(persistRow?.initial));
+  // The row on screen is one put back after a refresh, not one she just opened.
+  const [rowRestored, setRowRestored] = useState(Boolean(persistRow?.initial));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   function startAdd() {
+    setRowRestored(false);
     setAdding(true);
     setDraft({ ...EMPTY });
     setEditIdx(null);
@@ -207,6 +217,13 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
       setSaving(false);
     }
   }
+
+  const reportRow = persistRow?.onChange;
+  const openRow = adding ? JSON.stringify(draft) : "";
+  useEffect(() => {
+    reportRow?.(openRow && openRow !== JSON.stringify(EMPTY) ? (JSON.parse(openRow) as Draft) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRow]);
 
   useImperativeHandle(ref, () => ({
     flushDraft: () => {
@@ -364,6 +381,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
               )}
               {adding && (
                 <VariantInputRow
+                  focus={!rowRestored}
                   draft={draft}
                   onChange={setDraft}
                   basePricePaise={basePricePaise}
@@ -393,7 +411,10 @@ function VariantInputRow({
   onCancel,
   saving,
   basePricePaise,
+  focus = true,
 }: {
+  /** False for a row put back after a refresh: focusing it would scroll the page past the notice that says so. */
+  focus?: boolean;
   draft: Draft;
   onChange: (d: Draft) => void;
   basePricePaise: number;
@@ -408,7 +429,7 @@ function VariantInputRow({
     <tr className="bg-blue-50">
       <td className="px-2 py-1">
         <input
-          autoFocus
+          autoFocus={focus}
           className="w-full border rounded px-2 py-1 text-xs font-mono"
           placeholder="SKU-001"
           value={draft.sku}

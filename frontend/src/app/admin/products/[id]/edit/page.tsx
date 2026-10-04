@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Tag } from "lucide-react";
@@ -9,7 +9,13 @@ import ProductForm, {
   priceToPaise,
   type ProductFormData,
 } from "@/components/admin/ProductForm";
-import VariantEditor, { type VariantRow } from "@/components/admin/VariantEditor";
+import VariantEditor, { type Draft as VariantDraft, type VariantRow } from "@/components/admin/VariantEditor";
+import { DraftKept, DraftRestored } from "@/components/admin/DraftNotice";
+import { useToast } from "@/components/ui/ToastProvider";
+import { readDraft, sameData, useDraftAutosave } from "@/lib/formDraft";
+
+/** What she can change on this page without it reaching the server yet. */
+type EditDraft = { form: ProductFormData; row: VariantDraft | null };
 import MediaUploader, { type MediaItem } from "@/components/admin/MediaUploader";
 
 /** The details a customer reads, and the ones reported missing four times. */
@@ -77,6 +83,16 @@ export default function EditProductPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Unsaved changes are kept on this phone (lib/formDraft). `pristine` is
+  // what the server holds; only a difference from it is worth keeping.
+  const draftKey = `product:${productId}`;
+  const [pristine, setPristine] = useState<EditDraft | null>(null);
+  const [row, setRow] = useState<VariantDraft | null>(null);
+  const [restored, setRestored] = useState<{ at: number; stale: boolean } | null>(null);
+  const [editorKey, setEditorKey] = useState(0);
+  const seededFor = useRef<string | null>(null);
+  const { showToast } = useToast();
+
   const { data: categories = [] } = useQuery({
     queryKey: ["admin", "categories"],
     queryFn: async () => (await adminApi.get("/categories/")).data,
@@ -94,7 +110,13 @@ export default function EditProductPage() {
   // Seed form from loaded product
   useEffect(() => {
     if (!product) return;
-    setForm({
+    // Once per piece. This used to run on every refetch of the product, and
+    // a refetch happens whenever the phone's connection comes back: after a
+    // photo upload or a variant save had changed the server's copy, that
+    // refetch reseeded the form and wiped whatever she had typed since.
+    if (seededFor.current === productId) return;
+    seededFor.current = productId;
+    const seeded: ProductFormData = {
       name: product.name ?? "",
       description: product.description ?? "",
       // Show her the figure she typed. `base_price` is always the
@@ -156,7 +178,20 @@ export default function EditProductPage() {
       worn_by_founder: Boolean(product.worn_by_founder),
       named_for: product.named_for ?? "",
       styling_notes: product.styling_notes ?? [],
-    });
+    };
+    // Put back what she had typed and not saved, if anything.
+    const d = readDraft<EditDraft>(draftKey);
+    const merged = d ? { ...seeded, ...d.data.form } : seeded;
+    if (d && (!sameData(merged, seeded) || d.data.row)) {
+      setForm(merged);
+      setRow(d.data.row ?? null);
+      setRestored({ at: d.at, stale: Boolean(d.base && product.updated_at && d.base !== product.updated_at) });
+      setEditorKey((k) => k + 1);
+      showToast("What you typed earlier is back. It is not saved yet.", "info");
+    } else {
+      setForm(seeded);
+    }
+    setPristine({ form: seeded, row: null });
     setVariants(
       (product.variants ?? []).map((v: any) => ({
         id: v.id,
@@ -169,11 +204,22 @@ export default function EditProductPage() {
       }))
     );
     setMedia(product.media ?? []);
-  }, [product]);
+  }, [product, productId, draftKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { savedAt, forget } = useDraftAutosave<EditDraft>(draftKey, { form, row }, { enabled: pristine !== null, pristine, base: product?.updated_at ?? null });
+  function discardDraft() {
+    forget();
+    if (pristine) setForm(pristine.form);
+    setRow(null); setRestored(null); setError(null);
+    setEditorKey((k) => k + 1);
+  }
 
   const updateProduct = useMutation({
     mutationFn: async () => {
       if (!form.name.trim()) throw new Error("Product name is required");
+      // Exactly what is being sent, so a keystroke made while the request
+      // is in the air is not mistaken for saved.
+      const submitted = form;
       await adminApi.put(`/products/${productId}`, {
         name: form.name.trim(),
         description: form.description || null,
@@ -227,8 +273,13 @@ export default function EditProductPage() {
         will_rerun: form.will_rerun === "" ? null : form.will_rerun === "yes",
         styling_notes: form.styling_notes.map((n) => ({ occasion: n.occasion.trim(), note: n.note.trim() })).filter((n) => n.occasion && n.note),
       });
+      return submitted;
     },
-    onSuccess: async () => {
+    onSuccess: async (submitted) => {
+      // Saved: what was sent is now what the server holds. The draft is
+      // cleared by the autosave itself once the form matches it.
+      setPristine({ form: submitted, row: null });
+      setRestored(null);
       qc.invalidateQueries({ queryKey: ["admin", "products"] });
       // Read it back before saying it saved.
       //
@@ -267,7 +318,9 @@ export default function EditProductPage() {
       setError(
         Array.isArray(d)
           ? d.map((x: any) => String(x?.msg ?? x).replace(/^Value error, /, "")).join(" · ")
-          : typeof d === "string" ? d : (e?.message ?? "Save failed"),
+          : e?.response?.status === 401
+            ? "Your sign-in has expired. What you typed is kept on this phone: refresh, sign in again, and it will be here."
+            : typeof d === "string" ? d : (e?.message ?? "Save failed"),
       );
     },
   });
@@ -331,6 +384,7 @@ export default function EditProductPage() {
           {error}
         </div>
       )}
+      <DraftRestored restoredAt={restored?.at ?? null} stale={restored?.stale} discardLabel="Discard my changes" onDiscard={discardDraft} />
       {saved && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
           Saved successfully
@@ -351,6 +405,7 @@ export default function EditProductPage() {
             >
               {updateProduct.isPending ? "Saving…" : "Save details"}
             </button>
+            <div><DraftKept savedAt={savedAt} /></div>
           </div>
         </div>
 
@@ -369,6 +424,8 @@ export default function EditProductPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">Variants</h2>
           <VariantEditor
+            key={editorKey}
+            persistRow={{ initial: row, onChange: setRow }}
             variants={variants}
             onChange={setVariants}
             onSaveRow={handleSaveVariant}

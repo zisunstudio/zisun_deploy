@@ -354,6 +354,27 @@ same page could change a colour but never clear one (null meant "not
 sent"): the API reads `model_fields_set`, so an empty value clears and an
 absent one is left alone.
 
+**What she types is kept until it is saved.** A long console form lived
+only in React state: a refresh, a tab the phone discarded, or an expired
+session emptied it. `lib/formDraft.ts` writes every change to localStorage
+half a second after she stops typing and at once when the page is hidden,
+and the form puts it back on opening with a notice and one tap to discard.
+Only a difference from what the server holds (`pristine`) is stored, a
+draft remembers the record's `updated_at` so one made before someone
+else's save is marked stale, a draft from another `VERSION` of the form
+is dropped rather than half-applied, and it expires after 14 days. A
+form that keeps a draft must enable autosave only *after* it has been
+seeded and any draft restored, or the empty form overwrites the draft it
+was about to restore; after a save it moves `pristine` to exactly what
+was sent (not what is on screen), so a keystroke made mid-request is not
+mistaken for saved. The edit page also **seeds once per piece**: it used
+to reseed on every refetch, and React Query refetches when the phone
+reconnects, so after a photo upload changed the server's copy the next
+reconnect wiped her unsaved fields. A session that expires sends her back
+to the page she was on (`zisun.return_to`, console paths only). Drafts
+are local to the device and never sent anywhere; photographs are not
+drafts, they upload as they are added.
+
 **Photograph controls are buttons, not hover.** Delete and reorder
 appeared only on mouse hover, so on the phone the shop is run from a
 photograph could not be removed or moved at all, and there was no replace:

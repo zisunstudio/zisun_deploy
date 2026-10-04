@@ -15,6 +15,7 @@
  *   BASE=http://127.0.0.1:3600   the running Next build
  *   OUT=/tmp/shots               where screenshots land
  *   CHROMIUM=/opt/pw-browsers/...  a browser binary, where none is bundled
+ *   STEPS=steps.js               run a script against each loaded page (see below)
  *   CLICK="What to pack"         click every button with this text first, so
  *                                what opens (an order's detail) is measured too
  */
@@ -240,6 +241,11 @@ const FIXTURES = [
     page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon/.test(m.text())) errs.push(m.text().slice(0, 200)); });
     const resp = await page.goto(BASE + p, { waitUntil: "domcontentloaded", timeout: 120000 });
     await page.waitForTimeout(2500);
+    // STEPS=/path/to/steps.js runs `module.exports = async (page, path) => {}`
+    // on the loaded page: type, reload, click - whatever a check needs that
+    // a screenshot cannot show. Anything it logs is part of the output; a
+    // throw fails the run.
+    if (process.env.STEPS) await require(require("path").resolve(process.env.STEPS))(page, p);
     if (process.env.CLICK) {
       for (const b of await page.getByRole("button", { name: process.env.CLICK }).all()) {
         if (await b.isVisible()) await b.click();

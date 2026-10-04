@@ -1,7 +1,9 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/adminApi";
+import { DraftKept, DraftRestored } from "@/components/admin/DraftNotice";
+import { readDraft, useDraftAutosave } from "@/lib/formDraft";
 import { Page, Card, CardHeader, Button, Pill } from "@/components/admin/ui";
 import { KIND_LABEL, type ArticleKind } from "@/lib/journal";
 import { useProducts } from "@/lib/queries/catalog";
@@ -43,6 +45,27 @@ export default function AdminJournalPage() {
   const [unknowns, setUnknowns] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // An article is the longest thing typed in the console; it is kept on
+  // this phone until saved (lib/formDraft), one draft per article and one
+  // for a new one.
+  const draftKey = `journal:${editing?.id ?? "new"}`;
+  const [pristine, setPristine] = useState<typeof EMPTY>(EMPTY);
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
+  /** Show `base` (what the server holds), with any unsaved draft for `key` put back over it. */
+  function show(key: string, base: typeof EMPTY) {
+    const d = readDraft<typeof EMPTY>(key);
+    setPristine(base);
+    setForm(d ? { ...base, ...d.data } : base);
+    setRestoredAt(d ? d.at : null);
+    setUnknowns([]); setError(null);
+  }
+  useEffect(() => { show("journal:new", EMPTY); setReady(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const { savedAt, forget } = useDraftAutosave(draftKey, form, { enabled: ready, pristine });
+  /** Throw away what is typed and go back to a blank article. */
+  function startNew() { forget(); setEditing(null); setPristine(EMPTY); setForm(EMPTY); setRestoredAt(null); setUnknowns([]); }
+  function discardDraft() { forget(); setForm(pristine); setRestoredAt(null); }
+
   const articles = useQuery<Article[]>({ queryKey: ["admin", "journal"], queryFn: async () => (await adminApi.get("/journal")).data });
   const ideas = useQuery<Ideas>({ queryKey: ["admin", "journal", "ideas"], queryFn: async () => (await adminApi.get("/journal/ideas")).data });
   const { data: products } = useProducts({ limit: 60 });
@@ -56,7 +79,7 @@ export default function AdminJournalPage() {
   const save = useMutation({
     mutationFn: async (data: typeof EMPTY) =>
       editing ? (await adminApi.put(`/journal/${editing.id}`, data)).data : (await adminApi.post("/journal", data)).data,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "journal"] }); setEditing(null); setForm(EMPTY); setUnknowns([]); setError(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "journal"] }); startNew(); setError(null); },
     onError: say,
   });
 
@@ -77,9 +100,8 @@ export default function AdminJournalPage() {
 
   const open = (a: Article) => {
     setEditing(a);
-    setForm({ title: a.title, dek: a.dek ?? "", kind: a.kind, body_md: a.body_md, status: a.status, product_ids: a.product_ids ?? [],
+    show(`journal:${a.id}`, { title: a.title, dek: a.dek ?? "", kind: a.kind, body_md: a.body_md, status: a.status, product_ids: a.product_ids ?? [],
       cover_url: a.cover_url ?? "", meta_title: a.meta_title ?? "", meta_description: a.meta_description ?? "", brief: a.brief ?? "", search_intent: a.search_intent ?? "" });
-    setUnknowns([]); setError(null);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -93,7 +115,8 @@ export default function AdminJournalPage() {
       {error && <div className="mb-3 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-800">{error}</div>}
 
       <Card className="mb-3">
-        <CardHeader title={editing ? `Editing: ${editing.title}` : "Write something"} actions={editing ? <Button variant="ghost" onClick={() => { setEditing(null); setForm(EMPTY); setUnknowns([]); }}>New instead</Button> : undefined} />
+        <CardHeader title={editing ? `Editing: ${editing.title}` : "Write something"} actions={editing ? <Button variant="ghost" onClick={() => { setEditing(null); show("journal:new", EMPTY); }}>New instead</Button> : undefined} />
+        <div className="px-4 sm:px-5 pt-4 empty:hidden"><DraftRestored restoredAt={restoredAt} discardLabel="Discard my changes" onDiscard={discardDraft} /></div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -187,8 +210,9 @@ export default function AdminJournalPage() {
             <Button variant="primary" disabled={!form.title || save.isPending} onClick={() => save.mutate(form)}>
               {save.isPending ? "Saving…" : editing ? "Save" : "Create"}
             </Button>
-            {editing && <Button variant="ghost" onClick={() => { setEditing(null); setForm(EMPTY); setUnknowns([]); }}>Cancel</Button>}
+            {editing && <Button variant="ghost" onClick={() => { forget(); setEditing(null); show("journal:new", EMPTY); }}>Cancel</Button>}
           </div>
+          <DraftKept savedAt={savedAt} />
         </div>
       </Card>
 
