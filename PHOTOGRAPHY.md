@@ -246,3 +246,35 @@ consistent, and only she can make it correct.
 
 It runs on a laptop, once per shoot. Nothing here is in any deployed image
 and `backend/requirements.txt` must not grow these dependencies.
+
+---
+
+## HDR frames from the Canon are not "flat", they are undecoded (2026-10-04)
+
+About half of the October 2026 shoot arrived grey, low-contrast and slightly
+green: every lowercase `.jpg` with EXIF colour space "uncalibrated" (65535)
+and no profile. They are the R10's **HDR PQ** frames (BT.2020 primaries,
+ST 2084 curve) saved as plain 8-bit JPEG. Read as sRGB, the reds and skin
+tones lose saturation and drift green.
+
+The first attempt treated them as flat and stretched L* and chroma. The
+numbers looked fine, hue "unchanged" - and the pictures went up dull and
+greenish, because the hue being preserved was the wrong hue. The founder's
+partner caught it on the live site.
+
+`scripts/photos/hdr.py` decodes them properly: PQ to linear light (reference
+white 203 nits), BT.2020 to sRGB primaries, a soft roll-off above white,
+sRGB encoding. Checked against a camera-JPEG of the same scene taken
+seconds later (IMG_9445 against IMG_9447): the cloth, skin and foliage
+agree. A phone also writes "uncalibrated" (it means Display P3 there), so
+the test is the Canon make *and* that tag; a phone frame is converted with
+its embedded profile instead.
+
+Rules that came out of it:
+
+- **Find out what a file is before correcting it.** Check the EXIF colour
+  space and whether a normal-mode frame of the same scene exists.
+- **Normal-mode camera JPEGs are left as the camera made them.** Lifting
+  their shadows to "match" made the teal set hazy. Crop only.
+- `harmonise.py`'s automatic cloth mask picked skin and road on striped and
+  dark pieces here; where it is used, check its mask overlay first.

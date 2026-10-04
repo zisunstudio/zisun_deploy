@@ -19,7 +19,7 @@ export const PALETTE: PaletteColour[] = [
   { name: "Blush", hex: "#F3C6C6", code: "BLS" },
   { name: "Peach", hex: "#F7B48F", code: "PCH" },
   { name: "Coral", hex: "#F0705B", code: "CRL" },
-  { name: "Pink", hex: "#B24262", code: "PNK" },
+  { name: "Pink", hex: "#BE1448", code: "PNK" },
   { name: "Rani Pink", hex: "#D81E6B", code: "RNI" },
   { name: "Red", hex: "#C8102E", code: "RED" },
   { name: "Maroon", hex: "#7A1F2B", code: "MRN" },
