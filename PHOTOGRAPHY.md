@@ -283,5 +283,12 @@ Rules that came out of it:
   with the Canon's `MP` segment is a camera JPEG; a converted copy is never
   used when an original or an HDR frame of the same view exists.
 - **Check a source's kind for every photograph chosen, not for a sample.**
+- **Her skin is the reference.** The owner's rule: where Sushmita looks
+  right, the colour is right. On the camera's JPEGs her skin measures L* 50-61,
+  hue 29-45 degrees. A neutral HDR decode left it darker and about 5 degrees
+  yellow-green; the same grey road shot both ways gave red x1.07 (`WARM` in
+  `hdr.py`), and exposure per frame brings her skin into the camera's range.
+  Forcing every frame to one skin lightness washed out a backlit set - the
+  exposure is chosen per frame and the skin value is printed as a check.
 - `harmonise.py`'s automatic cloth mask picked skin and road on striped and
   dark pieces here; where it is used, check its mask overlay first.
