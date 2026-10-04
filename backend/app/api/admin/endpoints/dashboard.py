@@ -12,18 +12,24 @@ at all", which is a different fact and the one worth showing.
 
 Two things about how it is built, both learned the hard way:
 
-* Each panel is its own coroutine on its own session, and they run together.
-  The database is a continent away; nine queries in a row cost nine crossings
-  (~20s), nine at once cost one. A panel that fails names itself in
-  `meta.errors` and the rest of the board still renders — on 2026-09-20 the
-  whole board 500'd for a day over one missing variable, and nobody could see
-  anything.
+* Every panel's query runs on ONE connection, one after another, and the
+  plain counts travel together as a single statement. It used to be "each
+  panel on its own session, all at once", written when the board had nine
+  panels. It grew to fifty-four and the api has two connections per worker:
+  the queries queued for the pool, the ones still waiting after 30 seconds
+  gave up, and on 2026-10-04 the board told the founder she had no products.
+  A session opened per query also pays a pre-ping, a BEGIN and a ROLLBACK
+  across the ocean each time; one held session pays them once. A panel that
+  fails names itself in `meta.errors` and the rest of the board still
+  renders — on 2026-09-20 the whole board 500'd for a day over one missing
+  variable, and nobody could see anything.
 * The result is cached in this process and served stale while it refreshes in
   the background, and it is computed once at startup. The founder should
   never wait on the first load, and the metered Redis is not involved.
 """
 import asyncio
 import logging
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable
 
@@ -72,11 +78,29 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 _CACHE: dict[str, tuple[datetime, dict]] = {}
 _REFRESHING: set[str] = set()
+_INFLIGHT: dict[str, "asyncio.Future[dict]"] = {}
 
 
 def _age(key: str) -> float | None:
     hit = _CACHE.get(key)
     return (datetime.now(timezone.utc) - hit[0]).total_seconds() if hit else None
+
+
+def _holes(payload: dict) -> int:
+    meta = payload.get("meta") if isinstance(payload, dict) else None
+    return len((meta or {}).get("errors") or [])
+
+
+def _store(key: str, payload: dict) -> None:
+    """Keep the answer - unless it has missing panels and the one already held
+    is whole and recent. A bad minute at the database must not replace a good
+    board with an emptier one; the old one stays, ages, and is tried again."""
+    held = _CACHE.get(key)
+    age = _age(key)
+    if held and _holes(payload) > _holes(held[1]) and age is not None and age < STALE_SECONDS:
+        logger.warning("dashboard: %s came back with %d missing panels; keeping the earlier board", key, _holes(payload))
+        return
+    _CACHE[key] = (datetime.now(timezone.utc), payload)
 
 
 async def _cached(key: str, ttl_fresh: int, ttl_stale: int, compute: Callable[[], Awaitable[dict]], refresh: bool = False) -> dict:
@@ -91,7 +115,7 @@ async def _cached(key: str, ttl_fresh: int, ttl_stale: int, compute: Callable[[]
 
             async def _bg():
                 try:
-                    _CACHE[key] = (datetime.now(timezone.utc), await compute())
+                    _store(key, await compute())
                 except Exception:  # noqa: BLE001
                     logger.exception("dashboard: background refresh of %s failed", key)
                 finally:
@@ -99,33 +123,129 @@ async def _cached(key: str, ttl_fresh: int, ttl_stale: int, compute: Callable[[]
 
             asyncio.create_task(_bg())
         return _CACHE[key][1]
-    payload = await compute()
-    _CACHE[key] = (datetime.now(timezone.utc), payload)
+    # Two requests for a board nobody holds yet share one computation: the
+    # page asks again when the phone reconnects, and a second run would only
+    # queue behind the first for the same connection.
+    task = _INFLIGHT.get(key)
+    if task is None:
+        task = asyncio.ensure_future(compute())
+        _INFLIGHT[key] = task
+        task.add_done_callback(lambda _t: _INFLIGHT.pop(key, None))
+    payload = await asyncio.shield(task)
+    _store(key, payload)
     return payload
 
 
-# ── Query helpers: one session per query, so they can run together ───────────
+# ── Query helpers: the whole board on one connection ─────────────────────────
+#
+# `_panels` opens one session (a "lane") and every helper called beneath it
+# uses that session, one query at a time. Outside `_panels` a helper opens
+# its own session, as before. The api has two connections per worker; the
+# board takes one and leaves the other for shoppers.
 
-async def _scalar(stmt):
+class _Lane:
+    """One session, used by one query at a time."""
+
+    def __init__(self, session):
+        self.session = session
+        self.lock = asyncio.Lock()
+
+    async def execute(self, stmt):
+        async with self.lock:
+            try:
+                return await self.session.execute(stmt)
+            except Exception:
+                # One failed statement aborts the transaction; without this
+                # every later panel would fail for the first one's reason.
+                await self.session.rollback()
+                raise
+
+
+_LANE: ContextVar["_Lane | None"] = ContextVar("dashboard_lane", default=None)
+_ONE_BOARD = asyncio.Lock()  # the board and the brief take turns, never a connection each
+
+
+async def _execute(stmt):
+    lane = _LANE.get()
+    if lane is not None:
+        return await lane.execute(stmt)
     async with AsyncSessionLocal() as s:
-        return (await s.execute(stmt)).scalar_one()
+        return await s.execute(stmt)
+
+
+class _Scalar:
+    """A single-value query. Awaitable on its own; under `_panels` all of them
+    are sent as one statement, because a count is cheap and a crossing is not."""
+
+    def __init__(self, stmt):
+        self.stmt = stmt
+
+    def __await__(self):
+        return self._run().__await__()
+
+    async def _run(self):
+        return (await _execute(self.stmt)).scalar_one()
+
+
+def _scalar(stmt) -> _Scalar:
+    return _Scalar(stmt)
 
 
 async def _one(stmt):
-    async with AsyncSessionLocal() as s:
-        return (await s.execute(stmt)).one()
+    return (await _execute(stmt)).one()
 
 
 async def _all(stmt):
-    async with AsyncSessionLocal() as s:
-        return (await s.execute(stmt)).all()
+    return (await _execute(stmt)).all()
+
+
+def scalars_statement(stmts: list):
+    """Several single-value queries as one SELECT of scalar subqueries."""
+    return select(*[stmt.scalar_subquery().label(f"c{i}") for i, stmt in enumerate(stmts)])
+
+
+async def _scalars_together(scalars: dict[str, _Scalar]) -> dict[str, Any]:
+    """Every plain count in one crossing. If the combined statement fails for
+    any reason, say nothing here: each is then asked on its own, so the one
+    that is actually broken is the one named."""
+    if len(scalars) < 2:
+        return {}
+    try:
+        row = (await _execute(scalars_statement([s.stmt for s in scalars.values()]))).one()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("dashboard: the combined counts failed (%r); asking one at a time", e)
+        return {}
+    return dict(zip(scalars, row))
+
+
+async def _value(v):
+    return v
 
 
 async def _panels(**coros: Awaitable[Any]) -> tuple[dict[str, Any], list[str]]:
-    """Run every panel's query at once. A failure becomes a name in `errors`
-    and a None result, never a dead page."""
+    """Run every panel's query on one connection. A failure becomes a name in
+    `errors` and a None result, never a dead page."""
     names = list(coros)
-    results = await asyncio.gather(*coros.values(), return_exceptions=True)
+    started = datetime.now(timezone.utc)
+    async with _ONE_BOARD:
+        async with AsyncSessionLocal() as session:
+            try:
+                # Take the connection now. A session is lazy, and a pool with
+                # nothing free would otherwise be discovered by each panel in
+                # turn, thirty seconds at a time.
+                await session.connection()
+            except Exception:
+                for c in coros.values():
+                    if asyncio.iscoroutine(c):
+                        c.close()
+                raise
+            token = _LANE.set(_Lane(session))
+            try:
+                known = await _scalars_together({n: c for n, c in coros.items() if isinstance(c, _Scalar)})
+                results = await asyncio.gather(
+                    *[_value(known[n]) if n in known else coros[n] for n in names], return_exceptions=True)
+            finally:
+                _LANE.reset(token)
     out: dict[str, Any] = {}
     errors: list[str] = []
     for name, r in zip(names, results):
@@ -135,6 +255,8 @@ async def _panels(**coros: Awaitable[Any]) -> tuple[dict[str, Any], list[str]]:
             out[name] = None
         else:
             out[name] = r
+    logger.info("dashboard: %d panels in %.1fs, %d missing", len(names),
+                (datetime.now(timezone.utc) - started).total_seconds(), len(errors))
     return out, errors
 
 
@@ -1106,11 +1228,15 @@ async def warm_dashboard(every_seconds: int = 300) -> None:
     """
     await asyncio.sleep(3)
     while True:
-        for key, ttl, fn in (("dashboard:30", FRESH_SECONDS, lambda: compute_dashboard(30)), ("brief", BRIEF_TTL_SECONDS, compute_brief)):
+        # 7 days is what the console opens on; it was never warmed, so the
+        # first look of the day always computed inline.
+        for key, ttl, fn in (("dashboard:7", FRESH_SECONDS, lambda: compute_dashboard(7)),
+                             ("dashboard:30", FRESH_SECONDS, lambda: compute_dashboard(30)),
+                             ("brief", BRIEF_TTL_SECONDS, compute_brief)):
             age = _age(key)
             if age is None or age >= ttl:
                 try:
-                    _CACHE[key] = (datetime.now(timezone.utc), await fn())
+                    _store(key, await fn())
                 except Exception:  # noqa: BLE001
                     logger.exception("dashboard: warm-up of %s failed", key)
         await asyncio.sleep(every_seconds)

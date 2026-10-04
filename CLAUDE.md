@@ -448,12 +448,25 @@ hover *and* keyboard/tap readout and a "Show as table" twin, so no value
 is reachable only by hovering. Adding a colour means validating it first;
 adding a chart means reusing these components.
 
-**The analytics board is one endpoint, computed concurrently and kept warm.**
-`compute_dashboard()` runs every panel's query at once on its own session
-(the database is a continent away; nine in a row cost ~20s, nine at once
-cost one), and a failing panel names itself in `meta.errors` rather than
-taking the page down. The result is cached in-process, served stale while
-it refreshes, and computed at startup by `warm_dashboard()` from the api's
+**The analytics board is one endpoint, on one connection, kept warm.**
+`compute_dashboard()` hands every panel's query to `_panels`, which opens
+one session and runs them on it one at a time, with all the plain counts
+sent together as a single statement (`scalars_statement`). It used to run
+each panel on its own session, all at once - right for nine panels, and
+the board grew to fifty-four while the api has two connections per worker
+(`DB_POOL_SIZE=1`, `DB_MAX_OVERFLOW=1`). The queries queued for the pool,
+those still waiting after 30 s raised `TimeoutError`, and on 2026-10-04
+the console told the founder "No products yet" over eight live pieces.
+Concurrency against this pool is a queue with a deadline, not speed; a new
+panel is a new argument to `_panels`, never its own session or a
+`gather` of sessions. A failing panel names itself in `meta.errors` rather
+than taking the page down, and **an empty panel that failed must say it
+did not load** - the page checks `meta.errors` before it says "none". A
+board that comes back with missing panels does not replace a whole one
+still in the cache (`_store`). The result is cached in-process, served
+stale while it refreshes, shared by requests that arrive together, and
+computed at startup by `warm_dashboard()` (7 days - what the console opens
+on - and 30) from the api's
 lifespan. Do not add a panel as a second request from the page, and do not
 route it through Redis. Its window is calendar days in India time, today included (`days`
 query param, 7/30/90 from the console's range filter), and it carries a

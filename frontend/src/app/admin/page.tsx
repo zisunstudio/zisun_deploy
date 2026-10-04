@@ -100,7 +100,9 @@ const PERIOD_LABEL: Record<PeriodKey | "custom", string> = { day: "Today", week:
  * is counted from the events' own timestamps. Custom asks the API once, only
  * when chosen. Sorted by opens, so it is still "most opened" for the period.
  */
-function AttentionByPeriod({ data }: { data?: ByPeriod }) {
+const NOT_LOADED = "This did not load just now. Your pieces are safe. Tap Try again at the top of this page.";
+
+function AttentionByPeriod({ data, failed }: { data?: ByPeriod; failed?: boolean }) {
   const [period, setPeriod] = useState<PeriodKey | "custom">("week");
   const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
   const [from, setFrom] = useState(today);
@@ -149,7 +151,7 @@ function AttentionByPeriod({ data }: { data?: ByPeriod }) {
               <div className="mt-1.5"><Bar value={r.impressions} max={max} /></div>
             </li>
           ))}
-          {rows.length === 0 && <li className="py-3 text-sm text-gray-500">{period === "custom" && custom.isFetching ? "Counting…" : "No live pieces."}</li>}
+          {rows.length === 0 && <li className="py-3 text-sm text-gray-500">{period === "custom" && custom.isFetching ? "Counting…" : failed && period !== "custom" ? NOT_LOADED : "No live pieces."}</li>}
         </ul>
       </Card>
     </Section>
@@ -295,6 +297,10 @@ export default function AdminAnalytics() {
   const { meta, attention_items, insight, commerce, attention, inventory, acquisition } = data;
   const browse = !meta.checkout_enabled;
   const products = attention.products ?? [];
+  // A panel whose query failed arrives empty. Empty must not read as "you
+  // have no products": on 2026-10-04 it did, with eight pieces live.
+  const failed = (name: string) => (meta.errors ?? []).some((e) => e.startsWith(`${name}:`));
+  const noProducts = failed("products") ? NOT_LOADED : "No products yet.";
   const top = [...products].sort((a, b) => b.views - a.views || b.add_to_cart - a.add_to_cart).slice(0, 3);
   const maxAttention = Math.max(1, ...products.map((p) => p.attention));
   const shown = attention.funnel.find((f) => f.key === "impressions")?.count ?? 0;
@@ -314,7 +320,17 @@ export default function AdminAnalytics() {
     <Page title="Analytics" description={`${rangeLabel}${generated ? ` · updated ${generated}` : ""}`}
       actions={<ReportButtons data={isPlaceholderData ? undefined : data} />}>
       <Brief />
-      {meta.errors?.length ? <p className="mb-3 text-xs text-amber-700">Some panels are missing: {meta.errors.join("; ")}.</p> : null}
+      {meta.errors?.length ? (
+        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2" role="status">
+          <p className="text-sm text-amber-900 min-w-0">
+            {meta.errors.length === 1 ? "One part" : `${meta.errors.length} parts`} of this page did not load. Nothing is lost; the numbers below may be incomplete.
+          </p>
+          <Button size="sm" disabled={isFetching}
+            onClick={() => adminApi.get("/dashboard", { params: { days, refresh: 1 } }).catch(() => null).then(() => refetch())}>
+            {isFetching ? "Trying…" : "Try again"}
+          </Button>
+        </div>
+      ) : null}
 
       {/* One filter row, above everything it scopes. Every tile, the trend,
           the funnel, sources and products below count the same days. */}
@@ -415,7 +431,7 @@ export default function AdminAnalytics() {
 
       {/* What women are looking at */}
       <Section title="What women are looking at" hint={`The ${meta.window_days}-day leaders by opens.`}>
-        {top.length === 0 ? <Card><p className="text-sm text-gray-500">No products yet.</p></Card> : (
+        {top.length === 0 ? <Card><p className="text-sm text-gray-500">{noProducts}</p></Card> : (
           <div className="grid gap-3 lg:grid-cols-3">
             {top.map((p, i) => (
               <Card key={p.id} className="flex flex-col">
@@ -448,11 +464,11 @@ export default function AdminAnalytics() {
         </Card>
       </Section>
 
-      <AttentionByPeriod data={attention.by_period} />
+      <AttentionByPeriod data={attention.by_period} failed={failed("product_periods")} />
 
       {/* Product by product */}
       <Section title="Where attention goes" hint={attention.ranking ? `Score = recent activity, halving every ${attention.ranking.half_life_days} days; it orders the shelf when nothing is pinned. Open rate = opens from a card ÷ times the card was shown. Bag rate = bag adds ÷ opens.` : undefined}>
-        {products.length === 0 ? <Card><p className="text-sm text-gray-500">No products yet.</p></Card> : (
+        {products.length === 0 ? <Card><p className="text-sm text-gray-500">{noProducts}</p></Card> : (
           <>
             <ul className="sm:hidden space-y-3">
               {products.map((p, i) => (

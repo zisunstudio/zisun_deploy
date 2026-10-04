@@ -222,6 +222,17 @@ const FIXTURES = [
   }],
 ];
 
+// PANELS_FAILED="products,product_periods" renders the board as it arrives
+// when those queries fail: named in meta.errors, and empty. An empty panel
+// once read as "No products yet" over a shop with eight pieces.
+if (process.env.PANELS_FAILED) {
+  const board = FIXTURES.find(([re]) => re.test("/dashboard?days=7"))[1];
+  const failed = process.env.PANELS_FAILED.split(",");
+  board.meta.errors = failed.map((n) => `${n}: TimeoutError`);
+  if (failed.includes("products")) board.attention.products = [];
+  if (failed.includes("product_periods")) board.attention.by_period.products = [];
+}
+
 (async () => {
   // --disable-web-security: the fixtures answer a cross-origin API, and an
   // un-intercepted call would otherwise fail CORS instead of being mocked.
