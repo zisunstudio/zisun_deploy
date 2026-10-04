@@ -89,7 +89,13 @@ const FIXTURES = [
       { id: "v3", sku: "RICH-WINE-WIN-M", stock: 1, size: "M", color: "Wine", price_delta: 0, is_active: true },
       { id: "v4", sku: "ZS-WIN-L", stock: 1, size: "L", color: "Wine", price_delta: 0, is_active: true },
     ],
-  }]],
+  },
+  // More of the catalogue, so the new-product form has pieces to learn from.
+  { id: "p2", name: "Red Bandhani 3-Piece Set", base_price: 134900, category: { id: "c-occ", name: "Occasion & Festive" }, fabric_specs: { fabric_composition: "Mulmul cotton", wash_care: "Hand wash only." }, garment_attributes: { set_pieces: ["Kurta", "Bottom", "Dupatta"], print_type: "Bandhani pattern" }, variants: [{ id: "p2v", sku: "ZS-P2-M", stock: 1, size: "M", color: "Red", price_delta: 0, is_active: true }] },
+  { id: "p3", name: "Pink Bandhani 3-Piece Set", base_price: 134900, category: { id: "c-occ", name: "Occasion & Festive" }, fabric_specs: { fabric_composition: "Mulmul cotton", wash_care: "Hand wash only." }, garment_attributes: { set_pieces: ["Kurta", "Palazzo", "Dupatta"], print_type: "Bandhani pattern" }, variants: [{ id: "p3v", sku: "ZS-P3-M", stock: 1, size: "M", color: "Red", price_delta: 0, is_active: true }] },
+  { id: "p4", name: "Coffee Brown Ajrakh 3-Piece Set", base_price: 159900, category: { id: "c-occ", name: "Occasion & Festive" }, fabric_specs: { fabric_composition: "Dabu cotton", wash_care: "Hand wash only." }, garment_attributes: { set_pieces: ["Kurta", "Palazzo", "Dupatta"], print_type: "Ajrakh print (dupatta)" }, variants: [{ id: "p4v", sku: "ZS-P4-M", stock: 1, size: "M", color: "Red", price_delta: 0, is_active: true }] },
+  { id: "p5", name: "Red Ikkat Co-ord Set", base_price: 111900, category: { id: "c-co", name: "Co-ord Sets" }, fabric_specs: { fabric_composition: "Ikat handloom cotton", wash_care: "Hand wash only." }, garment_attributes: { set_pieces: ["Top", "Bottom"], print_type: "Ikat" }, variants: [{ id: "p5v", sku: "ZS-P5-M", stock: 1, size: "M", color: "Red", price_delta: 0, is_active: true }] },
+  { id: "p6", name: "Teal Blue Co-ord Set", base_price: 134900, category: { id: "c-co", name: "Co-ord Sets" }, fabric_specs: { fabric_composition: "Dabu cotton", wash_care: "Hand wash only." }, garment_attributes: { set_pieces: ["Top", "Bottom"], print_type: "Printed border" }, variants: [{ id: "p6v", sku: "ZS-P6-M", stock: 1, size: "M", color: "Red", price_delta: 0, is_active: true }] }]],
   // The courier, for a packed parcel: one booked, one that failed to book.
   [/\/shipment\/refresh/, { tracking: {
     awb: "141123221084922", courier: "Delhivery Surface", status: "PICKUP SCHEDULED", step: "packed",
@@ -125,6 +131,8 @@ const FIXTURES = [
   ]],
   [/\/categories\/?(\?|$)/, [
     { id: "4483deaa-dfc0-47b7-956f-2e6086f6c1ac", name: "Co-ord Sets", slug: "co-ord-sets", is_active: true, product_count: 1 },
+    { id: "c-occ", name: "Occasion & Festive", slug: "occasion-kurtis", is_active: true, product_count: 3 },
+    { id: "c-co", name: "Co-ord Sets (new)", slug: "co-ord-sets-2", is_active: true, product_count: 2 },
   ]],
   [/\/products\/[0-9a-f-]{20,}$/, {
     id: "774f350f-4fcc-4535-b9ec-c1ffe7d277ab", name: "Purple Rose Embroidered Co-ord Set",

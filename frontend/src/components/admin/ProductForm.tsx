@@ -107,6 +107,8 @@ interface Props {
    * The edit page shows it all open — that is where a listing gets completed.
    */
   compact?: boolean;
+  /** Set while the price in the box was suggested (lib/suggest), not typed: says where it came from. */
+  priceHint?: string;
 }
 
 export function emptyProductForm(): ProductFormData {
@@ -130,7 +132,7 @@ export function priceToPaise(rupees: string): number {
   return isNaN(n) ? 0 : Math.round(n * 100);
 }
 
-export default function ProductForm({ data, onChange, categories, compact = false }: Props) {
+export default function ProductForm({ data, onChange, categories, compact = false, priceHint }: Props) {
   const [writing, setWriting] = useState(false);
   const [filling, setFilling] = useState(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
@@ -287,13 +289,15 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             <input
               type="text"
               inputMode="numeric"
-              className="w-full h-10 border border-gray-300 rounded-lg pl-7 pr-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
+              className={`w-full h-10 border rounded-lg pl-7 pr-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30 ${priceHint ? "border-amber-400 bg-amber-50" : "border-gray-300"}`}
               placeholder="1499"
               value={data.base_price_rupees}
               onChange={f("base_price_rupees")}
               required
             />
           </div>
+          {/* A price she did not type must look like one. */}
+          {priceHint && <p className="mt-1 text-[11px] text-amber-800 leading-snug">Suggested. {priceHint} Type over it to change.</p>}
           {/* Does that number already include GST?
               Customers always see a tax-inclusive price - Legal Metrology
               requires the MRP to be inclusive of all taxes - so an ex-tax

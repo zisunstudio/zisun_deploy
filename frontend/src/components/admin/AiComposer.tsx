@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Sparkles, Wand2 } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { PALETTE_NAMES, SIZE_PRESETS } from "@/lib/colours";
+import { parseWords } from "@/lib/suggest";
 
 /**
  * "Say the product, get the form."
@@ -104,9 +105,23 @@ export default function AiComposer({ onDraft, initialText = "", onTextChange }: 
     setListening(true);
   }
 
+  /**
+   * The plain facts in her words - price, sizes, colours, stock - read with
+   * rules. Used when the language model cannot be reached, so the button
+   * still helps on a day both providers say no. The form's own suggestions
+   * (lib/suggest) then fill fabric, set and category from the same words.
+   */
+  function fillWithoutAi(brief: string, why: string) {
+    const p = parseWords(brief);
+    onDraft({ name: "", description: "", colours: p.colours, sizes: p.sizes, base_price_rupees: p.base_price_rupees, stock_per_variant: p.stock_per_variant, missing: [] }, null);
+    const got = [p.base_price_rupees && "price", p.sizes.length && "sizes", p.colours.length && "colours", p.stock_per_variant && "stock"].filter(Boolean);
+    setNote(`${why} ${got.length ? `I filled the ${got.join(", ")} from your words.` : "I could not find a price, sizes or colours in your words."} Please type the name and description yourself.`);
+  }
+
   async function draft() {
     const brief = text.trim();
     if (brief.length < 3) return;
+    if (available === false) { fillWithoutAi(brief, "The AI writer is not available right now."); return; }
     setBusy(true); setNote(null);
     try {
       const res = await adminApi.post("/ai/product-draft", { text: brief, palette: PALETTE_NAMES, sizes: SIZE_PRESETS });
@@ -114,10 +129,8 @@ export default function AiComposer({ onDraft, initialText = "", onTextChange }: 
       const missing: string[] = res.data.draft?.missing ?? [];
       setNote(missing.length ? `Filled in. Still needed: ${missing.join(", ")}.` : "Filled in — check it over and press Create.");
     } catch (e: any) {
-      const detail = e?.response?.data?.detail;
-      setNote(e?.response?.status === 503
-        ? `AI is unavailable: ${detail ?? "ANTHROPIC_API_KEY is not set"}.`
-        : (detail ?? "Could not draft the listing right now."));
+      // Rather than stop with an error, do what can be done without it.
+      fillWithoutAi(brief, e?.response?.status === 503 ? "The AI writer is not available right now." : "The AI writer did not answer.");
     } finally {
       setBusy(false);
     }
@@ -134,8 +147,10 @@ export default function AiComposer({ onDraft, initialText = "", onTextChange }: 
             Talk or type — colours, sizes, price, fabric, stock, anything. The form below fills itself; you check it and press Create.
           </p>
         </div>
-        {available === false && <span className="text-[11px] text-amber-700 whitespace-nowrap">AI key not set</span>}
       </div>
+      {available === false && (
+        <p className="mt-2 text-[11px] text-amber-700 leading-tight">AI writer is off. Price, sizes and colours still fill.</p>
+      )}
       <div className="mt-3 relative">
         <textarea
           value={text + (interim ? (text ? " " : "") + interim : "")}

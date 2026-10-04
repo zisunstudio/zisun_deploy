@@ -548,6 +548,28 @@ shown to customers. Changing the hash, the RNG, or the order in which
 ever shown; add new seeded choices *after* the existing ones. The canvas
 redraws only while weaving or rippling - do not add a free-running loop.
 
+**A suggestion is looked up, shown, and never a fact she did not say.**
+The new-product form fills itself as she types (`frontend/src/lib/suggest.ts`,
+in the browser, no model call): it finds her most similar earlier pieces -
+same set size, category, fabric and name words - and offers the middle of
+their prices, their category, what is in the set, the dupatta and the wash
+care, each with a sentence naming the pieces it came from. It is not a
+trained model and must not be described as one: with eight pieces a model
+would be a guess with a number on it, and a lookup can show its reason.
+Three rules hold it. A fact about the cloth (fabric, print) is filled only
+when the word is literally in what she typed or said - similar pieces never
+lend a fabric, which is how a silk piece would become "cotton". A field she
+has typed in is hers and is never overwritten; a field she undid stays
+undone (`declined`), and a suggested value is blanked before it is used as
+evidence, so a suggestion cannot justify itself. And a suggested price is
+never sent quietly: the box is amber, the reason is under it, and the
+button reads "Create at the suggested ₹X" until she types or keeps it.
+Understanding speech stays with the language model (`AiComposer`); when it
+is off or fails, `parseWords` still fills price, sizes, colours and stock
+from her words and says what it could not do. New pieces only - the edit
+form is never auto-filled, because there every field already holds her
+own answer.
+
 **Both API clients refresh; the console's one did not.** The access token
 lasts 15 minutes and `lib/api.ts` has always refreshed it silently on a 401.
 `lib/adminApi.ts` had no response interceptor at all, so a save made more

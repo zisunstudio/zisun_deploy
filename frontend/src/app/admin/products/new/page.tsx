@@ -12,10 +12,14 @@ import ProductForm, {
 import VariantEditor, { gridVariants, type Draft as VariantDraft, type VariantRow, type VariantEditorHandle } from "@/components/admin/VariantEditor";
 import { DraftKept, DraftRestored } from "@/components/admin/DraftNotice";
 import { useToast } from "@/components/ui/ToastProvider";
-import { readDraft, useDraftAutosave } from "@/lib/formDraft";
+import { readDraft, sameData, useDraftAutosave } from "@/lib/formDraft";
+import { SuggestionPanel } from "@/components/admin/SuggestionPanel";
+import { suggest, toPiece, type Piece, type Suggestion } from "@/lib/suggest";
 
 /** Everything she can type on this page before a product exists. */
-type NewDraft = { form: ProductFormData; variants: VariantRow[]; row: VariantDraft | null; words: string };
+type Marks = Partial<Record<Suggestion["field"], Suggestion>>;
+type NewDraft = { form: ProductFormData; variants: VariantRow[]; row: VariantDraft | null; words: string; marks?: Marks; declined?: string[] };
+const isBlank = (v: unknown) => v === "" || v == null || (Array.isArray(v) && v.length === 0);
 const DRAFT_KEY = "product:new";
 import AiComposer, { type AiDraft } from "@/components/admin/AiComposer";
 
@@ -30,9 +34,15 @@ export default function NewProductPage() {
   // lib/formDraft). On opening the page an earlier draft is put back first;
   // autosave starts only after that, or the empty form would overwrite it.
   const [pristine] = useState<NewDraft>(() => ({ form: emptyProductForm(), variants: [], row: null, words: "" }));
+  const [pristineFull] = useState<NewDraft>(() => ({ ...pristine, marks: {}, declined: [] }));
   const [row, setRow] = useState<VariantDraft | null>(null);
   // Her own description in the "describe it" box, before it becomes a draft listing.
   const [words, setWords] = useState("");
+  // Fields the form filled by itself (lib/suggest), and ones she has told it
+  // to leave alone. A mark stays only while the field still holds the
+  // suggested value: the moment she changes it, it is hers.
+  const [marks, setMarks] = useState<Marks>({});
+  const [declined, setDeclined] = useState<string[]>([]);
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
   const { showToast } = useToast();
@@ -45,6 +55,8 @@ export default function NewProductPage() {
       setVariants(d.data.variants ?? []);
       setRow(d.data.row ?? null);
       setWords(d.data.words ?? "");
+      setMarks(d.data.marks ?? {});
+      setDeclined(d.data.declined ?? []);
       setRestoredAt(d.at);
       setEditorKey((k) => k + 1);
       // The notice sits at the top of a long form; say it where she is too.
@@ -52,10 +64,10 @@ export default function NewProductPage() {
     }
     setReady(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const { savedAt, forget } = useDraftAutosave<NewDraft>(DRAFT_KEY, { form, variants, row, words }, { enabled: ready, pristine });
+  const { savedAt, forget } = useDraftAutosave<NewDraft>(DRAFT_KEY, { form, variants, row, words, marks, declined }, { enabled: ready, pristine: pristineFull });
   function startFresh() {
     forget();
-    setForm(emptyProductForm()); setVariants([]); setRow(null); setWords("");
+    setForm(emptyProductForm()); setVariants([]); setRow(null); setWords(""); setMarks({}); setDeclined([]);
     setRestoredAt(null); setError(null);
     setEditorKey((k) => k + 1);
   }
@@ -64,6 +76,56 @@ export default function NewProductPage() {
     queryKey: ["admin", "categories"],
     queryFn: async () => (await adminApi.get("/categories/")).data,
   });
+
+  // Her catalogue, once, for the suggestions. Computed in the browser: the
+  // database is a continent away and a suggestion has to keep up with typing.
+  const { data: pieces = [] } = useQuery<Piece[]>({
+    queryKey: ["admin", "suggest-pieces"],
+    queryFn: async () => ((await adminApi.get("/products/?include_inactive=true&limit=200")).data as unknown[]).map(toPiece).filter((p): p is Piece => p !== null),
+    staleTime: 5 * 60_000,
+  });
+
+  const fields = form as unknown as Record<string, unknown>;
+  // Suggestions still standing: the field holds exactly what was suggested.
+  const standing = (Object.values(marks) as Suggestion[]).filter((m) => sameData(fields[m.field], m.value));
+  const suggestedPrice = standing.find((m) => m.field === "base_price_rupees") ?? null;
+
+  // Fill empty fields from her earlier pieces, a moment after she stops
+  // typing. Never touches a field she filled herself. A value it filled
+  // earlier is updated, or emptied again, as what she types changes.
+  const watch = JSON.stringify([form.name, words, form.category_id, form.fabric_composition, form.set_pieces, pieces.length, declined]);
+  useEffect(() => {
+    if (!ready || pieces.length === 0) return;
+    const t = setTimeout(() => {
+      const mine = (f: Suggestion["field"]) => !(marks[f] && sameData(fields[f], marks[f]!.value));
+      // A value the form suggested is not evidence for the next suggestion.
+      const found = suggest({
+        name: form.name, words,
+        category_id: mine("category_id") ? form.category_id : "",
+        fabric_composition: mine("fabric_composition") ? form.fabric_composition : "",
+        set_pieces: mine("set_pieces") ? form.set_pieces : [],
+      }, pieces).filter((x) => !declined.includes(x.field));
+      const next: Record<string, unknown> = {};
+      const nextMarks: Marks = {};
+      for (const sg of found) {
+        if (isBlank(fields[sg.field]) || !mine(sg.field)) { next[sg.field] = sg.value; nextMarks[sg.field] = sg; }
+      }
+      // Something suggested earlier that no longer follows from what she typed.
+      for (const m of Object.values(marks) as Suggestion[]) {
+        if (!mine(m.field) && !nextMarks[m.field]) next[m.field] = Array.isArray(m.value) ? [] : "";
+      }
+      if (!sameData(nextMarks, marks)) setMarks(nextMarks);
+      if (Object.keys(next).some((k) => !sameData(next[k], fields[k]))) setForm((f) => ({ ...f, ...next } as ProductFormData));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [watch, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function undoSuggestion(field: Suggestion["field"]) {
+    const m = marks[field];
+    setDeclined((d) => [...d, field]);
+    setMarks((all) => { const rest = { ...all }; delete rest[field]; return rest; });
+    if (m) setForm((f) => ({ ...f, [field]: Array.isArray(m.value) ? [] : "" } as ProductFormData));
+  }
 
   // The draft lands in the same state the form and the variant table read
   // from. Only fields the model actually filled are written, so a second
@@ -211,7 +273,11 @@ export default function NewProductPage() {
         <AiComposer key={editorKey} initialText={words} onTextChange={setWords} onDraft={applyDraft} />
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
-        <ProductForm data={form} onChange={setForm} categories={categories}  compact />
+        <ProductForm data={form} onChange={setForm} categories={categories} compact priceHint={suggestedPrice?.reason} />
+
+        {/* Below the form, not above it: appearing above would push the box
+            she is typing in down the screen. */}
+        <SuggestionPanel items={standing} onUndo={undoSuggestion} onKeepAll={() => setMarks({})} />
 
         <hr className="border-gray-100" />
 
@@ -225,6 +291,13 @@ export default function NewProductPage() {
           skuPrefix={(form.name || "ZS").split(/\s+/).slice(0, 2).join("-")}
         />
 
+        {/* The price is what she will be paid. One that the form suggested is
+            never sent silently: the button itself says so. */}
+        {suggestedPrice && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            The price {suggestedPrice.show} was suggested, not typed by you. Change it above if it is wrong.
+          </p>
+        )}
         <div className="flex gap-3 pt-2">
           <button
             type="button"
@@ -232,7 +305,7 @@ export default function NewProductPage() {
             disabled={createProduct.isPending}
             className="flex-1 h-11 bg-ink text-white rounded-lg font-semibold text-sm disabled:opacity-50"
           >
-            {createProduct.isPending ? "Creating…" : "Create product"}
+            {createProduct.isPending ? "Creating…" : suggestedPrice ? `Create at the suggested ${suggestedPrice.show}` : "Create product"}
           </button>
           <button
             type="button"
