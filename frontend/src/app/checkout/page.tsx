@@ -242,7 +242,11 @@ export default function CheckoutPage() {
     setCheckingCode(true);
     try {
       const phone = /^[6-9]\d{9}$/.test(form.phone.trim()) ? `+91${form.phone.trim()}` : undefined;
-      const r = await api.post("/checkout/coupon-preview", { code: c, subtotal_paise: totalPaise, phone });
+      const r = await api.post("/checkout/coupon-preview", {
+        code: c, subtotal_paise: totalPaise, phone,
+        // A friend's code is for a household new to ZISUN, so the address is part of the question.
+        line1: form.line1.trim() || undefined, pincode: /^\d{6}$/.test(form.pincode) ? form.pincode : undefined,
+      });
       setCodeResult(r.data);
     } catch {
       setCodeResult({ ok: false, discount_paise: 0, message: "Could not check that code just now. You can still place the order." });
@@ -255,7 +259,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (step === "pay" && code.trim()) void checkCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, totalPaise, form.phone]);
+  }, [step, totalPaise, form.phone, form.line1, form.pincode]);
   const discountPaise = codeResult?.ok ? codeResult.discount_paise : 0;
   // Mirrors the server: credit never takes the goods below one rupee.
   const creditPaise = user && useCredit ? Math.max(0, Math.min(credit, totalPaise - discountPaise - 100)) : 0;

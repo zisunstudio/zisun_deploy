@@ -301,6 +301,12 @@ class CheckoutService:
             coupon_obj, discount_amount = await coupon_svc.validate_coupon(
                 coupon_code, user_id, gross_total
             )
+            # A referral code is for a new household, not a new phone number.
+            from app.models.order import Address as _Address  # noqa: PLC0415
+            from app.services import referral as _referral  # noqa: PLC0415
+            _addr = (await self.db.execute(select(_Address.line1, _Address.pincode).where(_Address.id == address_id))).first()
+            if _addr is not None:
+                await _referral.check_address(self.db, coupon_obj, user_id, _addr.line1, _addr.pincode)
 
         net_total = max(0, gross_total - discount_amount)
 

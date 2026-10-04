@@ -12,7 +12,7 @@ import { trackEvent } from "@/lib/queries/analytics";
  * be backgrounded before a fetch completes. Nothing here waits; the link
  * proceeds whether or not the record lands.
  */
-export type EnquirySource = "bag" | "product" | "sheet" | "fab" | "footer" | "community";
+export type EnquirySource = "bag" | "product" | "sheet" | "fab" | "footer" | "community" | "home";
 
 export interface EnquiryPayload {
   source: EnquirySource;

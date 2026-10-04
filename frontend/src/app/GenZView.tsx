@@ -23,6 +23,9 @@ import { heroEyebrow, shortLine, type Truth } from "@/lib/truth";
 import { POLICY_TERMS } from "@/lib/legal";
 import { BROWSE_ONLY, whatsappContactUrl } from "@/lib/launchMode";
 import { useCartStore } from "@/store/useCartStore";
+import { useSectionView } from "@/lib/useSectionView";
+import { trackEvent } from "@/lib/queries/analytics";
+import { markOpenSource, recordEnquiry } from "@/lib/enquiry";
 import { useAuthStore } from "@/store/useAuthStore";
 
 /**
@@ -76,16 +79,16 @@ function Header() {
     <header className="sticky top-0 z-40 flex items-center justify-between px-5 lg:px-10 h-14 bg-porcelain/85 backdrop-blur-md border-b border-line">
       <Link href="/" aria-label="ZISUN, home"><Wordmark size="sm" showTagline={false} /></Link>
       <nav className="flex items-center gap-1 sm:gap-3 text-sm text-ink">
-        <Link href="/shop" className="hidden sm:inline-flex items-center min-h-[44px] px-2 hover:underline underline-offset-4">Everything</Link>
-        <button type="button" onClick={() => router.push("/search")} className="inline-flex h-10 w-10 items-center justify-center" aria-label="Search">
+        <Link href="/shop" data-track="nav_everything" className="hidden sm:inline-flex items-center min-h-[44px] px-2 hover:underline underline-offset-4">Everything</Link>
+        <button type="button" data-track="nav_search" onClick={() => router.push("/search")} className="inline-flex h-10 w-10 items-center justify-center" aria-label="Search">
           <Search className="w-5 h-5" aria-hidden />
         </button>
         {/* Always present: without it the storefront has no way to sign in
             or reach an account (the old home page learned this). */}
-        <button type="button" onClick={() => router.push(signedIn ? "/profile" : "/login")} className="inline-flex h-10 w-10 items-center justify-center" aria-label={signedIn ? "Your account" : "Sign in"}>
+        <button type="button" data-track="nav_account" onClick={() => router.push(signedIn ? "/profile" : "/login")} className="inline-flex h-10 w-10 items-center justify-center" aria-label={signedIn ? "Your account" : "Sign in"}>
           <User className="w-5 h-5" aria-hidden />
         </button>
-        <button type="button" onClick={toggleCart} className="relative inline-flex h-10 w-10 items-center justify-center -mr-2" aria-label={`Bag, ${count} ${count === 1 ? "piece" : "pieces"}`}>
+        <button type="button" data-track="nav_bag" onClick={toggleCart} className="relative inline-flex h-10 w-10 items-center justify-center -mr-2" aria-label={`Bag, ${count} ${count === 1 ? "piece" : "pieces"}`}>
           <ShoppingBag className="w-5 h-5" aria-hidden />
           {count > 0 && (
             <span className="absolute top-1 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-burgundy text-porcelain text-[10px] font-semibold leading-[18px] text-center">{count}</span>
@@ -151,13 +154,14 @@ function Hero({ lead, truth }: { lead: Product | undefined; truth: Truth }) {
         <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
           <button
             type="button"
+            data-track="hero_cta"
             onClick={scrollToDrop}
             className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-burgundy text-porcelain text-sm font-semibold active:scale-[0.98] transition-transform"
           >
             Swipe the drop <ArrowDown className="w-4 h-4" aria-hidden />
           </button>
           {lead && (
-            <Link href={`/product/${lead.id}`} className="inline-flex items-center min-h-[44px] text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40">
+            <Link href={`/product/${lead.id}`} data-track="hero_piece" onClick={() => markOpenSource("hero")} className="inline-flex items-center min-h-[44px] text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40">
               {HERO.credit}: {shortName(lead.name)} · {formatPrice(lead.base_price)}
             </Link>
           )}
@@ -169,6 +173,12 @@ function Hero({ lead, truth }: { lead: Product | undefined; truth: Truth }) {
 
 // ── Section chrome ───────────────────────────────────────────────────────────
 
+/** Marks a part of the page so the console can say what share of visits reach it. */
+function Seen({ name, children }: { name: string; children: React.ReactNode }) {
+  const ref = useSectionView<HTMLDivElement>(name);
+  return <div ref={ref}>{children}</div>;
+}
+
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] tracking-[0.22em] uppercase text-burgundy mb-3">{children}</p>;
 }
@@ -178,6 +188,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 function DropRail({ pieces }: { pieces: Product[] }) {
   const rail = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState(0);
+  const furthest = useRef(0);
   useEffect(() => {
     const el = rail.current;
     if (!el) return;
@@ -187,7 +198,15 @@ function DropRail({ pieces }: { pieces: Product[] }) {
       frame = requestAnimationFrame(() => {
         const card = el.firstElementChild as HTMLElement | null;
         const step = (card?.offsetWidth ?? 1) + RAIL_GAP;
-        setAt(Math.min(pieces.length - 1, Math.max(0, Math.round(el.scrollLeft / step))));
+        const i = Math.min(pieces.length - 1, Math.max(0, Math.round(el.scrollLeft / step)));
+        setAt(i);
+        if (i > furthest.current) {
+          // Once when she first swipes, and once if she reaches the last
+          // piece - enough to know the rail is used, without a stream.
+          if (furthest.current === 0) trackEvent("cta_click", { name: "drop_swipe", page: "home" });
+          if (i === pieces.length - 1) trackEvent("cta_click", { name: "drop_swipe_to_end", page: "home" });
+          furthest.current = i;
+        }
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -256,7 +275,7 @@ function Fit({ lead }: { lead: Product | undefined }) {
             Between sizes? Every piece has a size finder that works from what you already wear - and your measurements never leave your phone.
           </p>
           {lead && (
-            <Link href={`/product/${lead.id}`} className="mt-4 inline-flex items-center gap-2 min-h-[44px] text-sm font-semibold text-ink underline underline-offset-4 decoration-burgundy/50">
+            <Link href={`/product/${lead.id}`} data-track="fit_find_size" className="mt-4 inline-flex items-center gap-2 min-h-[44px] text-sm font-semibold text-ink underline underline-offset-4 decoration-burgundy/50">
               Find your size <ArrowRight className="w-4 h-4" aria-hidden />
             </Link>
           )}
@@ -290,8 +309,8 @@ function Receipt() {
           ))}
         </dl>
         <p className="mt-4 text-xs text-muted">
-          The full terms are on the <Link href="/shipping" className="underline underline-offset-2">shipping</Link> and{" "}
-          <Link href="/refund" className="underline underline-offset-2">exchange</Link> pages.
+          The full terms are on the <Link href="/shipping" data-track="receipts_shipping" className="underline underline-offset-2">shipping</Link> and{" "}
+          <Link href="/refund" data-track="receipts_exchange" className="underline underline-offset-2">exchange</Link> pages.
         </p>
       </Reveal>
     </section>
@@ -312,16 +331,19 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
   return (
     <div className="bg-porcelain text-ink">
       <Header />
-      <Hero lead={lead} truth={truth} />
+      <Seen name="hero"><Hero lead={lead} truth={truth} /></Seen>
 
       {/* The gesture they already have in their thumb. */}
       {pieces.length > 0 && (
+        <Seen name="stories">
         <section className="pt-8 pb-2" aria-label="Watch the pieces">
           <p className="px-5 lg:px-12 text-xs text-muted mb-3">Tap a circle to watch it worn.</p>
           <Stories products={pieces} />
         </section>
+        </Seen>
       )}
 
+      <Seen name="drop">
       <section id="drop" className="pt-12 pb-16 lg:pt-20 scroll-mt-14">
         <Reveal className="px-5 lg:px-12 mb-6 flex items-end justify-between gap-4">
           <div>
@@ -330,7 +352,7 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
               {pieces.length === 1 ? "One piece. Worn by her." : `${pieces.length} pieces. Swipe.`}
             </h2>
           </div>
-          <Link href="/shop" className="shrink-0 inline-flex items-center min-h-[44px] text-sm text-ink underline underline-offset-4 decoration-burgundy/50">See all</Link>
+          <Link href="/shop" data-track="drop_see_all" className="shrink-0 inline-flex items-center min-h-[44px] text-sm text-ink underline underline-offset-4 decoration-burgundy/50">See all</Link>
         </Reveal>
         {pieces.length > 0 ? (
           <DropRail pieces={pieces} />
@@ -341,14 +363,16 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
           <p className="px-5 lg:px-12 mt-6 text-xs text-muted">Browse now - ordering opens soon.</p>
         )}
       </section>
+      </Seen>
 
       {/* Coupons are advertised, not just accepted (CLAUDE.md): the
           tickets live on the home page. Renders nothing when there are none. */}
-      <DealsRail />
+      <Seen name="offers"><DealsRail /></Seen>
 
-      <Fit lead={lead} />
+      <Seen name="fit"><Fit lead={lead} /></Seen>
 
       {styled && (
+        <Seen name="ways">
         <section className="px-5 lg:px-12 py-16 lg:py-24">
           <Reveal className="max-w-2xl">
             <Eyebrow>One piece, every day</Eyebrow>
@@ -358,11 +382,13 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
             <WaysToWear notes={styled.styling_notes} />
           </Reveal>
         </section>
+        </Seen>
       )}
 
-      <Receipt />
+      <Seen name="receipts"><Receipt /></Seen>
 
       {lead && (
+        <Seen name="mark">
         <section className="px-5 lg:px-12 py-16 lg:py-24 bg-rose">
           <Reveal className="max-w-2xl">
             <Eyebrow>Its ZISUN mark</Eyebrow>
@@ -375,9 +401,11 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
             </div>
           </Reveal>
         </section>
+        </Seen>
       )}
 
       {wa && (
+        <Seen name="ask">
         <section className="px-5 lg:px-12 py-16 lg:py-24">
           <Reveal className="max-w-2xl">
             <Eyebrow>Talk to a person</Eyebrow>
@@ -389,12 +417,15 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
+              data-track="ask_whatsapp"
+              onClick={() => recordEnquiry({ source: "home" })}
               className="mt-7 inline-flex items-center gap-2 h-12 px-6 rounded-full bg-burgundy text-porcelain text-sm font-semibold active:scale-[0.98] transition-transform"
             >
               <MessageCircle className="w-4 h-4" aria-hidden /> Message on WhatsApp
             </a>
           </Reveal>
         </section>
+        </Seen>
       )}
 
       {/* Policy links must be reachable from the home page itself: Google's

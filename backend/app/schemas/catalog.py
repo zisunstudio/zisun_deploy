@@ -62,6 +62,11 @@ class ProductVariantCreate(ProductVariantBase):
 
 
 class ProductVariantUpdate(BaseModel):
+    # A field left out is left alone; a field sent as null or "" is CLEARED.
+    # The endpoint reads `model_fields_set` to tell the two apart - before,
+    # "no colour" and "not mentioned" were both None, so a colour could be
+    # changed but never removed.
+    sku: Optional[str] = Field(None, min_length=1, max_length=64)
     size: Optional[str] = None
     color: Optional[str] = None
     stock: Optional[int] = Field(None, ge=0)

@@ -44,6 +44,7 @@ const STATUS_COLORS: Record<string, string> = {
   SHIPPED: "bg-indigo-100 text-indigo-700",
   DELIVERED: "bg-green-100 text-green-700",
   CANCELLED: "bg-red-100 text-red-600",
+  RETURNED: "bg-orange-100 text-orange-700",
   FAILED_PAYMENT: "bg-red-100 text-red-600",
 };
 
@@ -91,7 +92,7 @@ export default function AdminOrdersPage() {
   const confirmCod = (orderId: string, confirmed: boolean) =>
     run(orderId, () => adminApi.post(`/orders/${orderId}/cod-confirmation`, { confirmed }));
 
-  const STATUSES = ["", "PAYMENT_PENDING", "PAID", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"];
+  const STATUSES = ["", "PAYMENT_PENDING", "PAID", "PACKED", "SHIPPED", "DELIVERED", "RETURNED", "CANCELLED"];
 
   const rows = orders ?? [];
   const StatusPill = ({ s }: { s: string }) => (
@@ -119,6 +120,14 @@ export default function AdminOrdersPage() {
       {order.status === "PAID" && <Button size="sm" variant="primary" disabled={working} onClick={() => updateStatus(order.id, "PACKED")}>Mark packed</Button>}
       {order.status === "PACKED" && <Button size="sm" variant="primary" onClick={() => updateStatus(order.id, "SHIPPED")}>Mark shipped</Button>}
       {order.status === "SHIPPED" && <Button size="sm" variant="primary" onClick={() => updateStatus(order.id, "DELIVERED")}>Delivered</Button>}
+      {/* A parcel can come back: refused at the door, undeliverable, or
+          refunded after delivery under the exchange policy. Recording it
+          takes the sale out of the money figures and withdraws any referral
+          reward that hung on it. Stock is not touched - she decides whether
+          the piece can be sold again. */}
+      {["SHIPPED", "DELIVERED"].includes(order.status) && (
+        <Button size="sm" variant="danger" disabled={working} onClick={() => { if (confirm("Mark this order as came back?\n\nUse this when the parcel was refused or returned to you, or you refunded it after delivery. It removes the sale from your figures and cancels any referral reward on it. It cannot be undone.\n\nIf the piece can be sold again, add it back in Inventory.")) updateStatus(order.id, "RETURNED"); }}>Came back</Button>
+      )}
       {["PAID", "PACKED"].includes(order.status) && <Button size="sm" variant="danger" disabled={working} onClick={() => { if (confirm("Cancel this order?")) updateStatus(order.id, "CANCELLED"); }}>Cancel</Button>}
     </>
     );

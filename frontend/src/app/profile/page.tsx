@@ -97,7 +97,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { user, clearAuth, sessionChecked } = useAuthStore();
-  const { data: referrals } = useQuery<{ code: string | null; friend_discount_paise: number; reward_paise: number; credit_paise: number }>({
+  const { data: referrals } = useQuery<{ code: string | null; kind: string | null; friend_discount_paise: number; reward_paise: number; credit_paise: number }>({
     queryKey: ["referrals", "me", user?.id],
     queryFn: async () => (await api.get("/referrals/me")).data,
     enabled: !!user,
@@ -176,7 +176,7 @@ export default function ProfilePage() {
         {/* Her referral code, once she has a delivered order; her credit. */}
         {referrals?.code && (
           <div className="px-5 mb-6">
-            <ShareCode code={referrals.code} friendPaise={referrals.friend_discount_paise} rewardPaise={referrals.reward_paise} creditPaise={referrals.credit_paise} />
+            <ShareCode code={referrals.code} friendPaise={referrals.friend_discount_paise} rewardPaise={referrals.reward_paise} creditPaise={referrals.credit_paise} kind={referrals.kind} />
           </div>
         )}
 

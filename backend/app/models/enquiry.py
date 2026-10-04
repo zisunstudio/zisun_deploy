@@ -31,6 +31,7 @@ class EnquirySource(str, enum.Enum):
     FAB = "fab"            # the floating button
     FOOTER = "footer"      # the footer's WhatsApp link
     COMMUNITY = "community"  # the ZISUN Tales group link
+    HOME = "home"          # "Ask Sushmita" on the home page
 
 
 class WhatsAppEnquiry(BaseModel):

@@ -6,6 +6,7 @@ import { AlertTriangle, Info, Lightbulb, OctagonAlert } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { Page, Card, Button, Pill, StockBadge, Swatch, Sku, TableScroll, LinkButton, th, td } from "@/components/admin/ui";
 import { BarList, Funnel, StatTile, TrendChart, compact, fmtInt, fmtRupees } from "@/components/admin/charts";
+import { Behaviour, type BehaviourData } from "./Behaviour";
 
 /**
  * The founder's board.
@@ -51,6 +52,7 @@ type Dash = {
     money: { collected_paise: number; committed_paise: number; lost_paise: number; refunded_paise: number; orders: number; by_kind: Record<string, number> };
     payment: { attempted: number; succeeded: number; failed: number; abandoned: number; in_flight: number; success_rate: number | null; abandon_rate: number | null; mismatched: number };
   };
+  behaviour?: BehaviourData;
   acquisition?: { by_source: Array<{ source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null }>; partial: boolean };
   attention: { by_period?: ByPeriod; sessions: number; sessions_previous?: number; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
   inventory: { units: number; variants: number; by_size: { size: string; variants: number; units: number }[]; low_stock: { product: string; size: string; colour?: string; sku: string; stock: number }[]; low_stock_threshold: number };
@@ -196,11 +198,26 @@ function AttentionByPeriod({ data }: { data?: ByPeriod }) {
   );
 }
 
+/**
+ * The board is long; chapters say which question each stretch answers.
+ * In the order a visit happens: she arrives, she does things, she looks at
+ * pieces, she buys - and then the shop's own state.
+ */
+function Chapter({ n, title, about }: { n: number; title: string; about: string }) {
+  return (
+    <div className="mt-12 pt-6 border-t border-gray-200">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">Part {n}</p>
+      <h2 className="mt-1 font-display text-[22px] sm:text-2xl leading-tight text-ink">{title}</h2>
+      <p className="mt-1 text-xs text-gray-500 max-w-prose">{about}</p>
+    </div>
+  );
+}
+
 function Section({ title, hint, children, action }: { title: string; hint?: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <section className="mt-8">
       <div className="mb-3 flex items-end justify-between gap-3">
-        <div><h2 className="text-sm font-semibold text-gray-900">{title}</h2>{hint && <p className="text-xs text-gray-500 mt-0.5 max-w-prose">{hint}</p>}</div>
+        <div><h3 className="text-sm font-semibold text-gray-900">{title}</h3>{hint && <p className="text-xs text-gray-500 mt-0.5 max-w-prose">{hint}</p>}</div>
         {action}
       </div>
       {children}
@@ -406,32 +423,9 @@ export default function AdminAnalytics() {
         )}
       </Section>
 
-      {/* Payment: the one place a shop's own fault is separable from a
-          customer's decision. Hidden entirely until someone has tried to pay,
-          because an empty payment panel is noise on a phone. */}
-      {commerce.payment.attempted > 0 && (
-        <Section title="Prepaid payments" hint={`${meta.window_days} days. COD never touches a gateway, so it cannot fail at one.`}>
-          <Card>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Stat label="Paid" value={commerce.payment.succeeded} note={commerce.payment.success_rate != null ? `${commerce.payment.success_rate}% of settled` : undefined} />
-              <Stat label="Failed" value={commerce.payment.failed} note="the gateway said no" empty={commerce.payment.failed === 0} />
-              <Stat label="Walked away" value={commerce.payment.abandoned} note="sheet opened, not paid" empty={commerce.payment.abandoned === 0} />
-              <Stat label="Still trying" value={commerce.payment.in_flight} note="opened just now" empty={commerce.payment.in_flight === 0} />
-            </div>
-            {commerce.payment.mismatched > 0 && (
-              <div className="mt-3 rounded-lg bg-red-50 border border-red-100 px-3 py-2.5">
-                <p className="text-xs font-semibold text-red-800">
-                  {commerce.payment.mismatched} {commerce.payment.mismatched === 1 ? "order has" : "orders have"} money at the gateway but are not marked paid.
-                </p>
-                <p className="text-[11px] text-red-700 mt-0.5">The webhook is the only thing that marks an order paid. If it never landed, the customer paid and nothing will be packed.</p>
-              </div>
-            )}
-            <p className="mt-3 text-[11px] text-gray-500">
-              &ldquo;Failed&rdquo; is the bank or the gateway refusing. &ldquo;Walked away&rdquo; is the sheet opened and closed. They are different problems and only the first is ours to fix.
-            </p>
-          </Card>
-        </Section>
-      )}
+      <Chapter n={1} title="Who came" about="How many visits, where they came from, and which page they landed on." />
+
+      <Behaviour b={data.behaviour} part="arrivals" Section={Section} Stat={Stat} />
 
       {/* Where they came from. Nothing recorded this before 2026-09-23, so
           the panel says what it cannot yet see rather than implying a split. */}
@@ -453,6 +447,12 @@ export default function AdminAnalytics() {
           </Card>
         </Section>
       )}
+
+      <Chapter n={2} title="What they did on the site" about="How far they read, which parts of the home page they reached, and what they tapped." />
+
+      <Behaviour b={data.behaviour} part="onsite" Section={Section} Stat={Stat} />
+
+      <Chapter n={3} title="What they looked at" about="Which pieces were shown, opened, bagged and bought." />
 
       {/* What women are looking at */}
       <Section title="What women are looking at" hint={`The ${meta.window_days}-day leaders by opens.`}>
@@ -541,6 +541,48 @@ export default function AdminAnalytics() {
         )}
       </Section>
 
+      <Chapter n={4} title="What they bought" about="Orders and money. Collected is money that has arrived; owed is cash on delivery not yet handed over." />
+
+      {/* Payment: the one place a shop's own fault is separable from a
+          customer's decision. Hidden entirely until someone has tried to pay,
+          because an empty payment panel is noise on a phone. */}
+      {commerce.payment.attempted > 0 && (
+        <Section title="Prepaid payments" hint={`${meta.window_days} days. COD never touches a gateway, so it cannot fail at one.`}>
+          <Card>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Stat label="Paid" value={commerce.payment.succeeded} note={commerce.payment.success_rate != null ? `${commerce.payment.success_rate}% of settled` : undefined} />
+              <Stat label="Failed" value={commerce.payment.failed} note="the gateway said no" empty={commerce.payment.failed === 0} />
+              <Stat label="Walked away" value={commerce.payment.abandoned} note="sheet opened, not paid" empty={commerce.payment.abandoned === 0} />
+              <Stat label="Still trying" value={commerce.payment.in_flight} note="opened just now" empty={commerce.payment.in_flight === 0} />
+            </div>
+            {commerce.payment.mismatched > 0 && (
+              <div className="mt-3 rounded-lg bg-red-50 border border-red-100 px-3 py-2.5">
+                <p className="text-xs font-semibold text-red-800">
+                  {commerce.payment.mismatched} {commerce.payment.mismatched === 1 ? "order has" : "orders have"} money at the gateway but are not marked paid.
+                </p>
+                <p className="text-[11px] text-red-700 mt-0.5">The webhook is the only thing that marks an order paid. If it never landed, the customer paid and nothing will be packed.</p>
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-gray-500">
+              &ldquo;Failed&rdquo; is the bank or the gateway refusing. &ldquo;Walked away&rdquo; is the sheet opened and closed. They are different problems and only the first is ours to fix.
+            </p>
+          </Card>
+        </Section>
+      )}
+
+      {!browse && (
+        <Section title="Checkout orders" hint="All time, by status and payment method.">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Stat label="Collected" value={rupees(commerce.money.collected_paise)} note="prepaid paid, COD delivered" empty={commerce.money.collected_paise === 0} />
+            <Stat label="Owed" value={rupees(commerce.money.committed_paise)} note="COD placed, not yet delivered" empty={commerce.money.committed_paise === 0} />
+            <Stat label="Lost at payment" value={rupees(commerce.money.lost_paise)} note="abandoned or failed" empty={commerce.money.lost_paise === 0} />
+            {Object.entries(commerce.by_status).map(([s, n]) => <Stat key={s} label={s.replace(/_/g, " ")} value={n} />)}
+          </div>
+        </Section>
+      )}
+
+      <Chapter n={5} title="The shop" about="What is on the shelf and what is running low." />
+
       {/* Stock */}
       <Section title="Stock" hint={`${inventory.units} units across ${inventory.variants} sizes and colours.`} action={<LinkButton href="/admin/inventory" size="sm" variant="ghost">Inventory</LinkButton>}>
         <div className="grid gap-3 lg:grid-cols-2">
@@ -562,17 +604,6 @@ export default function AdminAnalytics() {
           </Card>
         </div>
       </Section>
-
-      {!browse && (
-        <Section title="Checkout orders" hint="All time, by status and payment method.">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Stat label="Collected" value={rupees(commerce.money.collected_paise)} note="prepaid paid, COD delivered" empty={commerce.money.collected_paise === 0} />
-            <Stat label="Owed" value={rupees(commerce.money.committed_paise)} note="COD placed, not yet delivered" empty={commerce.money.committed_paise === 0} />
-            <Stat label="Lost at payment" value={rupees(commerce.money.lost_paise)} note="abandoned or failed" empty={commerce.money.lost_paise === 0} />
-            {Object.entries(commerce.by_status).map(([s, n]) => <Stat key={s} label={s.replace(/_/g, " ")} value={n} />)}
-          </div>
-        </Section>
-      )}
       </div>
     </Page>
   );

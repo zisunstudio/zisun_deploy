@@ -47,3 +47,22 @@ class TestInvalidTransitions:
         with pytest.raises(HTTPException) as exc_info:
             OrderStateMachine.transition(order, to_status)
         assert exc_info.value.status_code == 409
+
+
+class TestParcelsThatComeBack:
+    """A sale that was undone must be recordable, or it stays a sale."""
+
+    def test_shipped_can_come_back(self):
+        from app.models.order import OrderStatus
+        from app.services.order_state_machine import VALID_TRANSITIONS
+        assert OrderStatus.RETURNED in VALID_TRANSITIONS[OrderStatus.SHIPPED]
+
+    def test_delivered_can_come_back(self):
+        from app.models.order import OrderStatus
+        from app.services.order_state_machine import VALID_TRANSITIONS
+        assert VALID_TRANSITIONS[OrderStatus.DELIVERED] == {OrderStatus.RETURNED}
+
+    def test_returned_is_final(self):
+        from app.models.order import OrderStatus
+        from app.services.order_state_machine import VALID_TRANSITIONS
+        assert VALID_TRANSITIONS[OrderStatus.RETURNED] == set()

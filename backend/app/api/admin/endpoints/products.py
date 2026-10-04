@@ -361,10 +361,28 @@ async def admin_update_variant(
     if not variant:
         raise HTTPException(404, "Variant not found")
 
-    if data.size is not None:
-        variant.size = data.size
-    if data.color is not None:
-        variant.color = data.color
+    sent = data.model_fields_set
+    clean = lambda v: (v or "").strip() or None  # noqa: E731
+
+    new_size = clean(data.size) if "size" in sent else variant.size
+    new_color = clean(data.color) if "color" in sent else variant.color
+    will_be_active = data.is_active if data.is_active is not None else variant.is_active
+    # The one-row-per-size-and-colour rule held for new rows only: an edit
+    # could turn a Medium into a second Large. Checked when the row is (or
+    # is becoming) on sale, since off-sale rows are how old repeats are parked.
+    if will_be_active and (_norm_variant_key(new_size, new_color) != _norm_variant_key(variant.size, variant.color)
+                           or not variant.is_active):
+        await _reject_duplicate_size_colour(db, product_id, new_size, new_color, exclude=variant.id)
+
+    if "sku" in sent and data.sku and data.sku.strip() != variant.sku:
+        new_sku = data.sku.strip()
+        clash = (await db.execute(select(ProductVariant.id).where(
+            ProductVariant.sku == new_sku, ProductVariant.deleted_at.is_(None), ProductVariant.id != variant.id))).first()
+        if clash:
+            raise HTTPException(422, f"SKU already exists: {new_sku}")
+        variant.sku = new_sku
+    variant.size = new_size
+    variant.color = new_color
     if data.stock is not None:
         variant.stock = data.stock
     if data.price_delta is not None:
@@ -485,6 +503,44 @@ async def admin_confirm_media_upload(
     return media
 
 
+# ── PUT /{id}/media/{mid}/replace — swap the picture, keep its place ──────────
+
+@router.put("/{product_id}/media/{media_id}/replace", response_model=ProductMediaResponse)
+async def admin_replace_media(
+    product_id: uuid.UUID,
+    media_id: uuid.UUID,
+    body: MediaConfirmRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Put a new photograph where an old one was.
+
+    Replacing used to mean delete-then-upload, which sent the new picture to
+    the end of the gallery: swapping the cover photograph quietly made the
+    second photograph the cover. The row is kept - its position and its
+    colour tag stay - and only the file changes. The crop point is cleared,
+    because it described the old picture. The old file is removed from
+    storage after the row is saved.
+    """
+    media = (await db.execute(select(ProductMedia).where(
+        ProductMedia.id == media_id, ProductMedia.product_id == product_id))).scalar_one_or_none()
+    if not media:
+        raise HTTPException(404, "Media not found")
+    try:
+        media_type = MediaType(body.type.upper())
+    except ValueError:
+        raise HTTPException(422, f"Invalid media type: {body.type}. Must be IMAGE or VIDEO.")
+    old_url = media.cdn_url or media.url
+    media.url = body.cdn_url
+    media.cdn_url = body.cdn_url
+    media.type = media_type
+    media.focus = None
+    await db.commit()
+    await db.refresh(media)
+    if old_url and old_url != body.cdn_url and "/products/" in old_url:
+        delete_r2_object(old_url[old_url.find("/products/") + 1:])
+    return media
+
+
 # ── DELETE /{id}/media/{mid} — delete media ───────────────────────────────────
 
 @router.delete("/{product_id}/media/{media_id}", status_code=204)
@@ -512,6 +568,13 @@ async def admin_delete_media(
             delete_r2_object(cdn_url[key_start + 1:])
 
     await db.delete(media)
+    await db.flush()
+    # Close the gap, so "first photograph" is always display_order 0 and a
+    # new upload (placed at the count) can never share a position.
+    rest = (await db.execute(select(ProductMedia).where(ProductMedia.product_id == product_id)
+                             .order_by(ProductMedia.display_order, ProductMedia.created_at))).scalars().all()
+    for i, m in enumerate(rest):
+        m.display_order = i
     await db.commit()
 
 

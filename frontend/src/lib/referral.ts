@@ -9,6 +9,19 @@
  * the latest link wins: the friend who sent the most recent one is the one
  * she is acting on.
  */
+/**
+ * The terms as the public page states them. Mirrors backend
+ * `app/services/referral.py` (BUYER_DISCOUNT_PAISE, REFERRER_REWARD_PAISE,
+ * MIN_ORDER_PAISE, HOLD_DAYS), which is the enforcement; a unit test there
+ * and one here would not see each other, so change both together.
+ */
+export const REFERRAL_TERMS = {
+  friendOffRupees: 100,
+  thankYouRupees: 150,
+  minOrderRupees: 500,
+  holdDays: 14,
+} as const;
+
 const KEY = "zisun-ref";
 const TTL_MS = 30 * 86_400_000;
 
@@ -44,6 +57,8 @@ export function shareUrl(code: string, origin = "https://zisun.in"): string {
 
 /** A WhatsApp message with her code and the link, ready to send to anyone. */
 export function shareWhatsAppUrl(code: string, friendOffRupees: number, origin?: string): string {
-  const text = `I bought from ZISUN and loved it. Use my code ${code} for ₹${friendOffRupees} off your first order: ${shareUrl(code, origin)}`;
+  // Her words to a friend, not ours to a market: what it is, what the code
+  // does, the link. No exclamation, no "hurry".
+  const text = `I bought this from ZISUN and liked it. If you order, my code ${code} takes ₹${friendOffRupees} off your first one: ${shareUrl(code, origin)}`;
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

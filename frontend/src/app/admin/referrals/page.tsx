@@ -18,11 +18,11 @@ import { Button, Card, CardHeader, EmptyState, Field, Input, Page, Pill, TableSc
 type Rules = { friend_discount_paise: number; reward_paise: number; min_order_paise: number; hold_days: number };
 type Code = {
   code: string; kind: "customer" | "creator"; owner: string; phone: string | null; active: boolean;
-  orders: number; pending_paise: number; earned_paise: number; paid_paise: number;
+  orders: number; pending_paise: number; earned_paise: number; paid_paise: number; owed_back_paise: number;
 };
 type Reward = {
   id: string; code: string; owner: string | null; phone: string | null; kind: "cash" | "credit";
-  status: "pending" | "earned"; amount_paise: number; order_id: string; order_total_paise: number;
+  status: "pending" | "earned" | "reversed"; amount_paise: number; reason?: string | null; order_id: string; order_total_paise: number;
   order_status: string; created_at: string | null; earned_at: string | null;
 };
 type Data = { rules: Rules; codes: Code[]; rewards: Reward[] };
@@ -54,6 +54,10 @@ export default function ReferralsPage() {
     mutationFn: (ids: string[]) => adminApi.post("/referrals/rewards/paid", { reward_ids: ids }),
     onSuccess: refresh,
   });
+  const recovered = useMutation({
+    mutationFn: (ids: string[]) => adminApi.post("/referrals/rewards/recovered", { reward_ids: ids }),
+    onSuccess: refresh,
+  });
   const toggle = useMutation({
     mutationFn: (c: Code) => adminApi.patch(`/referrals/codes/${c.code}`, { active: !c.active }),
     onSuccess: refresh,
@@ -62,6 +66,8 @@ export default function ReferralsPage() {
   const rules = data?.rules;
   const toPay = (data?.rewards ?? []).filter((r) => r.kind === "cash" && r.status === "earned");
   const waiting = (data?.rewards ?? []).filter((r) => r.status === "pending");
+  // Cash that was paid, and then the order came back: to take off her next payment.
+  const owedBack = (data?.rewards ?? []).filter((r) => r.status === "reversed");
   // One payment per creator: the rows grouped by phone.
   const byCreator = Object.values(toPay.reduce<Record<string, { owner: string; phone: string; total: number; ids: string[] }>>((acc, r) => {
     const k = r.phone ?? r.owner ?? r.code;
@@ -102,6 +108,23 @@ export default function ReferralsPage() {
           )}
         </div>
       </Card>
+
+      {owedBack.length > 0 && (
+        <Card padded={false}>
+          <CardHeader title="To take back" meta="You paid these, and then the order came back. Deduct each from that creator's next payment, then mark it deducted." />
+          <ul className="p-4 sm:p-5 divide-y divide-gray-100">
+            {owedBack.map((r) => (
+              <li key={r.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">{r.owner} · {rs(r.amount_paise)}</p>
+                  <p className="text-xs text-gray-500">{r.phone} · code <span className="font-mono">{r.code}</span> · {r.reason ?? "The order came back"}</p>
+                </div>
+                <Button size="sm" disabled={recovered.isPending} onClick={() => recovered.mutate([r.id])}>Mark deducted</Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card padded={false}>
         <CardHeader title="Add a creator" meta="Someone with an audience who is not a friend. She earns cash for every delivered order her code brings." />
@@ -153,7 +176,7 @@ export default function ReferralsPage() {
 
       {waiting.length > 0 && (
         <Card padded={false}>
-          <CardHeader title="Waiting" meta="Orders placed with a code, not yet delivered and past the hold. A cancelled or returned order earns nothing." />
+          <CardHeader title="Waiting" meta={`Orders placed with a code. Each is earned only when the order is delivered and ${rules?.hold_days ?? 14} days have passed; a cancelled, refused or returned order earns nothing.`} />
           <ul className="p-4 sm:p-5 divide-y divide-gray-100">
             {waiting.map((r) => (
               <li key={r.id} className="py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm">

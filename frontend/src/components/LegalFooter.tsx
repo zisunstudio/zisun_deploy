@@ -17,6 +17,7 @@ const LINKS = [
   // The route is still /refund; the policy behind it is an exchange policy.
   { href: "/refund", label: "Exchanges" },
   { href: "/shipping", label: "Shipping" },
+  { href: "/share", label: "Sharing ZISUN" },
   { href: "/contact", label: "Contact" },
 ];
 

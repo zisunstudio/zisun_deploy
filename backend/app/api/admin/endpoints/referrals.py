@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,7 +32,8 @@ async def list_referrals(db: AsyncSession = Depends(get_async_db)):
         .join(Coupon, Coupon.id == ReferralReward.coupon_id)
         .join(User, User.id == ReferralReward.referrer_user_id)
         .join(Order, Order.id == ReferralReward.order_id)
-        .where(ReferralReward.status.in_(("pending", "earned")))
+        .where(sa.or_(ReferralReward.status.in_(("pending", "earned")),
+                      sa.and_(ReferralReward.status == "reversed", ReferralReward.paid_at.isnot(None))))
         .order_by(ReferralReward.created_at.desc())
         .limit(200)
     )).all()
@@ -51,6 +53,7 @@ async def list_referrals(db: AsyncSession = Depends(get_async_db)):
                 "order_id": str(r.order_id), "order_total_paise": total, "order_status": status.value,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
                 "earned_at": r.earned_at.isoformat() if r.earned_at else None,
+                "reason": r.reason,
             }
             for r, code, name, phone, total, status in owed
         ],
@@ -77,6 +80,14 @@ class Paid(BaseModel):
 @router.post("/rewards/paid")
 async def mark_paid(body: Paid, db: AsyncSession = Depends(get_async_db)):
     n = await referral.mark_paid(db, body.reward_ids)
+    await db.commit()
+    return {"marked": n}
+
+
+@router.post("/rewards/recovered")
+async def mark_recovered(body: Paid, db: AsyncSession = Depends(get_async_db)):
+    """She has deducted a paid-then-reversed reward from a later payment."""
+    n = await referral.mark_recovered(db, body.reward_ids)
     await db.commit()
     return {"marked": n}
 

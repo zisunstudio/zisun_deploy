@@ -39,6 +39,12 @@ string, and every component, from `9a0585c` to `HEAD`).
 | Store credit: derived balance, spent only by a signed-in buyer, never below ₹1 to pay | `backend/app/services/referral.py`, `backend/app/services/checkout.py` | Live |
 | Tax worked out of the discounted price (coupon and credit spread across pieces) | `backend/app/services/gst.py` (`apportion_discount`) | Live |
 | Console referrals: every code, what is waiting, creators to pay by UPI, mark paid | `frontend/src/app/admin/referrals/page.tsx`, `backend/app/api/admin/endpoints/referrals.py` | Live |
+| Visitor behaviour: every arrival, time on page, scroll depth, home-page sections reached, taps (measured in visits; nothing typed, no coordinates) | `frontend/src/components/PageTracker.tsx`, `frontend/src/lib/useSectionView.ts`, `backend/app/services/behaviour.py` | Live |
+| Analytics board in five parts (who came, what they did, what they looked at, what they bought, the shop), every key shown in plain words | `frontend/src/app/admin/page.tsx`, `frontend/src/app/admin/Behaviour.tsx` | Live |
+| Photos in the console: replace in place, move, delete - all visible buttons that work on a phone; several uploaded together keep their order | `frontend/src/components/admin/MediaUploader.tsx`, `backend/app/api/admin/endpoints/products.py` | Live |
+| Inventory edit: form no longer loses focus on each key; colour and size can be cleared; SKU editable; an edit cannot create a second row for one size and colour | `frontend/src/app/admin/inventory/page.tsx`, `backend/app/api/admin/endpoints/products.py` | Live |
+| "Came back": a shipped or delivered order can be recorded as returned | `frontend/src/app/admin/orders/page.tsx`, `backend/app/services/order_state_machine.py` | Live |
+| Sharing policy page, in the open; reward only when the friend's order is complete (delivered + 14 days), reversed if it comes back; one household, one first order | `frontend/src/app/share/page.tsx`, `docs/REFERRALS.md`, `backend/alembic/versions/0030_referral_reversal.py` | Live |
 | Customer order tracking: courier journey, checkpoints, no sign-in | `frontend/src/app/order/[id]/OrderTracking.tsx`, `backend/app/services/shiprocket.py` | Live |
 | COD fee read from the API, never a hard-coded constant | `backend/app/api/endpoints/checkout.py`, `frontend/src/lib/queries/policy.ts` | Live |
 | GST computed out of the inclusive price, per piece, split by place of supply | `backend/app/services/gst.py` | Live |

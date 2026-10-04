@@ -20,7 +20,7 @@ type Enquiry = {
   order_amount_paise: number | null; note: string | null;
 };
 const TABS: Array<[string, string]> = [["new", "New"], ["replied", "Replied"], ["ordered", "Ordered"], ["lost", "Lost"], ["", "All"]];
-const SOURCE: Record<string, string> = { bag: "from the bag", product: "from a product page", sheet: "from Shop the look", fab: "from the WhatsApp button", footer: "from the footer", community: "joined ZISUN Tales" };
+const SOURCE: Record<string, string> = { bag: "from the bag", product: "from a product page", sheet: "from Shop the look", fab: "from the WhatsApp button", footer: "from the footer", community: "joined ZISUN Tales", home: "from Ask Sushmita on the home page" };
 const rupees = (p: number) => "₹" + Math.round(p / 100).toLocaleString("en-IN");
 const when = (iso: string) => {
   const d = new Date(iso); const mins = Math.round((Date.now() - d.getTime()) / 60000);

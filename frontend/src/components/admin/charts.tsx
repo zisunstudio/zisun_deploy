@@ -80,14 +80,14 @@ export function TableView({ caption, columns, rows }: { caption: string; columns
 /** Trend in the de-emphasis grey; today's point in the accent. */
 export function Sparkline({ values }: { values: number[] }) {
   const n = values.length;
-  if (n < 2) return <div className="h-7" />;
+  if (n < 2) return <div className="h-7 shrink-0" />;
   const max = Math.max(1, ...values);
   const W = 100, H = 28, pad = 3;
   const x = (i: number) => (i / (n - 1)) * W;
   const y = (v: number) => H - pad - (v / max) * (H - pad * 2);
   const d = values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join("");
   return (
-    <div className="relative h-7 w-full" aria-hidden>
+    <div className="relative h-7 w-full shrink-0 my-1" aria-hidden>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible">
         <path d={d} fill="none" className="stroke-viz-prev" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
       </svg>

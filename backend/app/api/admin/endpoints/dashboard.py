@@ -41,7 +41,7 @@ from app.models.enquiry import EnquiryStatus, WhatsAppEnquiry
 from app.models.order import Order, OrderItem, OrderStatus, Payment, PaymentMethod, PaymentStatus
 from app.models.channel import SalesChannel
 from app.models.user import User, UserRole
-from app.services import ai, metrics
+from app.services import ai, behaviour, metrics
 from app.services.shelf import (
     EVENT_WEIGHTS,
     WINDOW_DAYS,
@@ -539,6 +539,20 @@ async def compute_dashboard(days: int = 30) -> dict:
             .where(live_products).group_by(Product.id, Product.name).having(sa.func.count(ProductMedia.id) == 0).limit(8)),
         coupons_live=_scalar(select(sa.func.count(Coupon.id)).where(
             Coupon.is_active.is_(True), Coupon.is_referral.is_(False), sa.or_(Coupon.expires_at.is_(None), Coupon.expires_at > now))),
+        # What visitors did: arrivals, reading depth, sections reached, taps.
+        # Plain rows, assembled in services/behaviour.py where the
+        # definitions are tested. Bounded: a small shop's month is a few
+        # thousand rows; the limit only guards a runaway.
+        behaviour=_all(
+            select(AnalyticsEvent.session_id.label("session"), AnalyticsEvent.event_type.label("type"),
+                   AnalyticsEvent.properties.op("->>")("page").label("page"),
+                   AnalyticsEvent.properties.op("->>")("section").label("section"),
+                   AnalyticsEvent.properties.op("->>")("name").label("name"),
+                   AnalyticsEvent.properties.op("->>")("seconds").label("seconds"),
+                   AnalyticsEvent.properties.op("->>")("scroll_pct").label("scroll"),
+                   AnalyticsEvent.created_at.label("at"))
+            .where(AnalyticsEvent.event_type.in_(behaviour.EVENTS), AnalyticsEvent.created_at >= since)
+            .order_by(AnalyticsEvent.created_at).limit(60000)),
     )
 
     n = lambda k: int(r[k] or 0)  # noqa: E731
@@ -811,6 +825,10 @@ async def compute_dashboard(days: int = 30) -> dict:
                 "products": product_periods_rows(r["product_periods"]),
             },
         },
+        "behaviour": behaviour.summarise(
+            {"session": x.session, "type": x.type, "page": x.page, "section": x.section, "name": x.name,
+             "seconds": x.seconds, "scroll": x.scroll, "at": x.at.isoformat() if x.at else None}
+            for x in (r["behaviour"] or [])),
         "acquisition": {
             "by_source": acquisition,
             # True until the storefront carrying attribution has been live

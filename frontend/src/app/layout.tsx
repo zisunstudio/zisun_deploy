@@ -12,6 +12,7 @@ import { WhatsAppFab } from "@/components/WhatsAppFab";
 import CartDrawer from "@/components/CartDrawer";
 import { SessionRestore } from "@/components/SessionRestore";
 import { ReferralCapture } from "@/components/ReferralCapture";
+import { PageTracker } from "@/components/PageTracker";
 import { SignInSheet } from "@/components/SignInSheet";
 import { ViewTransitionSettler } from "@/components/ViewTransitionSettler";
 
@@ -84,6 +85,7 @@ export default function RootLayout({
         />
         <SessionRestore />
         <ReferralCapture />
+        <PageTracker />
         <ViewTransitionSettler />
         <OfflineBanner />
         <WhatsAppFab />

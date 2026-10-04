@@ -271,8 +271,17 @@ under ZISUN's own code needs no mapping.
 takes ₹100 off a buyer's *first* website order (₹500 bag or more), never
 its owner's, once per buyer - so a code that leaks to a coupon site buys
 new customers or nothing. The owner's ₹150 is a `referral_rewards` row,
-pending until the order is DELIVERED and `HOLD_DAYS` (7) have passed, void
-if cancelled or returned. A customer earns store credit; a creator earns
+pending until the order is DELIVERED and `HOLD_DAYS` (14: the whole
+exchange process) have passed, void if cancelled or returned, and
+**reversed** if the order comes back after it was earned (cash already
+paid is listed in the console to deduct). "First order" is checked on the
+household as well as the account (`check_address`): an account is a phone
+number, so a second SIM was a second first order and an owner could refer
+herself. An order can only come back if someone records it: the console's
+"Came back" sets RETURNED (the status existed with no way to reach it).
+The public wording is `/share`, written as a policy and a thank-you -
+never "earn", no urgency, no ranking, no reminders; `docs/REFERRALS.md`
+has the loophole register. A customer earns store credit; a creator earns
 cash the founder pays by UPI and marks paid. Settlement runs when someone
 reads (her account, the console, a checkout spending credit), never on a
 beat schedule - the Upstash budget. Store credit is **derived, never
@@ -318,6 +327,41 @@ it, so the sources panel reads a traffic source only from events that carry
 `medium` (`traffic_source()`), counts each visit once, and the console names
 sources in words ("fb" -> Facebook, "not recorded" -> Before tracking
 started) and merges rows that share a name.
+
+**A visit is recorded when she arrives, not when she looks at a piece.**
+Until 2026-10-04 nothing fired on arrival: a session existed only once a
+card had sat on screen or a piece was opened, so a visitor who landed and
+left was never counted and her UTM tags were lost with her (they are read
+from the landing URL, which one internal click replaces). `PageTracker`
+(in the root layout) sends `page_view` on every storefront route after
+capturing attribution, `page_engaged` once when she leaves a page (seconds
+the tab was visible, furthest scroll), and `cta_click` for anything
+carrying `data-track`; `useSectionView` sends `section_viewed` for
+home-page sections. `services/behaviour.py` turns them into the board's
+panels, counted in visits and never raw events, and it is pure so its
+definitions are unit-tested. The impression guard is reset on each route
+(it was a module-level set never cleared, so a piece seen on the home page
+was not counted again on /shop). Adding a button a founder would ask
+about means giving it `data-track` and a plain-words name in
+`admin/Behaviour.tsx`. It measures; it never records what she types.
+
+**A console form is markup, not a component declared inside its page.**
+The inventory edit form was `function EditForm` inside the page
+component: a new component type on every render, so React rebuilt the
+form on each keystroke, the input lost focus after every character and a
+phone's keyboard closed. It is a function that returns markup now. The
+same page could change a colour but never clear one (null meant "not
+sent"): the API reads `model_fields_set`, so an empty value clears and an
+absent one is left alone.
+
+**Photograph controls are buttons, not hover.** Delete and reorder
+appeared only on mouse hover, so on the phone the shop is run from a
+photograph could not be removed or moved at all, and there was no replace:
+delete-then-upload sent the new picture to the end and quietly changed the
+cover. `PUT .../media/{id}/replace` keeps the row, its position and its
+colour tag. Several photographs chosen together upload one after another
+(they raced, each overwriting the list), and a refused storage upload is
+no longer confirmed as a gallery row.
 
 **Buy now is not an event.** The storefront sends `add_to_cart` with
 `properties.via = "buy_now"`. A dashboard column counting an event named

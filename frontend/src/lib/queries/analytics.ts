@@ -64,13 +64,23 @@ export function trackEvent(event_type: string, properties: Record<string, unknow
     // for anything else - they will be overwritten (see `opened_from`).
     properties: { ...properties, ...attributionFields(), visitor: visitorId(), returning: isReturning() },
   });
+  // Three seconds, not ten: most visits from a reel are shorter than ten
+  // seconds, and an in-app browser that is swiped away does not always fire
+  // the events the unload flush below relies on.
   if (_timer) clearTimeout(_timer);
-  _timer = setTimeout(flush, 10_000);
+  _timer = setTimeout(flush, 3_000);
+}
+
+/** Send what is queued now - for the moment a page is being left. */
+export function flushEvents(): void {
+  if (_timer) { clearTimeout(_timer); _timer = null; }
+  flush();
 }
 
 // Flush on page unload
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", flush);
+  window.addEventListener("pagehide", flush);
   window.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush();
   });

@@ -17,7 +17,9 @@ class ReferralReward(BaseModel):
     passed, or pending -> void if it was cancelled or came back. A creator's
     earned cash becomes `paid` when the founder marks the UPI transfer done;
     a customer's earned reward is store credit and counts towards her
-    balance the moment it is earned.
+    balance the moment it is earned. If the order comes back after that, the
+    reward becomes `reversed`: credit leaves the balance (which is derived),
+    and cash already paid is shown as owed back against future earnings.
     """
     __tablename__ = "referral_rewards"
 
@@ -32,3 +34,6 @@ class ReferralReward(BaseModel):
     delivered_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     earned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # Why a reward is void or reversed, in words the console can show.
+    reason: Mapped[Optional[str]] = mapped_column(String(120))
+    reversed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

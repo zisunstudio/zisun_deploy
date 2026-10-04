@@ -327,6 +327,10 @@ class CouponPreviewRequest(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
     subtotal_paise: int = Field(..., ge=0, le=10_000_000)
     phone: Optional[str] = Field(default=None, pattern=r"^\+91[6-9]\d{9}$")
+    # Where the parcel is going, so a referral code's household rule is
+    # answered here rather than at the moment she taps Place order.
+    line1: Optional[str] = Field(default=None, max_length=255)
+    pincode: Optional[str] = Field(default=None, max_length=10)
 
 
 @router.post("/coupon-preview", tags=["Checkout"])
@@ -350,6 +354,8 @@ async def coupon_preview(
         buyer_id = await db.scalar(select(User.id).where(User.phone == body.phone))
     try:
         coupon, discount = await CouponService(db).validate_coupon(body.code.strip(), buyer_id, body.subtotal_paise)
+        from app.services import referral  # noqa: PLC0415
+        await referral.check_address(db, coupon, buyer_id, body.line1, body.pincode)
     except HTTPException as exc:
         return {"ok": False, "discount_paise": 0, "message": exc.detail if exc.status_code != 404 else "That code is not one of ours."}
     owner = coupon.owner_label if coupon.owner_user_id else None

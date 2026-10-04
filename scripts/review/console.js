@@ -33,15 +33,16 @@ const FIXTURES = [
   [/\/auth\/refresh/, { user: ADMIN, access_token: "fake.fake.fake", token_type: "bearer" }],
   // Referrals: one creator owed cash (two orders), one customer with credit.
   [/\/referrals\//, {
-    rules: { friend_discount_paise: 10000, reward_paise: 15000, min_order_paise: 50000, hold_days: 7 },
+    rules: { friend_discount_paise: 10000, reward_paise: 15000, min_order_paise: 50000, hold_days: 14 },
     codes: [
-      { code: "PRIYACREATES", kind: "creator", owner: "Priya Raghavendra Rao", phone: "+919876543210", active: true, orders: 3, pending_paise: 15000, earned_paise: 30000, paid_paise: 0 },
+      { code: "PRIYACREATES", kind: "creator", owner: "Priya Raghavendra Rao", phone: "+919876543210", active: true, orders: 3, pending_paise: 15000, earned_paise: 30000, paid_paise: 15000, owed_back_paise: 15000 },
       { code: "ANU482", kind: "customer", owner: "Anu", phone: "+919812345678", active: true, orders: 1, pending_paise: 0, earned_paise: 15000, paid_paise: 0 },
     ],
     rewards: [
       { id: "r1", code: "PRIYACREATES", owner: "Priya Raghavendra Rao", phone: "+919876543210", kind: "cash", status: "earned", amount_paise: 15000, order_id: "o1", order_total_paise: 93900, order_status: "DELIVERED", created_at: "2026-09-20T10:00:00Z", earned_at: "2026-09-27T10:00:00Z" },
       { id: "r2", code: "PRIYACREATES", owner: "Priya Raghavendra Rao", phone: "+919876543210", kind: "cash", status: "earned", amount_paise: 15000, order_id: "o2", order_total_paise: 102400, order_status: "DELIVERED", created_at: "2026-09-19T10:00:00Z", earned_at: "2026-09-26T10:00:00Z" },
       { id: "r3", code: "PRIYACREATES", owner: "Priya Raghavendra Rao", phone: "+919876543210", kind: "cash", status: "pending", amount_paise: 15000, order_id: "o3", order_total_paise: 102400, order_status: "PAYMENT_PENDING", created_at: "2026-09-27T10:00:00Z", earned_at: null },
+      { id: "r4", code: "PRIYACREATES", owner: "Priya Raghavendra Rao", phone: "+919876543210", kind: "cash", status: "reversed", amount_paise: 15000, order_id: "o4", order_total_paise: 124900, order_status: "RETURNED", created_at: "2026-09-10T10:00:00Z", earned_at: "2026-09-24T10:00:00Z", reason: "Paid, then the order came back" },
     ],
   }],
   // Channels: the website plus the marketplaces. Specific routes first, or
@@ -162,6 +163,19 @@ const FIXTURES = [
       money: { collected_paise: 112400, committed_paise: 122300, lost_paise: 216300, refunded_paise: 0, orders: 3, by_kind: { paid: 1, cod_placed: 1, payment_abandoned: 1 } },
       payment: { attempted: 4, succeeded: 1, failed: 1, abandoned: 1, in_flight: 1, success_rate: 33.3, abandon_rate: 33.3, mismatched: 1 },
     },
+    behaviour: {
+      recording_since: "2026-10-04T05:00:00Z", visits: 412, page_views: 933, one_page_visits: 251, glanced_and_left: 96, home_visits: 318,
+      landing: [{ page: "home", visits: 318, share: 0.7718 }, { page: "product", visits: 81, share: 0.1966 }, { page: "shop", visits: 9, share: 0.0218 }, { page: "share", visits: 4, share: 0.0097 }],
+      pages: [
+        { page: "home", views: 371, visits: 318, median_seconds: 21.5, read_half: 0.41, read_to_end: 0.12, measured: 340 },
+        { page: "product", views: 402, visits: 190, median_seconds: 48, read_half: 0.63, read_to_end: 0.22, measured: 371 },
+        { page: "shop", views: 88, visits: 61, median_seconds: 14, read_half: 0.7, read_to_end: 0.55, measured: 80 },
+        { page: "checkout", views: 21, visits: 17, median_seconds: 95, read_half: 0.9, read_to_end: 0.81, measured: 20 },
+        { page: "policy", views: 34, visits: 25, median_seconds: 33, read_half: 0.5, read_to_end: 0.2, measured: 31 },
+      ],
+      home_sections: [{ section: "hero", visits: 318, share: 1 }, { section: "stories", visits: 240, share: 0.7547 }, { section: "drop", visits: 221, share: 0.695 }, { section: "fit", visits: 131, share: 0.4119 }, { section: "receipts", visits: 96, share: 0.3019 }, { section: "mark", visits: 61, share: 0.1918 }, { section: "ask", visits: 44, share: 0.1384 }],
+      clicks: [{ name: "drop_swipe", taps: 180, visits: 180 }, { name: "hero_cta", taps: 121, visits: 104 }, { name: "hero_piece", taps: 52, visits: 49 }, { name: "fit_find_size", taps: 31, visits: 28 }, { name: "ask_whatsapp", taps: 12, visits: 11 }, { name: "nav_bag", taps: 9, visits: 8 }, { name: "receipts_exchange", taps: 6, visits: 6 }],
+    },
     acquisition: { partial: true, by_source: [{ source: "direct", sessions: 72, visitors: 15, orders: 1, collected_paise: 112400, committed_paise: 0, conversion: 0.014 }, { source: "not recorded", sessions: 623, visitors: 580, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "fb", sessions: 18, visitors: 15, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "facebook", sessions: 6, visitors: 5, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "ig", sessions: 3, visitors: 3, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "l.instagram.com", sessions: 4, visitors: 4, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }] },
     attention: {
       by_period: {
@@ -185,7 +199,7 @@ const FIXTURES = [
       products: [{
         id: "p1", name: "Rich Wine Dabu Cotton Bandhani-Inspired Kurta Set with Dupatta & Palazzo", shelf_rank: null,
         impressions: 40, views: 12, views_from_cards: 9, add_to_cart: 1, buy_now: 0, checkout_initiated: 0, intent: 1,
-        whatsapp_clicks: 0, whatsapp_marked_ordered: 0, orders: 1, units_sold: 1, revenue_paise: 112400, buy_rate: 8.3, ctr: 22.5, cart_rate: 8.3, attention: 3.4, stock_left: 28, lowest_variant: null,
+        whatsapp_clicks: 0, whatsapp_marked_ordered: 0, orders: 1, units_sold: 1, revenue_paise: 112400, buy_rate: 8.3, ctr: 0.225, cart_rate: 0.083, attention: 3.4, stock_left: 28, lowest_variant: null,
         journey: [
           { key: "impressions", label: "Shown", count: 40 }, { key: "views", label: "Opened", count: 12 },
           { key: "intent", label: "Bag or buy now", count: 1 }, { key: "checkout", label: "Checkout started", count: 0 },
@@ -234,6 +248,24 @@ const FIXTURES = [
     }
     const name = p.replace(/\W+/g, "-").replace(/^-|-$/g, "") || "root";
     await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+    // The console scrolls inside its own region, so the shot above is one
+    // screen tall. FULL=1 also walks that region a screen at a time and
+    // writes <name>-01.png, -02.png ... so everything below the fold can be
+    // looked at. (Resizing the viewport instead made the layout repeat.)
+    if (process.env.FULL) {
+      const shots = await page.evaluate(() => {
+        const sc = [...document.querySelectorAll("*")].filter((el) => /(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 4)
+          .sort((a, b) => b.scrollHeight - a.scrollHeight)[0] || document.scrollingElement;
+        window.__sc = sc;
+        return Math.ceil(sc.scrollHeight / (sc.clientHeight * 0.9));
+      });
+      for (let i = 0; i < Math.min(shots, 40); i++) {
+        await page.evaluate((k) => { const sc = window.__sc; sc.scrollTop = k * sc.clientHeight * 0.9; }, i);
+        await page.waitForTimeout(250);
+        await page.screenshot({ path: `${OUT}/${name}-${String(i + 1).padStart(2, "0")}.png` });
+      }
+      await page.evaluate(() => { window.__sc.scrollTop = 0; });
+    }
 
     // The failure this harness exists to catch: anything wider than the phone.
     const over = await page.evaluate(() => {

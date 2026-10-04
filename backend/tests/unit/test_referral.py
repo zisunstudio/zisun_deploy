@@ -31,6 +31,57 @@ class TestSettleDecision:
         assert referral.settle_decision(OrderStatus.DELIVERED, seen, done) == ("earned", NOW)
 
 
+    def test_earned_or_paid_is_reversed_only_when_the_order_comes_back(self):
+        for current in ("earned", "paid"):
+            assert referral.settle_decision(OrderStatus.DELIVERED, NOW, NOW, current)[0] == current
+            assert referral.settle_decision(OrderStatus.RETURNED, NOW, NOW, current)[0] == "reversed"
+
+    def test_finished_states_never_move(self):
+        for current in ("void", "reversed", "recovered"):
+            for s in (OrderStatus.DELIVERED, OrderStatus.RETURNED, OrderStatus.CANCELLED):
+                assert referral.settle_decision(s, NOW, NOW + timedelta(days=99), current)[0] == current
+
+    def test_hold_covers_the_whole_exchange_process(self):
+        # 24h to raise + 3 days to post back + up to 8 days in transit
+        assert referral.HOLD_DAYS >= 1 + 3 + 8
+
+
+class TestHousehold:
+    def test_one_household_however_it_is_typed(self):
+        a = referral.address_key("Flat 12, Rose Apartments", "560001")
+        assert a == referral.address_key("flat 12 rose apartments.", "560 001")
+        assert a != referral.address_key("Flat 13, Rose Apartments", "560001")
+        assert a != referral.address_key("Flat 12, Rose Apartments", "560002")
+
+    async def test_ordinary_coupon_skips_the_address_check(self):
+        db = AsyncMock()
+        await referral.check_address(db, MagicMock(owner_user_id=None), uuid.uuid4(), "x", "560001")
+        db.execute.assert_not_called()
+
+    async def test_owner_address_is_refused(self):
+        owner = uuid.uuid4()
+        db = AsyncMock()
+        row = MagicMock(user_id=owner, line1="12 Rose Apts", pincode="560001", id=uuid.uuid4())
+        db.execute.return_value = MagicMock(all=lambda: [row])
+        with pytest.raises(HTTPException) as e:
+            await referral.check_address(db, MagicMock(owner_user_id=owner), uuid.uuid4(), "12, rose apts", "560001")
+        assert "at this address" in e.value.detail
+
+    async def test_address_that_has_ordered_before_is_refused(self):
+        db = AsyncMock()
+        row = MagicMock(user_id=uuid.uuid4(), line1="12 Rose Apts", pincode="560001", id=uuid.uuid4())
+        db.execute.return_value = MagicMock(all=lambda: [row])
+        db.scalar.return_value = 1
+        with pytest.raises(HTTPException) as e:
+            await referral.check_address(db, MagicMock(owner_user_id=uuid.uuid4()), uuid.uuid4(), "12 Rose Apts", "560001")
+        assert "first order" in e.value.detail
+
+    async def test_new_household_passes(self):
+        db = AsyncMock()
+        db.execute.return_value = MagicMock(all=lambda: [])
+        await referral.check_address(db, MagicMock(owner_user_id=uuid.uuid4()), uuid.uuid4(), "9 New Road", "560001")
+
+
 class TestCodes:
     def test_stem_is_her_first_name(self):
         assert referral.code_stem("Priya Sharma") == "PRIYA"
