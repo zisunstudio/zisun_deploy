@@ -276,5 +276,12 @@ Rules that came out of it:
   space and whether a normal-mode frame of the same scene exists.
 - **Normal-mode camera JPEGs are left as the camera made them.** Lifting
   their shadows to "match" made the teal set hazy. Crop only.
+- **A lowercase `.jpg` tagged sRGB is not a camera original either.** Four
+  files in that shoot (IMG_9446, 9455, 9456, 9457: about 27 MB, no `MP`
+  segment) are someone's conversion of an HDR frame, and they are dull. One
+  went up as the Teal lead labelled "as the camera made it". Only a file
+  with the Canon's `MP` segment is a camera JPEG; a converted copy is never
+  used when an original or an HDR frame of the same view exists.
+- **Check a source's kind for every photograph chosen, not for a sample.**
 - `harmonise.py`'s automatic cloth mask picked skin and road on striped and
   dark pieces here; where it is used, check its mask overlay first.
