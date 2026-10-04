@@ -444,6 +444,20 @@ period needs no request. The single exception is a custom date range,
 which cannot be precomputed: `GET /dashboard/product-attention?start&end`,
 called only when she picks Custom.
 
+**The report she downloads is the board, not a second calculation.**
+`lib/report/build.ts` turns the dashboard payload already on screen into
+sections of small tables; `markdown.ts` and `pdf.ts` only render it. No
+request, no arithmetic of their own, and the range filter decides the
+period - a figure that differed between the PDF, the file and the screen
+would be a second source of truth. The AI file is Markdown, not JSON: the
+assistants read tables as well, she can read it herself, and it carries
+its instructions (use only these numbers, say when a number is too small,
+plain words, her question last). jsPDF loads only on the tap; its built-in
+fonts have no rupee sign, so the PDF writes "Rs" (`forPdf`). Every name
+shown comes from `lib/report/labels.ts`, shared with the board, so a new
+button or page kind is named once. Neither file holds a customer's name,
+number or address, and both say so - they exist to be passed on.
+
 **Two AI providers, and the console names the one that answered.**
 The Anthropic account ran out of credits and every console AI feature died
 at the same moment - the daily brief, the listing drafter, styling notes,

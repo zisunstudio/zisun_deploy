@@ -2,6 +2,7 @@
 
 import { Card, TableScroll, td, th } from "@/components/admin/ui";
 import { BarList, fmtInt } from "@/components/admin/charts";
+import { CLICK, PAGE, SECTION, label } from "@/lib/report/labels";
 
 /**
  * What visitors did, in the founder's words.
@@ -25,25 +26,8 @@ export type BehaviourData = {
   clicks: { name: string; taps: number; visits: number }[];
 };
 
-const PAGE: Record<string, string> = {
-  home: "Home page", product: "A piece's page", shop: "The collection", category: "A category", search: "Search",
-  journal: "Journal", article: "A journal article", checkout: "Checkout", order: "Order tracking", orders: "Her orders",
-  login: "Sign-in", profile: "Her account", wishlist: "Wishlist", policy: "A policy page", share: "Sharing ZISUN", other: "Another page",
-};
-const SECTION: Record<string, string> = {
-  hero: "Opening photo", stories: "Story circles", drop: "The drop (swipe row)", offers: "Offers and coupons",
-  fit: "The fit, 153 cm", ways: "Ways to wear", receipts: "Prices and delivery", mark: "ZISUN mark", ask: "Ask Sushmita",
-};
-const CLICK: Record<string, string> = {
-  hero_cta: "\"Swipe the drop\" button", hero_piece: "The piece named on the opening photo", drop_swipe: "Swiped the drop row",
-  drop_swipe_to_end: "Swiped to the last piece", drop_see_all: "\"See all\"", fit_find_size: "\"Find your size\"",
-  receipts_shipping: "Shipping policy link", receipts_exchange: "Exchange policy link", ask_whatsapp: "\"Message on WhatsApp\"",
-  nav_search: "Search icon", nav_account: "Account icon", nav_bag: "Bag icon", nav_everything: "\"Everything\" link",
-  share_whatsapp: "Shared her code on WhatsApp", share_copy: "Copied her code link", share_terms: "\"How sharing works\"",
-};
 const pct = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`);
 const secs = (s: number | null) => (s == null ? "—" : s < 60 ? `${Math.round(s)} sec` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} sec`);
-const label = (map: Record<string, string>, k: string) => map[k] ?? k.replace(/_/g, " ");
 
 export function Behaviour({ b, part, Section, Stat }: {
   b: BehaviourData | undefined;

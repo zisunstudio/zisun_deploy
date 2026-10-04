@@ -7,6 +7,8 @@ import { adminApi } from "@/lib/adminApi";
 import { Page, Card, Button, Pill, StockBadge, Swatch, Sku, TableScroll, LinkButton, th, td } from "@/components/admin/ui";
 import { BarList, Funnel, StatTile, TrendChart, compact, fmtInt, fmtRupees } from "@/components/admin/charts";
 import { Behaviour, type BehaviourData } from "./Behaviour";
+import { SOURCE_NOTES, mergeSources, sourceName } from "@/lib/report/labels";
+import { ReportButtons } from "./ReportButtons";
 
 /**
  * The founder's board.
@@ -70,50 +72,6 @@ const TILES: { key: MetricKey; label: string; money?: boolean; note?: string; hi
   { key: "orders", label: "Orders", note: "placed and not cancelled", hint: "Orders placed each day - website and marketplaces, cancelled ones left out." },
   { key: "collected_paise", label: "Collected", money: true, hint: "Money in, by the day the order was placed: prepaid paid, COD delivered, marketplace settled." },
 ];
-
-/**
- * A traffic source in words she would use. The stored value is whatever
- * the link or the ad said - "fb", "ig", "l.instagram.com" - and the panel
- * used to print it as is, which is how "Fb" and "Hero" reached the founder.
- */
-const SOURCE_NAMES: Record<string, string> = {
-  fb: "Facebook", facebook: "Facebook", "facebook.com": "Facebook", "m.facebook.com": "Facebook", meta: "Facebook",
-  ig: "Instagram", instagram: "Instagram", "instagram.com": "Instagram", "l.instagram.com": "Instagram",
-  google: "Google", "google.com": "Google", "google.co.in": "Google",
-  whatsapp: "WhatsApp", wa: "WhatsApp", "wa.me": "WhatsApp",
-  youtube: "YouTube", "youtube.com": "YouTube", yt: "YouTube",
-  pinterest: "Pinterest", "pinterest.com": "Pinterest", "in.pinterest.com": "Pinterest",
-  bing: "Bing", "bing.com": "Bing", chatgpt: "ChatGPT", "chatgpt.com": "ChatGPT",
-  direct: "Typed in or saved link",
-  "not recorded": "Before tracking started",
-};
-const SOURCE_NOTES: Record<string, string> = {
-  direct: "They typed zisun.in, used a bookmark, or tapped a link that did not say where it came from (a WhatsApp forward often looks like this).",
-  "not recorded": "Visits from before 23 Sept, when the site started noting where each visitor came from. Unknown, not direct.",
-};
-function sourceName(raw: string): string {
-  const k = raw.toLowerCase().trim();
-  if (SOURCE_NAMES[k]) return SOURCE_NAMES[k];
-  const host = k.replace(/^(www|m|l|lm)\./, "");
-  if (SOURCE_NAMES[host]) return SOURCE_NAMES[host];
-  const word = host.replace(/\.(com|in|co\.in|net|org)$/, "");
-  return word.charAt(0).toUpperCase() + word.slice(1);
-}
-
-type SourceRow = { source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null };
-/** "fb" and "facebook" are one channel; show one row, largest first. */
-function mergeSources(rows: SourceRow[]): SourceRow[] {
-  const by = new Map<string, SourceRow>();
-  for (const r of rows) {
-    const name = sourceName(r.source);
-    const m = by.get(name);
-    if (!m) { by.set(name, { ...r }); continue; }
-    m.sessions += r.sessions; m.visitors += r.visitors; m.orders += r.orders;
-    m.collected_paise += r.collected_paise; m.committed_paise += r.committed_paise;
-    m.conversion = m.sessions ? m.orders / m.sessions : null;
-  }
-  return Array.from(by.values()).sort((a, b) => b.sessions - a.sessions);
-}
 
 const rupees = (paise: number) => "₹" + Math.round(paise / 100).toLocaleString("en-IN");
 const pct = (r: number | null | undefined) => (r == null ? "—" : `${Math.round(r * 100)}%`);
@@ -353,7 +311,8 @@ export default function AdminAnalytics() {
     : `The last ${meta.window_days} days`;
 
   return (
-    <Page title="Analytics" description={`${rangeLabel}${generated ? ` · updated ${generated}` : ""}`}>
+    <Page title="Analytics" description={`${rangeLabel}${generated ? ` · updated ${generated}` : ""}`}
+      actions={<ReportButtons data={isPlaceholderData ? undefined : data} />}>
       <Brief />
       {meta.errors?.length ? <p className="mb-3 text-xs text-amber-700">Some panels are missing: {meta.errors.join("; ")}.</p> : null}
 
