@@ -379,6 +379,10 @@ class ProductUpdate(LegalMetrologyFields, FabricSpecFields, GarmentAttributeFiel
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     base_price: Optional[int] = Field(None, ge=0)
+    # A price update needs to know whether the entered amount already includes
+    # GST. ProductBase owns the required create-time field; an update may omit
+    # it and retain the product's existing setting.
+    price_includes_tax: Optional[bool] = None
     category_id: Optional[uuid.UUID] = None
     # Products can be taken off sale without being deleted. The console sends
     # this field for Hide/Show and the full editor's visibility switch.
