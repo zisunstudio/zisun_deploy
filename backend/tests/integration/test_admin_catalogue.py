@@ -61,6 +61,27 @@ def _scalar_value(value):
 # ── Admin Products ────────────────────────────────────────────────────────────
 
 class TestAdminProductRoutes:
+    async def test_update_can_hide_a_product(self, mock_db):
+        """Hide/Show must change the row, rather than being ignored by PUT."""
+        from fastapi import BackgroundTasks
+        from app.api.admin.endpoints.products import admin_update_product
+        from app.models.catalog import Product
+        from app.schemas.catalog import ProductUpdate
+
+        product = Product(name="Test", base_price=50000, is_active=True)
+        product.variants = []
+        product.media = []
+        product.category = None
+        mock_db.execute = AsyncMock(return_value=_scalar_value(product))
+
+        updated = await admin_update_product(
+            uuid.uuid4(), ProductUpdate(is_active=False), BackgroundTasks(), mock_db
+        )
+
+        assert updated is product
+        assert product.is_active is False
+        mock_db.commit.assert_awaited_once()
+
     async def test_regular_user_gets_403(self, app_client, mock_db):
         """Regular-user token must be rejected by admin endpoints."""
         mock_db.execute = AsyncMock(return_value=_empty_scalars())

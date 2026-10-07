@@ -201,6 +201,8 @@ async def admin_update_product(
         product.price_entered = data.base_price
     if data.category_id is not None:
         product.category_id = data.category_id
+    if data.is_active is not None:
+        product.is_active = data.is_active
     # Only the declarations actually submitted, so editing a price cannot blank
     # a product's dimensions by omission.
     for column, value in data.declaration_values().items():

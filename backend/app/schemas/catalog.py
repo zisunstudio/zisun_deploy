@@ -380,6 +380,9 @@ class ProductUpdate(LegalMetrologyFields, FabricSpecFields, GarmentAttributeFiel
     description: Optional[str] = None
     base_price: Optional[int] = Field(None, ge=0)
     category_id: Optional[uuid.UUID] = None
+    # Products can be taken off sale without being deleted. The console sends
+    # this field for Hide/Show and the full editor's visibility switch.
+    is_active: Optional[bool] = None
 
 
 def _usable_net_quantity(stored) -> Optional[str]:
