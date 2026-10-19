@@ -29,10 +29,11 @@ def test_percentage_when_the_base_is_real():
     assert "150 visits this week, +50% on last week." in b["bullets"]
 
 
-def test_unanswered_enquiries_are_critical():
-    b = d._rule_brief(_facts(whatsapp={"unanswered": 3, "enquiries_week": 5}))
-    assert b["headline"] == "Something needs you today."
-    assert any("waited over a day" in c for c in b["critical"])
+def test_unmarked_taps_are_not_an_emergency():
+    # A tap is not a message. 22 taps nobody marked were once reported as
+    # 22 customers waiting for a reply.
+    b = d._rule_brief(_facts(whatsapp={"unanswered": 22, "enquiries_week": 5}))
+    assert not any("waited" in c for c in b["critical"])
 
 
 def test_browse_mode_never_says_quiet_day():

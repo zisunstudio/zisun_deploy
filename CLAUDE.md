@@ -311,7 +311,11 @@ WhatsApp enquiries on top. On a realistic set of eight orders that reported
 `recordEnquiry` fires on *click*; the site cannot know a message was ever
 sent. The payload says `whatsapp_clicks` and `whatsapp_marked_ordered`
 (the founder ticking an enquiry by hand) and neither may sit unlabelled
-beside real orders or be added to them.
+beside real orders or be added to them. The same goes for the nag: an
+enquiry row still NEW after a day is a tap nobody marked, not a customer
+waiting, so it is a count in the WhatsApp table and never a "critical"
+flag or a brief line - on 2026-10-19 the console demanded replies to 22
+"enquiries" that were 22 taps.
 
 **Attribution owns `source`, `medium`, `campaign`, `content` and
 `referrer_domain` on every event.** `trackEvent` spreads them after the

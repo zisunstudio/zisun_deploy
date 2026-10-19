@@ -263,7 +263,7 @@ export function buildReport(d: ReportInput, now: Date = new Date()): Report {
   if (w && w.enquiries_window > 0) sections.push({
     title: "WhatsApp",
     note: "\"Marked ordered\" is the founder ticking an enquiry by hand. It is not a website order and is not counted in the money above.",
-    table: { columns: ["", "Count"], rows: [["WhatsApp taps", int(w.enquiries_window)], ["Marked ordered by hand", int(w.ordered_window)], ["Value marked by hand", rs(w.revenue_window_paise)], ["Waiting more than a day for a reply", int(w.unanswered)]] },
+    table: { columns: ["", "Count"], rows: [["WhatsApp taps", int(w.enquiries_window)], ["Marked ordered by hand", int(w.ordered_window)], ["Value marked by hand", rs(w.revenue_window_paise)], ["Taps not yet marked (the site cannot see whether a message was sent)", int(w.unanswered)]] },
   });
 
   // 12. Stock

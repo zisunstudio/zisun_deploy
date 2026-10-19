@@ -861,8 +861,10 @@ async def compute_dashboard(days: int = 30) -> dict:
             "href": "/admin/orders",
         })
 
-    if n("unanswered"):
-        items.append({"severity": "critical", "title": f"{n('unanswered')} WhatsApp {'enquiry has' if n('unanswered') == 1 else 'enquiries have'} waited over a day for a reply", "body": "A reply within the hour is what turns an enquiry into an order.", "href": "/admin/enquiries"})
+    # A WhatsApp tap is recorded on the click; the site cannot see whether a
+    # message followed. "Unanswered" is therefore taps nobody marked, not
+    # customers waiting - it used to be flagged as critical, and on 2026-10-19
+    # named 22 "enquiries" that were 22 taps. It stays a number in the table.
     wanted_and_low = [p for p in products_attention if p["views"] >= 10 and p["lowest_variant"] and p["lowest_variant"]["stock"] <= 2]
     for p in wanted_and_low[:3]:
         lv = p["lowest_variant"]; where = " / ".join(x for x in (lv["size"], lv["colour"]) if x) or "one size"
@@ -1142,8 +1144,6 @@ def _rule_brief(f: dict) -> dict:
         bullets.append(f"This week: {f['week']['orders']} orders, {rs(f['week']['revenue_paise'])}." + (f" Today: {f['today']['orders']}, {rs(f['today']['revenue_paise'])}." if f["today"]["orders"] else ""))
     if f["week"]["top_products"]:
         bullets.append("Most opened: " + ", ".join(f"{p['name']} ({p['views']})" for p in f["week"]["top_products"]) + ".")
-    if f["whatsapp"]["unanswered"]:
-        critical.append(f"{f['whatsapp']['unanswered']} WhatsApp {'enquiry has' if f['whatsapp']['unanswered'] == 1 else 'enquiries have'} waited over a day for a reply.")
     if f["orders"]["waiting_to_ship_over_2_days"]:
         critical.append(f"{f['orders']['waiting_to_ship_over_2_days']} paid orders have waited over two days to ship.")
     if f["orders"]["cod_unconfirmed"]:
