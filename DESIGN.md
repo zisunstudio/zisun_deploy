@@ -439,10 +439,23 @@ The research behind it said four things, and each one became a section:
 Everything else follows the rules above. Every photograph goes through
 `Photo`. Product cards carry no buttons. Burgundy is used only for the
 primary action and the WhatsApp button. Brand lines come from `truth.ts`.
-In browse mode it says nothing about stock. The rail is a native
-`snap-x` scroller: swipe on a phone, arrow keys on a desktop, and a focus
-ring when reached by keyboard. Every standalone link is at least 44px tall
-(WCAG 2.2 asks for 24px).
+In browse mode it says nothing about stock. Every standalone link is at
+least 44px tall (WCAG 2.2 asks for 24px).
+
+**Amended 19 Oct 2026, from the numbers.** The drop was a sideways
+`snap-x` rail and the first screen's one action was "Swipe the drop". In
+the week of 13 Oct, 2,029 visits (98% from Instagram and Facebook ads)
+gave that button 14 taps and the thin "Worn: ..." credit line 2; 520
+swiped the rail, 284 opened a piece, 60% left in under ten seconds. The
+thesis said "the product grid arrives fourth" - but a woman who tapped a
+reel of a kurta arrives wanting that kurta, its price and her size, and
+her thumb moves down. So: the first screen keeps the photograph and the
+line, and its one action is now the piece she is wearing - name, price,
+sizes in stock - with "See the drop" as the quiet second; the drop is the
+pieces one below the other, full width, with the sizes she can buy under
+the price; a piece left in one size goes to the end of the feed rather
+than teaching the third visitor in a row that the shop is empty. The
+Stories row stays: it was reached by 89%. Cards still carry no buttons.
 
 **Deliberately not built:**
 

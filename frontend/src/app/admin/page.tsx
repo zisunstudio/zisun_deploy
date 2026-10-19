@@ -55,7 +55,7 @@ type Dash = {
     payment: { attempted: number; succeeded: number; failed: number; abandoned: number; in_flight: number; success_rate: number | null; abandon_rate: number | null; mismatched: number };
   };
   behaviour?: BehaviourData;
-  acquisition?: { by_source: Array<{ source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null }>; partial: boolean };
+  acquisition?: { by_source: Array<{ source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null }>; by_campaign?: CampaignRow[]; partial: boolean };
   attention: { by_period?: ByPeriod; sessions: number; sessions_previous?: number; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
   inventory: { units: number; variants: number; by_size: { size: string; variants: number; units: number }[]; low_stock: { product: string; size: string; colour?: string; sku: string; stock: number }[]; low_stock_threshold: number };
 };
@@ -260,6 +260,8 @@ function Journey({ p }: { p: ProductRow }) {
   );
 }
 
+type CampaignRow = { source: string; campaign: string; content: string; sessions: number; visitors: number; orders: number; collected_paise: number; committed_paise: number };
+
 export default function AdminAnalytics() {
   const [days, setDays] = useState<7 | 30 | 90>(7);
   const [metric, setMetric] = useState<MetricKey>("sessions");
@@ -414,6 +416,18 @@ export default function AdminAnalytics() {
                   detail: `${SOURCE_NOTES[s.source] ? SOURCE_NOTES[s.source] + " " : ""}${fmtInt(s.visitors)} ${s.visitors === 1 ? "person" : "people"} · ${s.orders} ${s.orders === 1 ? "order" : "orders"} · ${fmtRupees(s.collected_paise)} collected${s.committed_paise ? `, ${fmtRupees(s.committed_paise)} owed` : ""}${s.conversion != null ? ` · ${pct(s.conversion)} ordered` : ""}`,
                 }))} />
             </div>
+            {(acquisition.by_campaign?.length ?? 0) > 0 && (
+              <div className="px-4 sm:px-5 pb-4 border-t border-gray-100 pt-4">
+                <BarList caption="Visits by ad or post" valueName="Visits"
+                  rows={(acquisition.by_campaign ?? []).map((c) => ({
+                    key: `${c.source}|${c.campaign}|${c.content}`,
+                    label: `${c.campaign}${c.content ? ` · ${c.content}` : ""}`,
+                    value: c.sessions,
+                    detail: `${sourceName(c.source)} · ${fmtInt(c.visitors)} ${c.visitors === 1 ? "person" : "people"} · ${c.orders} ${c.orders === 1 ? "order" : "orders"}`,
+                  }))} />
+                <p className="mt-2 text-[11px] text-gray-500">The name of the ad or post is the <code>utm_campaign</code> and <code>utm_content</code> on its link. A link without them shows only under its source above.</p>
+              </div>
+            )}
             {acquisition.partial && (
               <p className="px-4 py-2.5 text-[11px] text-gray-500 border-t border-gray-100">
                 &ldquo;Before tracking started&rdquo; is visits and orders from before 23 Sept, when the site began noting where each visitor came from. They are not direct visits &mdash; they are simply unknown, and this row shrinks as the date range moves past it.

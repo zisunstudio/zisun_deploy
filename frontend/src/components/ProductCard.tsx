@@ -20,9 +20,20 @@ interface Props {
   className?: string;
   /** Off when every piece on the page is new - then the badge distinguishes nothing. */
   markNew?: boolean;
+  /** The `sizes` hint for the photograph; a full-width card needs a larger one than a grid cell. */
+  sizes?: string;
+  /** The sizes she can buy, under the price. Silent in browse mode, like every stock fact. */
+  showSizes?: boolean;
 }
 
-export function ProductCard({ product, className = "", markNew = true }: Props) {
+/** Size labels in the order they are worn, from the variants that have stock. */
+export function sizesLeft(product: Product): string[] {
+  const order = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL"];
+  const have = new Set(product.variants.filter((v) => v.is_active && v.stock > 0 && v.size).map((v) => (v.size as string).toUpperCase().replace("XXXL", "3XL").replace("XXL", "2XL")));
+  return [...order.filter((x) => have.has(x)), ...Array.from(have).filter((x) => !order.includes(x))];
+}
+
+export function ProductCard({ product, className = "", markNew = true, sizes = "(max-width: 768px) 50vw, 33vw", showSizes = false }: Props) {
   const router = useRouter();
   // Counts this card as shown once it has been half-visible for a
   // moment, giving the view count a denominator.
@@ -66,7 +77,7 @@ export function ProductCard({ product, className = "", markNew = true }: Props) 
       <Photo
         src={imageUrl}
         alt={product.name}
-        sizes="(max-width: 768px) 50vw, 33vw"
+        sizes={sizes}
         focus={productImageFocus(product)}
         hover
       >
@@ -110,6 +121,12 @@ export function ProductCard({ product, className = "", markNew = true }: Props) 
           <span className="text-muted text-xs line-through">{formatPrice(product.offer.compare_at_price)}</span>
         ) : null}
       </p>
+      {showSizes && !BROWSE_ONLY && !isOutOfStock && (() => {
+        const left = sizesLeft(product);
+        return left.length > 0
+          ? <p className="mt-1 text-[11px] text-muted tracking-wide">{left.length === 1 ? `Only ${left[0]} left` : `Sizes ${left.join(" · ")}`}</p>
+          : null;
+      })()}
     </div>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowRight, MessageCircle, Search, ShoppingBag, User } from "lucide-react";
 
 import { Photo } from "@/components/Photo";
-import { ProductCard } from "@/components/ProductCard";
+import { ProductCard, sizesLeft } from "@/components/ProductCard";
 import { Stories } from "@/components/Stories";
 import { WaysToWear } from "@/components/WaysToWear";
 import { PieceWeave } from "@/components/PieceWeave";
@@ -44,8 +44,11 @@ import { useAuthStore } from "@/store/useAuthStore";
  *    So the language is the label's own - ivory, burgundy, one serif - moving
  *    with confidence rather than shouting. Nothing loops, nothing counts
  *    down, nothing claims a scarcity that is not true.
- *  - They browse in full-screen stories and sideways swipes. So the drop is
- *    both: the Stories row, then a swipe rail of pieces.
+ *  - They browse in full-screen stories, and they scroll DOWN. The drop was
+ *    a sideways rail for three weeks: 2,029 visits in the week of 13 Oct 2026
+ *    gave it 520 swipes and 284 opens, and the thumb's own motion - down -
+ *    carried 64% past it. So the pieces now sit one below the other, full
+ *    width, in the direction the thumb already moves; the Stories row stays.
  *  - They arrive in Instagram's in-app browser on mid-range Android. So
  *    nothing here needs WebGPU or a heavy library; motion is transform and
  *    opacity only, and reduced-motion gets the finished page.
@@ -55,7 +58,16 @@ import { useAuthStore } from "@/store/useAuthStore";
  * from lib/truth.ts - the page states nothing the catalogue does not record.
  */
 
-const RAIL_GAP = 16;
+const sizesInStock = sizesLeft;
+
+/** Shelf order, except that a piece left in one size goes last: a feed that
+ *  opens on "only 2XL left" three times teaches a visitor the shop is empty. */
+export function feedOrder(pieces: Product[]): Product[] {
+  if (BROWSE_ONLY) return pieces;
+  const full = pieces.filter((p) => sizesInStock(p).length > 1);
+  const thin = pieces.filter((p) => sizesInStock(p).length <= 1);
+  return [...full, ...thin];
+}
 
 function colours(p: Product): string[] {
   return Array.from(new Set(p.variants.filter((v) => v.is_active && v.color).map((v) => v.color as string)));
@@ -127,8 +139,9 @@ function KineticLine({ text, italic, delay = 0 }: { text: string; italic?: boole
 function Hero({ lead, truth }: { lead: Product | undefined; truth: Truth }) {
   const eyebrow = heroEyebrow(truth);
   const scrollToDrop = () => document.getElementById("drop")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const sizes = lead ? sizesInStock(lead) : [];
   return (
-    <section className="relative h-[86svh] min-h-[520px] max-h-[980px] overflow-hidden bg-ink" aria-label="ZISUN">
+    <section className="relative h-[80svh] min-h-[520px] max-h-[900px] overflow-hidden bg-ink" aria-label="ZISUN">
       {lead && (
         <Photo
           src={productImageUrl(lead)}
@@ -151,20 +164,34 @@ function Hero({ lead, truth }: { lead: Product | undefined; truth: Truth }) {
           <KineticLine text={HERO.headlineItalic} italic delay={0.25} />
         </h1>
         <p className="mt-4 max-w-[34ch] text-[15px] leading-snug text-porcelain/85">{MANIFESTO.lines[0]}</p>
+        {/* The one action is the piece she is wearing. A visitor from a reel
+            tapped a kurta, not a slogan: in the week of 13 Oct 2026 the
+            "Swipe the drop" button got 14 taps and the thin credit line 2,
+            from 2,029 visits. Now the button names the piece, its price and
+            the sizes she can buy, and the drop is one scroll below. */}
         <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
+          {lead ? (
+            <Link
+              href={`/product/${lead.id}`}
+              data-track="hero_piece"
+              onClick={() => markOpenSource("hero")}
+              className="inline-flex items-center gap-2 min-h-12 px-6 py-3 rounded-full bg-burgundy text-porcelain text-sm font-semibold active:scale-[0.98] transition-transform"
+            >
+              <span>
+                {HERO.credit}: {shortName(lead.name)} · {formatPrice(lead.base_price)}
+                {!BROWSE_ONLY && sizes.length > 0 && <span className="block text-[11px] font-normal text-porcelain/80 tracking-wide">{sizes.length > 1 ? `${sizes[0]} to ${sizes[sizes.length - 1]}` : `only ${sizes[0]} left`}</span>}
+              </span>
+              <ArrowRight className="w-4 h-4 shrink-0" aria-hidden />
+            </Link>
+          ) : null}
           <button
             type="button"
             data-track="hero_cta"
             onClick={scrollToDrop}
-            className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-burgundy text-porcelain text-sm font-semibold active:scale-[0.98] transition-transform"
+            className="inline-flex items-center gap-1.5 min-h-[44px] text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40"
           >
-            Swipe the drop <ArrowDown className="w-4 h-4" aria-hidden />
+            {HERO.cta} <ArrowDown className="w-3.5 h-3.5" aria-hidden />
           </button>
-          {lead && (
-            <Link href={`/product/${lead.id}`} data-track="hero_piece" onClick={() => markOpenSource("hero")} className="inline-flex items-center min-h-[44px] text-[13px] text-porcelain/85 underline underline-offset-4 decoration-porcelain/40">
-              {HERO.credit}: {shortName(lead.name)} · {formatPrice(lead.base_price)}
-            </Link>
-          )}
         </div>
       </div>
     </section>
@@ -183,77 +210,36 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] tracking-[0.22em] uppercase text-burgundy mb-3">{children}</p>;
 }
 
-// ── The drop, as a swipe ─────────────────────────────────────────────────────
+// ── The drop, one below the other ────────────────────────────────────────────
 
-function DropRail({ pieces }: { pieces: Product[] }) {
-  const rail = useRef<HTMLDivElement>(null);
-  const [at, setAt] = useState(0);
-  const furthest = useRef(0);
+function DropFeed({ pieces }: { pieces: Product[] }) {
+  const ordered = useMemo(() => feedOrder(pieces), [pieces]);
+  const last = useRef<HTMLLIElement>(null);
+  const sent = useRef(false);
   useEffect(() => {
-    const el = rail.current;
-    if (!el) return;
-    let frame = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const card = el.firstElementChild as HTMLElement | null;
-        const step = (card?.offsetWidth ?? 1) + RAIL_GAP;
-        const i = Math.min(pieces.length - 1, Math.max(0, Math.round(el.scrollLeft / step)));
-        setAt(i);
-        if (i > furthest.current) {
-          // Once when she first swipes, and once if she reaches the last
-          // piece - enough to know the rail is used, without a stream.
-          if (furthest.current === 0) trackEvent("cta_click", { name: "drop_swipe", page: "home" });
-          if (i === pieces.length - 1) trackEvent("cta_click", { name: "drop_swipe_to_end", page: "home" });
-          furthest.current = i;
-        }
-      });
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => { el.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); };
-  }, [pieces.length]);
-
-  const go = (i: number) => {
-    const el = rail.current;
-    const card = el?.children[i] as HTMLElement | undefined;
-    if (el && card) el.scrollTo({ left: card.offsetLeft - el.offsetLeft, behavior: "smooth" });
-  };
+    // Once, when the last piece has been on screen: the vertical twin of
+    // the old "swiped to the last piece".
+    const el = last.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting) && !sent.current) {
+        sent.current = true;
+        trackEvent("cta_click", { name: "drop_scroll_to_end", page: "home" });
+        io.disconnect();
+      }
+    }, { threshold: 0.4 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ordered.length]);
 
   return (
-    <div>
-      <div
-        ref={rail}
-        className="no-scrollbar flex overflow-x-auto snap-x snap-mandatory outline-none focus-visible:ring-2 focus-visible:ring-ink/30 rounded-sm scroll-px-5 lg:scroll-px-12 px-5 lg:px-12 pb-2"
-        style={{ gap: RAIL_GAP }}
-        role="list"
-        aria-label="The drop - swipe, or use the arrow keys"
-        // Focusable so a keyboard can scroll it (arrow keys) - otherwise the
-        // rail is touch-only, and WCAG 2.1.1 wants every function by keyboard.
-        tabIndex={0}
-      >
-        {pieces.map((p) => (
-          <div key={p.id} role="listitem" className="snap-start shrink-0 w-[78%] sm:w-[340px] lg:w-[360px]">
-            <ProductCard product={p} markNew={false} />
-          </div>
-        ))}
-      </div>
-      {pieces.length > 1 && (
-        <div className="mt-4 px-5 lg:px-12 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-1.5" aria-hidden>
-            {pieces.map((p, i) => (
-              <button
-                key={p.id}
-                type="button"
-                tabIndex={-1}
-                onClick={() => go(i)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${i === at ? "w-6 bg-ink" : "w-1.5 bg-ink/25"}`}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-muted tabular-nums" aria-live="polite">{at + 1} / {pieces.length}</p>
-        </div>
-      )}
-    </div>
+    <ul className="px-5 lg:px-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10 lg:gap-y-14" aria-label="The drop">
+      {ordered.map((p, i) => (
+        <li key={p.id} ref={i === ordered.length - 1 ? last : undefined}>
+          <ProductCard product={p} markNew={false} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" showSizes />
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -349,13 +335,13 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
           <div>
             <Eyebrow>The drop</Eyebrow>
             <h2 className="font-display text-ink text-[34px] sm:text-[44px] leading-[1.05]">
-              {pieces.length === 1 ? "One piece. Worn by her." : `${pieces.length} pieces. Swipe.`}
+              {pieces.length === 1 ? "One piece. Worn by her." : `${pieces.length} pieces. Worn by her.`}
             </h2>
           </div>
           <Link href="/shop" data-track="drop_see_all" className="shrink-0 inline-flex items-center min-h-[44px] text-sm text-ink underline underline-offset-4 decoration-burgundy/50">See all</Link>
         </Reveal>
         {pieces.length > 0 ? (
-          <DropRail pieces={pieces} />
+          <DropFeed pieces={pieces} />
         ) : (
           <p className="px-5 lg:px-12 text-sm text-muted">The next drop is being photographed.</p>
         )}

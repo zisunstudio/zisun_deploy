@@ -11,12 +11,12 @@ export const PAGE: Record<string, string> = {
   login: "Sign-in", profile: "Her account", wishlist: "Wishlist", policy: "A policy page", share: "Sharing ZISUN", other: "Another page",
 };
 export const SECTION: Record<string, string> = {
-  hero: "Opening photo", stories: "Story circles", drop: "The drop (swipe row)", offers: "Offers and coupons",
+  hero: "Opening photo", stories: "Story circles", drop: "The drop (the pieces)", offers: "Offers and coupons",
   fit: "The fit, 153 cm", ways: "Ways to wear", receipts: "Prices and delivery", mark: "ZISUN mark", ask: "Ask Sushmita",
 };
 export const CLICK: Record<string, string> = {
-  hero_cta: "\"Swipe the drop\" button", hero_piece: "The piece named on the opening photo", drop_swipe: "Swiped the drop row",
-  drop_swipe_to_end: "Swiped to the last piece", drop_see_all: "\"See all\"", fit_find_size: "\"Find your size\"",
+  hero_cta: "\"See the drop\" link on the opening photo", hero_piece: "The piece on the opening photo (button)", drop_swipe: "Swiped the drop row (until 19 Oct)",
+  drop_swipe_to_end: "Swiped to the last piece (until 19 Oct)", drop_scroll_to_end: "Scrolled to the last piece", drop_see_all: "\"See all\"", fit_find_size: "\"Find your size\"",
   receipts_shipping: "Shipping policy link", receipts_exchange: "Exchange policy link", ask_whatsapp: "\"Message on WhatsApp\"",
   nav_search: "Search icon", nav_account: "Account icon", nav_bag: "Bag icon", nav_everything: "\"Everything\" link",
   share_whatsapp: "Shared her code on WhatsApp", share_copy: "Copied her code link", share_terms: "\"How sharing works\"",

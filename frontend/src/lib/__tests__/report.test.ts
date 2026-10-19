@@ -74,7 +74,7 @@ describe("the downloadable report", () => {
 
   it("never shows a developer's key: unknown ones are at least put in words", () => {
     const taps = find("What they tapped").table!.rows.map((x) => x[0]);
-    expect(taps).toEqual(["Swiped the drop row", "\"Find your size\"", "something new"]);
+    expect(taps).toEqual(["Swiped the drop row (until 19 Oct)", "\"Find your size\"", "something new"]);
     expect(find("Orders by status").table!.rows.map((x) => x[0])).toEqual(["Paid", "Payment pending", "Cancelled"]);
   });
 
@@ -125,4 +125,11 @@ describe("the downloadable report", () => {
       fs.writeFileSync(`${process.env.REPORT_OUT}/sample.md`, reportToMarkdown(r));
     }
   });
+});
+
+it("asks her for the ad spend, because the site cannot see the bill", () => {
+  const r = buildReport(INPUT, NOW);
+  const spend = r.sections.find((s) => s.title === "What I spent on ads");
+  expect(spend?.table?.rows[0][1]).toContain("fill in");
+  expect(reportToMarkdown(r)).toContain("If I have filled in the ad spend");
 });

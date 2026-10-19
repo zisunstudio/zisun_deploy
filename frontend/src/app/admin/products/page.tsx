@@ -50,7 +50,10 @@ export default function AdminProductsPage() {
   function openEdit(p: Product) {
     setEditId(p.id);
     setEditName(p.name);
-    setEditPrice(String(p.base_price));
+    // Rupees on screen, paise on the wire. The box used to show the paise
+    // figure (103900 for ₹1,039) and send back whatever was typed as paise,
+    // so a corrected "1039" saved as ₹10.39.
+    setEditPrice(String(Math.round(p.base_price / 100)));
     setEditActive(p.is_active);
   }
 
@@ -147,7 +150,7 @@ export default function AdminProductsPage() {
               </div>
               <div>
                 <label className="text-sm text-gray-600">Base Price (₹ paise)</label>
-                <input className="w-full border rounded-lg px-3 py-2 text-sm mt-1" type="number" min="0" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+                <input className="w-full border rounded-lg px-3 py-2 text-sm mt-1" type="number" min="1" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} aria-label="Price in rupees, GST included" />
               </div>
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-600">Active</label>
@@ -162,7 +165,16 @@ export default function AdminProductsPage() {
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => updateProduct.mutate({ id: editId, data: { name: editName, base_price: parseInt(editPrice), is_active: editActive } })}
+                onClick={() => {
+                  const current = rows.find((p) => p.id === editId);
+                  const paise = Math.round(Number(editPrice) * 100);
+                  const data: Record<string, unknown> = { name: editName, is_active: editActive };
+                  // Only a changed price is sent, and it is the price as charged
+                  // (GST included): sending the old figure back re-converted it
+                  // on pieces entered ex-tax.
+                  if (current && Number.isFinite(paise) && paise > 0 && paise !== current.base_price) { data.base_price = paise; data.price_includes_tax = true; }
+                  updateProduct.mutate({ id: editId, data });
+                }}
                 disabled={updateProduct.isPending}
                 className="flex-1 bg-ink text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               >{updateProduct.isPending ? "Saving..." : "Save"}</button>

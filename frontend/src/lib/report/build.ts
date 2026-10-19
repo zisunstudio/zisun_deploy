@@ -40,7 +40,7 @@ export type ReportInput = {
     home_visits: number;
     clicks: { name: string; taps: number; visits: number }[];
   };
-  acquisition?: { by_source: SourceRow[]; partial: boolean };
+  acquisition?: { by_source: SourceRow[]; by_campaign?: { source: string; campaign: string; content: string; sessions: number; visitors: number; orders: number; collected_paise: number }[]; partial: boolean };
   attention?: {
     funnel?: { key: string; label: string; count: number }[];
     size_guide_opens?: number;
@@ -145,6 +145,22 @@ export function buildReport(d: ReportInput, now: Date = new Date()): Report {
     });
     if (d.acquisition?.partial) caveats.push("\"Before tracking started\" means visits and orders from before 23 Sept 2026, when the site began noting where each visitor came from. They are unknown, not direct.");
   }
+  const campaigns = d.acquisition?.by_campaign ?? [];
+  if (campaigns.length) {
+    sections.push({
+      title: "Which ad or post sent them",
+      note: "Only links that carried a campaign name are listed; the rest sit under their source above.",
+      table: {
+        columns: ["Source", "Campaign", "Creative", "Visits", "People", "Orders", "Collected"],
+        rows: campaigns.map((c) => [sourceName(c.source), c.campaign || "-", c.content || "-", int(c.sessions), int(c.visitors), int(c.orders), rs(c.collected_paise)]),
+      },
+    });
+  }
+  if (sections.length) sections.push({
+    title: "What I spent on ads",
+    note: "Fill this in by hand before sending. The site cannot see the ad bill.",
+    table: { columns: ["", "Amount"], rows: [[`Ad spend in these ${days} days`, "₹ ____ (fill in)"]] },
+  });
 
   // 4-7. What visitors did
   const b = d.behaviour;

@@ -127,8 +127,16 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         "Unhandled exception",
         extra={"path": request.url.path, "request_id": getattr(request.state, "request_id", "")},
     )
+    # This handler runs outside the CORS middleware, so a 500 used to leave
+    # without the Access-Control headers and the console reported it as
+    # "Network Error" - the one message that says nothing. Name the failure.
+    headers = {}
+    origin = request.headers.get("origin")
+    if origin and origin in [str(o) for o in settings.BACKEND_CORS_ORIGINS]:
+        headers = {"Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true", "Vary": "Origin"}
     return JSONResponse(
         status_code=500,
+        headers=headers,
         content={
             "success": False,
             "error": {"code": "INTERNAL_ERROR", "message": "An unexpected error occurred"},

@@ -307,6 +307,27 @@ console then *added a 7-day figure to a 30-day one* and threw hand-marked
 WhatsApp enquiries on top. On a realistic set of eight orders that reported
 ₹9,310 where ₹2,580 had arrived.
 
+**The first screen sells the piece; the drop scrolls down.** Until
+2026-10-19 the home page opened on a slogan with a "Swipe the drop" button
+and a sideways rail. 2,029 ad visits in a week gave the button 14 taps and
+the credit line 2; the thumb moves down, and 60% were gone in ten seconds.
+The hero's one action is now the lead piece - name, price, sizes in stock
+(`sizesLeft`) - and the drop is `DropFeed`, one full-width card below the
+other, sizes under the price, with one-size-left pieces last
+(`feedOrder`). `DESIGN.md` carries the amendment. Do not bring back a
+horizontal rail for the pieces without a number that beats these.
+
+**A console 500 carries CORS headers.** The unhandled-exception handler
+runs outside `CORSMiddleware`, so a 500 left without
+`Access-Control-Allow-Origin` and the console reported "Network Error" -
+the one message that says nothing. `main.py` adds the headers for an
+allowed origin, so the console can show the request id and the founder
+can say what she saw. The Products quick edit shows rupees and sends
+paise with `price_includes_tax: true`, and only when the price changed:
+it used to show the paise figure and send it back as paise, so a
+corrected "1039" saved as ₹10.39, and on a piece entered ex-tax the
+untouched figure was re-converted on every save.
+
 **A WhatsApp tap is not a conversation, and a hand-tick is not an order.**
 `recordEnquiry` fires on *click*; the site cannot know a message was ever
 sent. The payload says `whatsapp_clicks` and `whatsapp_marked_ordered`

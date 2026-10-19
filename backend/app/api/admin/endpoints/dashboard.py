@@ -482,6 +482,45 @@ def traffic_source():
     return sa.case((props.has_key("medium"), AnalyticsEvent.properties.op("->>")("source")), else_=None)
 
 
+def campaign_rows(sessions, orders, now: datetime, limit: int = 12) -> list[dict]:
+    """Visits, people and orders per (source, campaign, creative).
+
+    Pure, so the definition is tested without a database. An order counts
+    the way the sources panel counts it: collected when paid or delivered,
+    owed when COD is placed; cancelled and abandoned are not orders.
+    """
+    rows: dict[tuple, dict] = {}
+    people: dict[tuple, set] = {}
+
+    def row_for(src, camp, content):
+        key = ((src or "not recorded").lower(), (camp or "").strip(), (content or "").strip())
+        return key, rows.setdefault(key, {"source": key[0], "campaign": key[1], "content": key[2],
+                                          "sessions": 0, "visitors": 0, "orders": 0, "collected_paise": 0, "committed_paise": 0})
+
+    for _session, src, camp, content, visitor in sessions:
+        key, row = row_for(src, camp, content)
+        row["sessions"] += 1
+        if visitor:
+            people.setdefault(key, set()).add(visitor)
+    for src, camp, content, st, pm, amt, created, settled_at, samt in orders:
+        _key, row = row_for(src, camp, content)
+        kind = metrics.classify(st, pm, minutes_old=(now - created).total_seconds() / 60 if created else None,
+                                settled=settled_at is not None)
+        if kind in ("paid", "delivered"):
+            row["orders"] += 1
+            row["collected_paise"] += int(amt or 0)
+        elif kind == "marketplace_settled":
+            row["orders"] += 1
+            row["collected_paise"] += int(samt if samt is not None else (amt or 0))
+        elif kind in ("cod_placed", "marketplace_owed"):
+            row["orders"] += 1
+            row["committed_paise"] += int(amt or 0)
+    for key, who in people.items():
+        rows[key]["visitors"] = len(who)
+    out = sorted(rows.values(), key=lambda x: (-x["orders"], -x["sessions"]))
+    return out[:limit]
+
+
 async def compute_dashboard(days: int = 30) -> dict:
     now = datetime.now(timezone.utc)
     # Calendar days in India time, today included. The board used to mix a
@@ -589,6 +628,23 @@ async def compute_dashboard(days: int = 30) -> dict:
                    sa.func.max(traffic_source()))
             .where(AnalyticsEvent.created_at >= since, AnalyticsEvent.session_id.isnot(None))
             .group_by(AnalyticsEvent.session_id)),
+        # Which ad or post. One row per visit that carried a campaign tag
+        # (`utm_campaign`), with its creative (`utm_content`); the report
+        # could name Instagram and not the reel, so one bad creative could
+        # spend the whole budget unseen.
+        sessions_by_campaign=_all(
+            select(AnalyticsEvent.session_id,
+                   sa.func.max(traffic_source()),
+                   sa.func.max(AnalyticsEvent.properties.op("->>")("campaign")),
+                   sa.func.max(AnalyticsEvent.properties.op("->>")("content")),
+                   sa.func.max(AnalyticsEvent.properties.op("->>")("visitor")))
+            .where(AnalyticsEvent.created_at >= since, AnalyticsEvent.session_id.isnot(None),
+                   AnalyticsEvent.properties.op("->>")("campaign").isnot(None))
+            .group_by(AnalyticsEvent.session_id)),
+        orders_by_campaign=_all(
+            select(Order.source, Order.campaign, Order.content, Order.status, Order.payment_method, Order.total_amount,
+                   Order.created_at, Order.settled_at, Order.settlement_amount)
+            .where(Order.created_at >= since, Order.campaign.isnot(None))),
         by_method=_all(select(Order.payment_method, sa.func.count(Order.id), sa.func.coalesce(sa.func.sum(Order.total_amount), 0))
                        .where(Order.created_at >= since).group_by(Order.payment_method)),
         by_status=_all(select(Order.status, sa.func.count(Order.id)).group_by(Order.status)),
@@ -808,6 +864,7 @@ async def compute_dashboard(days: int = 30) -> dict:
         # no session yet - an unmeasured channel is not a bad one.
         row["conversion"] = _rate(row["orders"], row["sessions"]) if row["sessions"] else None
     acquisition = sorted(by_source.values(), key=lambda x: (-(x["collected_paise"] + x["committed_paise"]), -x["sessions"]))
+    by_campaign = campaign_rows(r["sessions_by_campaign"] or [], r["orders_by_campaign"] or [], now)
 
     products_by_views = sorted(({"id": p["id"], "name": p["name"], "views": p["views"]} for p in products_attention), key=lambda p: -p["views"])
     by_size = sorted(({"size": s_ or "One size", "variants": int(v or 0), "units": int(u or 0)} for s_, v, u in (r["by_size"] or [])), key=lambda x: -x["units"])
@@ -955,6 +1012,7 @@ async def compute_dashboard(days: int = 30) -> dict:
             for x in (r["behaviour"] or [])),
         "acquisition": {
             "by_source": acquisition,
+            "by_campaign": by_campaign,
             # True until the storefront carrying attribution has been live
             # long enough for the window to be all-attributed. Until then the
             # console says so rather than showing a misleading split.

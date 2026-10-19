@@ -47,6 +47,7 @@ export function reportToMarkdown(r: Report): string {
     "   - What to look at in next week's report to know whether it worked.",
     "6. Be direct. If the numbers do not support a conclusion, say so instead of guessing.",
     "7. Reply in the language I write in.",
+    "8. If I have filled in the ad spend, work out what one visit and one order cost me from it. If it is blank, say that cost per order cannot be known.",
     "",
   );
 
