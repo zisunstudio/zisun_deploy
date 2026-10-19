@@ -28,6 +28,17 @@ export async function fetchProduct(id: string): Promise<Product | null> {
   }
 }
 
+/** The categories with their live-piece counts, for the home page's chips. */
+export async function fetchCategoryList(): Promise<Category[]> {
+  try {
+    const res = await fetch(`${API_V1}/catalog/categories`, { next: { revalidate: REVALIDATE_SECONDS } });
+    if (!res.ok) return [];
+    return (await res.json()) as Category[];
+  } catch {
+    return [];
+  }
+}
+
 /** Every live product, for the sitemap, the feed and llms.txt. */
 export async function fetchAllProducts(): Promise<Product[]> {
   const out: Product[] = [];

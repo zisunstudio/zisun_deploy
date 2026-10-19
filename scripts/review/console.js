@@ -187,6 +187,9 @@ const FIXTURES = [
     },
     acquisition: { partial: true, by_source: [{ source: "direct", sessions: 72, visitors: 15, orders: 1, collected_paise: 112400, committed_paise: 0, conversion: 0.014 }, { source: "not recorded", sessions: 623, visitors: 580, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "fb", sessions: 18, visitors: 15, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "facebook", sessions: 6, visitors: 5, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "ig", sessions: 3, visitors: 3, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }, { source: "l.instagram.com", sessions: 4, visitors: 4, orders: 0, collected_paise: 0, committed_paise: 0, conversion: 0.0 }] },
     attention: {
+      visitors: { sessions_new: 610, sessions_returning: 112 },
+      by_category: [{ category: "Co-ord Sets", pieces: 2, impressions: 301, views: 141, add_to_cart: 4, orders: 1 }, { category: "No category", pieces: 1, impressions: 20, views: 2, add_to_cart: 0, orders: 0 }],
+      new_arrivals: [{ id: "p2", name: "Red Bandhani 3-Piece Set", impressions: 88, views: 12, add_to_cart: 1, orders: 0 }],
       by_period: {
         starts: { day: "2026-09-27T00:00:00+05:30", week: "2026-09-21T00:00:00+05:30", month: "2026-09-01T00:00:00+05:30", year: "2026-01-01T00:00:00+05:30" },
         products: [

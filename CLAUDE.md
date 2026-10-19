@@ -351,6 +351,15 @@ city and pincode and never the first (the nearest mapped building is not
 her house). The order's `line2` is no longer optional on the storefront;
 the API still accepts a null for addresses that already exist.
 
+**A home-page chip is a category with live pieces, never a list in code.**
+`Categories` in `GenZView.tsx` reads `/catalog/categories` (seeded on the
+server by `fetchCategoryList` so nothing shifts after paint) and shows a
+chip only where `product_count > 0`. "Festive", "Office" or any other way
+in is a category the founder creates in the console and fills; a chip that
+opens on an empty page is worse than none. "New arrivals" is not a
+category: the NEW badge and the console's New arrivals panel both derive
+it from `created_at` within 14 days (`NEW_DAYS`).
+
 **A WhatsApp tap is not a conversation, and a hand-tick is not an order.**
 `recordEnquiry` fires on *click*; the site cannot know a message was ever
 sent. The payload says `whatsapp_clicks` and `whatsapp_marked_ordered`

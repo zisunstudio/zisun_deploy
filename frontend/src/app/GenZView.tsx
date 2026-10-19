@@ -23,6 +23,7 @@ import { heroEyebrow, shortLine, type Truth } from "@/lib/truth";
 import { POLICY_TERMS } from "@/lib/legal";
 import { BROWSE_ONLY, whatsappContactUrl } from "@/lib/launchMode";
 import { useCartStore } from "@/store/useCartStore";
+import { useCategories, type Category } from "@/lib/queries/catalog";
 import { useSectionView } from "@/lib/useSectionView";
 import { trackEvent } from "@/lib/queries/analytics";
 import { markOpenSource, recordEnquiry } from "@/lib/enquiry";
@@ -210,6 +211,31 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] tracking-[0.22em] uppercase text-burgundy mb-3">{children}</p>;
 }
 
+// ── Categories: a way in for a woman who knows what she wants ───────────────
+
+/**
+ * Only categories that have live pieces, read from the catalogue - a chip
+ * that opens on an empty page is worse than no chip. "Festive", "Office"
+ * or any other way in is a category she creates in the console and puts
+ * pieces into; nothing here is a hard-coded list.
+ */
+function Categories({ initial }: { initial?: Category[] }) {
+  const { data } = useCategories(initial);
+  const live = (data ?? []).filter((c) => c.is_active && (c.product_count ?? 0) > 0);
+  if (live.length === 0) return null;
+  const chip = "shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[13px] whitespace-nowrap";
+  return (
+    <nav className="px-5 lg:px-12 pt-6" aria-label="Shop by category">
+      <ul className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 lg:mx-0 lg:px-0 lg:flex-wrap">
+        <li><Link href="/shop" data-track="home_category_all" className={`${chip} border-ink bg-ink text-porcelain`}>All pieces</Link></li>
+        {live.map((c) => (
+          <li key={c.id}><Link href={`/category/${c.slug}`} data-track="home_category" className={`${chip} border-ink/25 bg-white text-ink`}>{c.name}</Link></li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 // ── The drop, one below the other ────────────────────────────────────────────
 
 function DropFeed({ pieces }: { pieces: Product[] }) {
@@ -305,7 +331,7 @@ function Receipt() {
 
 // ── The page ─────────────────────────────────────────────────────────────────
 
-export default function GenZView({ initial, truth }: { initial?: ProductListResponse; truth: Truth }) {
+export default function GenZView({ initial, categories, truth }: { initial?: ProductListResponse; categories?: Category[]; truth: Truth }) {
   // Same params the server fetched, so the seed is used and then refreshed:
   // price and stock are never older than the visit.
   const { data } = useProducts({ limit: 12, sort_by: "shelf" }, initial);
@@ -329,8 +355,10 @@ export default function GenZView({ initial, truth }: { initial?: ProductListResp
         </Seen>
       )}
 
+      <Seen name="categories"><Categories initial={categories} /></Seen>
+
       <Seen name="drop">
-      <section id="drop" className="pt-12 pb-16 lg:pt-20 scroll-mt-14">
+      <section id="drop" className="pt-10 pb-16 lg:pt-16 scroll-mt-14">
         <Reveal className="px-5 lg:px-12 mb-6 flex items-end justify-between gap-4">
           <div>
             <Eyebrow>The drop</Eyebrow>

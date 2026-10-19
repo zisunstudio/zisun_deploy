@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import GenZView from "./GenZView";
-import { fetchProductList, fetchTruth, REVALIDATE_SECONDS } from "@/lib/server/catalog";
+import { fetchProductList, fetchTruth, REVALIDATE_SECONDS, fetchCategoryList } from "@/lib/server/catalog";
 import { EMPTY_TRUTH, shortLine } from "@/lib/truth";
 import { itemListJsonLd, jsonLdString } from "@/lib/structuredData";
 import { SITE_URL } from "@/lib/legal";
@@ -32,16 +32,17 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [drop, truth] = await Promise.all([
+  const [drop, truth, categories] = await Promise.all([
     fetchProductList({ limit: 12, sort_by: "shelf" }),
     fetchTruth(),
+    fetchCategoryList(),
   ]);
   return (
     <>
       {drop?.items?.length ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(itemListJsonLd(drop.items, "The drop", SITE_URL)) }} />
       ) : null}
-      <GenZView initial={drop ?? undefined} truth={truth ?? EMPTY_TRUTH} />
+      <GenZView initial={drop ?? undefined} categories={categories} truth={truth ?? EMPTY_TRUTH} />
     </>
   );
 }

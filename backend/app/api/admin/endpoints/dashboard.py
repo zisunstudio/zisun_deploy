@@ -41,7 +41,7 @@ from sqlalchemy.future import select
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models.analytics import AnalyticsEvent
-from app.models.catalog import Product, ProductMedia, ProductVariant
+from app.models.catalog import Category, Product, ProductMedia, ProductVariant
 from app.models.coupon import Coupon
 from app.models.enquiry import EnquiryStatus, WhatsAppEnquiry
 from app.models.order import Order, OrderItem, OrderStatus, Payment, PaymentMethod, PaymentStatus
@@ -482,6 +482,32 @@ def traffic_source():
     return sa.case((props.has_key("medium"), AnalyticsEvent.properties.op("->>")("source")), else_=None)
 
 
+NEW_DAYS = 14  # the storefront's "NEW" badge uses the same fortnight
+
+
+def category_rows(products: list[dict], names: dict[str, str]) -> list[dict]:
+    """Shown, opened, bagged and ordered per category, from the per-piece rows."""
+    out: dict[str, dict] = {}
+    for p in products:
+        name = names.get(p.get("category_id") or "", "No category")
+        row = out.setdefault(name, {"category": name, "pieces": 0, "impressions": 0, "views": 0, "add_to_cart": 0, "orders": 0})
+        row["pieces"] += 1
+        for k in ("impressions", "views", "add_to_cart", "orders"):
+            row[k] += int(p.get(k) or 0)
+    return sorted(out.values(), key=lambda x: (-x["views"], -x["impressions"]))
+
+
+def visitor_kinds(sessions) -> dict:
+    """Visits by whether the device had been here before."""
+    new = returning = 0
+    for _session, flag in sessions:
+        if str(flag).lower() == "true":
+            returning += 1
+        else:
+            new += 1
+    return {"sessions_new": new, "sessions_returning": returning}
+
+
 def campaign_rows(sessions, orders, now: datetime, limit: int = 12) -> list[dict]:
     """Visits, people and orders per (source, campaign, creative).
 
@@ -651,13 +677,20 @@ async def compute_dashboard(days: int = 30) -> dict:
         steps=_all(select(AnalyticsEvent.event_type, sa.func.count(AnalyticsEvent.id))
                    .where(AnalyticsEvent.event_type.in_([e for _, e, _ in FUNNEL_STEPS] + ["size_guide_opened"]), AnalyticsEvent.created_at >= since)
                    .group_by(AnalyticsEvent.event_type)),
+        categories=_all(select(Category.id, Category.name)),
+        # New or returning: a visit is returning when the device had been
+        # here before (the storefront sets `returning` on every event).
+        sessions_returning=_all(
+            select(AnalyticsEvent.session_id, sa.func.max(AnalyticsEvent.properties.op("->>")("returning")))
+            .where(AnalyticsEvent.created_at >= since, AnalyticsEvent.session_id.isnot(None))
+            .group_by(AnalyticsEvent.session_id)),
         # Impressions and opens per product for today / week / month / year.
         product_periods=_all(periods_stmt),
         # Per-product funnel in ONE grouped query. A left join keeps products
         # nobody has opened - those rows are the point.
         products=_all(
             select(
-                Product.id, Product.name, Product.shelf_rank,
+                Product.id, Product.name, Product.shelf_rank, Product.category_id, Product.created_at,
                 _count_of("product_impression").label("impressions"),
                 _count_of("product_viewed").label("views"),
                 _views_from_cards().label("views_from_cards"),
@@ -677,7 +710,7 @@ async def compute_dashboard(days: int = 30) -> dict:
                 AnalyticsEvent.created_at >= since, product_id_matches(Product.id)))
             .outerjoin(attention_sq, attention_sq.c.product_id == sa.cast(Product.id, sa.Text))
             .where(live_products)
-            .group_by(Product.id, Product.name, Product.shelf_rank, attention_sq.c.score)
+            .group_by(Product.id, Product.name, Product.shelf_rank, Product.category_id, Product.created_at, attention_sq.c.score)
             .order_by(sa.desc("attention"), sa.desc("views"))),
         # Per-product orders, from the orders themselves. `checkout_initiated`
         # carries an order_id and no product_id, so the per-product count read
@@ -809,6 +842,9 @@ async def compute_dashboard(days: int = 30) -> dict:
         ]
         gap = _worst_step(journey)
         products_attention.append({
+            "category_id": str(p.category_id) if p.category_id else None,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+            "is_new": bool(p.created_at and (now - p.created_at).days < NEW_DAYS),
             "journey": journey, "gap": gap,
             "buy_now": buy_now, "intent": intent,
             "orders": int(ord_row["orders"]), "units_sold": int(ord_row["units"]),
@@ -867,6 +903,10 @@ async def compute_dashboard(days: int = 30) -> dict:
     by_campaign = campaign_rows(r["sessions_by_campaign"] or [], r["orders_by_campaign"] or [], now)
 
     products_by_views = sorted(({"id": p["id"], "name": p["name"], "views": p["views"]} for p in products_attention), key=lambda p: -p["views"])
+    by_category = category_rows(products_attention, {str(i): nm for i, nm in (r["categories"] or [])})
+    new_arrivals = [{"id": p["id"], "name": p["name"], "impressions": p["impressions"], "views": p["views"], "add_to_cart": p["add_to_cart"], "orders": p["orders"], "created_at": p["created_at"]}
+                    for p in products_attention if p["is_new"]]
+    visitors = visitor_kinds(r["sessions_returning"] or [])
     by_size = sorted(({"size": s_ or "One size", "variants": int(v or 0), "units": int(u or 0)} for s_, v, u in (r["by_size"] or [])), key=lambda x: -x["units"])
     low_stock = [{"product": nm, "size": s_ or "", "colour": c or "", "sku": sku, "stock": int(st or 0)} for nm, s_, c, sku, st in (r["low_stock"] or [])]
     no_photos = [{"id": str(pid), "name": nm} for pid, nm in (r["no_photos"] or [])]
@@ -999,6 +1039,9 @@ async def compute_dashboard(days: int = 30) -> dict:
             "products_by_views": products_by_views,
             "never_viewed": [p for p in products_by_views if p["views"] == 0],
             "products": products_attention,
+            "by_category": by_category,
+            "new_arrivals": new_arrivals,
+            "visitors": visitors,
             "ranking": {"window_days": WINDOW_DAYS, "half_life_days": round(half_life_days(), 1), "weights": EVENT_WEIGHTS},
             # Day / week / month / year, calendar periods in IST.
             "by_period": {

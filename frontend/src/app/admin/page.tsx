@@ -56,7 +56,7 @@ type Dash = {
   };
   behaviour?: BehaviourData;
   acquisition?: { by_source: Array<{ source: string; orders: number; collected_paise: number; committed_paise: number; sessions: number; visitors: number; conversion: number | null }>; by_campaign?: CampaignRow[]; partial: boolean };
-  attention: { by_period?: ByPeriod; sessions: number; sessions_previous?: number; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
+  attention: { by_period?: ByPeriod; sessions: number; sessions_previous?: number; visitors?: { sessions_new: number; sessions_returning: number }; by_category?: { category: string; pieces: number; impressions: number; views: number; add_to_cart: number; orders: number }[]; new_arrivals?: { id: string; name: string; impressions: number; views: number; add_to_cart: number; orders: number }[]; funnel: Funnel[]; size_guide_opens?: number; products_by_views: { id: string; name: string; views: number }[]; never_viewed: { id: string; name: string }[]; products?: ProductRow[]; ranking?: { window_days: number; half_life_days: number; weights: Record<string, number> } };
   inventory: { units: number; variants: number; by_size: { size: string; variants: number; units: number }[]; low_stock: { product: string; size: string; colour?: string; sku: string; stock: number }[]; low_stock_threshold: number };
 };
 type BriefPayload = { brief: { headline: string; bullets: string[]; critical: string[]; source: string }; facts?: { as_of?: string } };
@@ -119,7 +119,14 @@ function AttentionByPeriod({ data, failed }: { data?: ByPeriod; failed?: boolean
       : (data?.products ?? []).map((p) => ({ id: p.id, name: p.name, ...p.periods[period] }));
     return [...list].sort((a, b) => b.opens - a.opens || b.impressions - a.impressions);
   }, [period, data, custom.data]);
-  const max = Math.max(1, ...rows.map((r) => r.impressions));
+  // Compare: tick two to four pieces and the list narrows to them, side by
+  // side, for whichever period is chosen. Nothing is fetched; the numbers
+  // are the same ones already on the page.
+  const [comparing, setComparing] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const shown = comparing && picked.size > 0 ? rows.filter((r) => picked.has(r.id)) : rows;
+  const max = Math.max(1, ...shown.map((r) => r.impressions));
+  const toggle = (id: string) => setPicked((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else if (n.size < 4) n.add(id); return n; });
 
   if (!data) return null;
   return (
@@ -141,12 +148,24 @@ function AttentionByPeriod({ data, failed }: { data?: ByPeriod; failed?: boolean
             {custom.isError && <span className="text-xs text-red-700">Could not load that range.</span>}
           </div>
         )}
+        {rows.length > 1 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => { setComparing((c) => !c); if (comparing) setPicked(new Set()); }}
+              className={`h-8 px-3 rounded-full text-xs border ${comparing ? "bg-ink text-white border-ink" : "bg-white text-gray-700 border-gray-300"}`}>
+              {comparing ? "Done comparing" : "Compare pieces"}
+            </button>
+            {comparing && <span className="text-xs text-gray-500">{picked.size === 0 ? "Tick up to four pieces." : `${picked.size} of 4 picked`}</span>}
+          </div>
+        )}
         <ul className="mt-4 divide-y divide-gray-100">
-          {rows.map((r, i) => (
+          {shown.map((r, i) => (
             <li key={r.id} className="py-2.5">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-gray-900 min-w-0 truncate"><span className="text-gray-400 tabular-nums mr-1.5">{i + 1}.</span>{r.name}</span>
-                <span className="shrink-0 text-sm tabular-nums text-gray-900">{r.impressions.toLocaleString("en-IN")} <span className="text-xs text-gray-500">shown</span> · {r.opens.toLocaleString("en-IN")} <span className="text-xs text-gray-500">opened</span></span>
+                <span className="text-sm text-gray-900 min-w-0 truncate flex items-baseline">
+                  {comparing && <input type="checkbox" className="mr-2 self-center" checked={picked.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Compare ${r.name}`} />}
+                  {!comparing && <span className="text-gray-400 tabular-nums mr-1.5">{i + 1}.</span>}<span className="truncate">{r.name}</span>
+                </span>
+                <span className="shrink-0 text-sm tabular-nums text-gray-900">{r.impressions.toLocaleString("en-IN")} <span className="text-xs text-gray-500">shown</span> · {r.opens.toLocaleString("en-IN")} <span className="text-xs text-gray-500">opened</span>{r.impressions > 0 && <span className="text-xs text-gray-500"> · {Math.round((r.opens / r.impressions) * 100)}%</span>}</span>
               </div>
               <div className="mt-1.5"><Bar value={r.impressions} max={max} /></div>
             </li>
@@ -479,6 +498,39 @@ export default function AdminAnalytics() {
       </Section>
 
       <AttentionByPeriod data={attention.by_period} failed={failed("product_periods")} />
+
+      {attention.visitors && (
+        <Section title="New or returning" hint={`Of the visits in the last ${meta.window_days} days: a returning visit is a phone that had been to zisun.in before.`}>
+          <Card>
+            <BarList caption="Visits, new and returning" valueName="Visits" rows={[
+              { key: "new", label: "First visit", value: attention.visitors.sessions_new, detail: `${pct(attention.visitors.sessions_new / Math.max(1, attention.visitors.sessions_new + attention.visitors.sessions_returning))} of visits` },
+              { key: "returning", label: "Came back", value: attention.visitors.sessions_returning, detail: `${pct(attention.visitors.sessions_returning / Math.max(1, attention.visitors.sessions_new + attention.visitors.sessions_returning))} of visits` },
+            ]} />
+          </Card>
+        </Section>
+      )}
+
+      {(attention.by_category?.length ?? 0) > 0 && (
+        <Section title="By category" hint="Every piece's numbers added up under its category. A piece with no category is its own row.">
+          <Card>
+            <BarList caption="Opens by category" valueName="Opened" rows={(attention.by_category ?? []).map((c) => ({
+              key: c.category, label: c.category, value: c.views,
+              detail: `${c.pieces} ${c.pieces === 1 ? "piece" : "pieces"} · ${fmtInt(c.impressions)} shown · ${c.add_to_cart} to bag · ${c.orders} ${c.orders === 1 ? "order" : "orders"}`,
+            }))} />
+          </Card>
+        </Section>
+      )}
+
+      <Section title="New arrivals" hint="Pieces listed in the last 14 days - the ones that carry the NEW badge on the site.">
+        <Card>
+          {(attention.new_arrivals?.length ?? 0) > 0 ? (
+            <BarList caption="Opens, new pieces" valueName="Opened" rows={(attention.new_arrivals ?? []).map((p) => ({
+              key: p.id, label: p.name, value: p.views,
+              detail: `${fmtInt(p.impressions)} shown · ${p.add_to_cart} to bag · ${p.orders} ${p.orders === 1 ? "order" : "orders"}`,
+            }))} />
+          ) : <p className="text-sm text-gray-500">Nothing listed in the last 14 days.</p>}
+        </Card>
+      </Section>
 
       {/* Product by product */}
       <Section title="Where attention goes" hint={attention.ranking ? `Score = recent activity, halving every ${attention.ranking.half_life_days} days; it orders the shelf when nothing is pinned. Open rate = opens from a card ÷ times the card was shown. Bag rate = bag adds ÷ opens.` : undefined}>

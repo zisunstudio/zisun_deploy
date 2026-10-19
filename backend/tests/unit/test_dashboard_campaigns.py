@@ -32,3 +32,17 @@ def test_visits_people_and_orders_are_grouped_by_campaign_and_creative():
 def test_an_order_with_a_campaign_but_no_visit_still_shows():
     rows = d.campaign_rows([], [("instagram", "story", "", OrderStatus.PAID, PaymentMethod.RAZORPAY, 34900, NOW, None, None)], NOW)
     assert rows == [{"source": "instagram", "campaign": "story", "content": "", "sessions": 0, "visitors": 0, "orders": 1, "collected_paise": 34900, "committed_paise": 0}]
+
+
+def test_category_rows_add_up_each_piece_under_its_category():
+    rows = d.category_rows([
+        {"category_id": "c1", "impressions": 100, "views": 10, "add_to_cart": 1, "orders": 1},
+        {"category_id": "c1", "impressions": 50, "views": 5, "add_to_cart": 0, "orders": 0},
+        {"category_id": None, "impressions": 20, "views": 2, "add_to_cart": 0, "orders": 0},
+    ], {"c1": "Co-ord Sets"})
+    assert rows[0] == {"category": "Co-ord Sets", "pieces": 2, "impressions": 150, "views": 15, "add_to_cart": 1, "orders": 1}
+    assert rows[1]["category"] == "No category" and rows[1]["pieces"] == 1
+
+
+def test_visitor_kinds_counts_returning_by_the_flag():
+    assert d.visitor_kinds([("s1", "true"), ("s2", "false"), ("s3", None), ("s4", "True")]) == {"sessions_new": 2, "sessions_returning": 2}

@@ -41,7 +41,7 @@ export type ReportInput = {
     clicks: { name: string; taps: number; visits: number }[];
   };
   acquisition?: { by_source: SourceRow[]; by_campaign?: { source: string; campaign: string; content: string; sessions: number; visitors: number; orders: number; collected_paise: number }[]; partial: boolean };
-  attention?: {
+  attention?: { visitors?: { sessions_new: number; sessions_returning: number }; by_category?: { category: string; pieces: number; impressions: number; views: number; add_to_cart: number; orders: number }[]; new_arrivals?: { id: string; name: string; impressions: number; views: number; add_to_cart: number; orders: number }[];
     funnel?: { key: string; label: string; count: number }[];
     size_guide_opens?: number;
     products?: Array<{
@@ -219,6 +219,22 @@ export function buildReport(d: ReportInput, now: Date = new Date()): Report {
         rows: funnel.map((f, i) => [f.label, int(f.count), i === 0 ? "-" : i === 1 ? `${pct(funnel[0].count ? f.count / funnel[0].count : null)} of shown` : `${pct(opened ? f.count / opened : null)} of opened`]),
       },
     });
+  }
+
+  // 8b. New or returning, categories, new arrivals
+  const att = d.attention;
+  if (att?.visitors) {
+    const v = att.visitors; const tot = Math.max(1, v.sessions_new + v.sessions_returning);
+    sections.push({ title: "New or returning visitors", note: "A returning visit is a phone that had been to the site before.",
+      table: { columns: ["", "Visits", "Share"], rows: [["First visit", int(v.sessions_new), pct(v.sessions_new / tot)], ["Came back", int(v.sessions_returning), pct(v.sessions_returning / tot)]] } });
+  }
+  if (att?.by_category?.length) {
+    sections.push({ title: "By category", note: "Every piece's numbers added up under its category.",
+      table: { columns: ["Category", "Pieces", "Shown", "Opened", "Added to bag", "Orders"], rows: att.by_category.map((c) => [c.category, int(c.pieces), int(c.impressions), int(c.views), int(c.add_to_cart), int(c.orders)]) } });
+  }
+  if (att?.new_arrivals?.length) {
+    sections.push({ title: "New arrivals (listed in the last 14 days)",
+      table: { columns: ["Piece", "Shown", "Opened", "Added to bag", "Orders"], rows: att.new_arrivals.map((p) => [p.name, int(p.impressions), int(p.views), int(p.add_to_cart), int(p.orders)]) } });
   }
 
   // 9. Piece by piece
