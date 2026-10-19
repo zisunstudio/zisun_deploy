@@ -6,6 +6,48 @@ import { API_ORIGIN } from "@/lib/apiBase";
 import { Page, Card, Pill } from "@/components/admin/ui";
 import { HAS_WHATSAPP, BROWSE_ONLY } from "@/lib/launchMode";
 import type { Truth } from "@/lib/truth";
+import { useEffect, useState } from "react";
+import { isInternalDevice, markInternalDevice } from "@/lib/internal";
+import { visitorId } from "@/lib/attribution";
+
+/**
+ * The founder's phone is not a visitor. Any device that opens the console
+ * is marked as the shop's own and the storefront records nothing from it;
+ * this card shows that, lets her switch it, and can erase what the device
+ * recorded before it was marked - the analytics should describe customers.
+ */
+function ThisDevice() {
+  const [internal, setInternal] = useState<boolean | null>(null);
+  const [erased, setErased] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setInternal(isInternalDevice()); }, []);
+  async function erase() {
+    if (!confirm("Remove every visit, product view and tap this phone recorded on zisun.in? Customers' data is untouched.")) return;
+    setBusy(true); setErased(null);
+    try {
+      const r = await adminApi.delete(`/analytics/visitors/${encodeURIComponent(visitorId())}`);
+      setErased(`Removed ${r.data?.deleted ?? 0} recorded events from this phone.`);
+    } catch { setErased("Could not remove them just now. Try again in a minute."); }
+    finally { setBusy(false); }
+  }
+  return (
+    <Card className="mb-3">
+      <h2 className="text-sm font-semibold text-gray-900 mb-1">This phone</h2>
+      <p className="text-xs text-gray-500 mb-3">Your own visits to the site should not count as customers. Every phone that opens the console is marked as the shop&rsquo;s own; the site then records nothing from it.</p>
+      <Row label="Counted in analytics" value={internal === null ? "…" : internal ? "No - this is the shop's phone" : "Yes - counted as a visitor"} tone={internal === null ? "neutral" : internal ? "good" : "warn"} />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" onClick={() => { markInternalDevice(!internal); setInternal(!internal); }} className="h-9 px-3 rounded-lg border border-gray-300 text-sm text-gray-800 bg-white">
+          {internal ? "Count this phone as a visitor" : "Mark this phone as ours"}
+        </button>
+        <button type="button" disabled={busy} onClick={erase} className="h-9 px-3 rounded-lg border border-gray-300 text-sm text-gray-800 bg-white disabled:opacity-50">
+          {busy ? "Removing…" : "Remove this phone's past visits"}
+        </button>
+      </div>
+      {erased && <p className="mt-2 text-xs text-gray-600">{erased}</p>}
+      <p className="mt-2 text-[11px] text-gray-400">Do this once on each phone or laptop you and Varun use to look at the site. A private window or a cleared browser is a new device.</p>
+    </Card>
+  );
+}
 
 /**
  * The machinery, on one page, so it never has to appear on the board.
@@ -36,6 +78,7 @@ export default function AdminSystemPage() {
   const tr = truth.data;
   return (
     <Page title="System" description="How the machinery is doing. Nothing here is about the shop's performance.">
+      <ThisDevice />
       {/* The site's brand claims are computed from the pieces (services/
           truth.py). This card shows which claims the catalogue currently
           earns, and the one fact per piece that would unlock more. */}

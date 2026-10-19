@@ -132,6 +132,42 @@ export function priceToPaise(rupees: string): number {
   return isNaN(n) ? 0 : Math.round(n * 100);
 }
 
+/**
+ * Length and sleeve are picked from the founder's own list (19 Oct 2026),
+ * so the storefront, the size maths and the marketplace sheets see one
+ * spelling. A value already stored that is not on the list stays
+ * selectable - an old row is never blanked by a new rule.
+ */
+/**
+ * A size chart is optional. A row she tapped into being and never measured
+ * (all zeros) used to be sent as it was, the API refused it ("chest must be
+ * greater than 0"), and the whole piece failed to save - which read as "a
+ * size chart is required". Unmeasured rows are dropped; no rows, no chart.
+ */
+export function usableSizeChart(chart: SizeChart | null): SizeChart | null {
+  if (!chart) return null;
+  const rows = chart.rows.filter((r) => r.chest > 0 && r.waist > 0 && r.hip > 0 && r.top_length > 0);
+  return rows.length ? { ...chart, rows } : null;
+}
+
+export const LENGTH_OPTIONS = ["Above knee", "Knee length", "Calf length", "Ankle length"];
+export const SLEEVE_OPTIONS = ["Sleeveless", "Three-fourth sleeves", "Full sleeves"];
+
+function ChoiceSelect({ value, onChange, options }: { value: string; onChange: React.ChangeEventHandler<HTMLSelectElement>; options: string[] }) {
+  const known = options.some((o) => o.toLowerCase() === (value || "").toLowerCase());
+  return (
+    <select
+      className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ink/30"
+      value={value}
+      onChange={onChange}
+    >
+      <option value="">— not recorded —</option>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      {value && !known && <option value={value}>{value} (as recorded earlier)</option>}
+    </select>
+  );
+}
+
 export default function ProductForm({ data, onChange, categories, compact = false, priceHint }: Props) {
   const [writing, setWriting] = useState(false);
   const [filling, setFilling] = useState(false);
@@ -223,7 +259,8 @@ export default function ProductForm({ data, onChange, categories, compact = fals
 
   return (
     <div className="space-y-4">
-      <div>
+      <p className="text-[11px] text-gray-500 -mt-1 mb-3"><span className="text-red-500">*</span> required. Everything else can be left for later.</p>
+        <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Product name <span className="text-red-500">*</span>
         </label>
@@ -503,7 +540,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Length</label>
-              <input className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30" placeholder="Calf length" value={data.garment_length} onChange={f("garment_length")} />
+              <ChoiceSelect value={data.garment_length} onChange={f("garment_length")} options={LENGTH_OPTIONS} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Print</label>
@@ -534,12 +571,7 @@ export default function ProductForm({ data, onChange, categories, compact = fals
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sleeve type</label>
-              <input
-                className="w-full h-10 border border-gray-300 rounded-lg px-3 text-[15px] sm:text-sm focus:outline-none focus:ring-2 focus:ring-ink/30"
-                placeholder="Three-quarter"
-                value={data.sleeve_type}
-                onChange={f("sleeve_type")}
-              />
+              <ChoiceSelect value={data.sleeve_type} onChange={f("sleeve_type")} options={SLEEVE_OPTIONS} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sleeve attached</label>

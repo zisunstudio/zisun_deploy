@@ -1,4 +1,5 @@
 "use client";
+import { isInternalDevice } from "@/lib/internal";
 import { API_V1 } from "@/lib/apiBase";
 import { trackEvent } from "@/lib/queries/analytics";
 
@@ -38,6 +39,7 @@ export function recordEnquiry(payload: EnquiryPayload): void {
     const blob = new Blob([body], { type: "application/json" });
     if (navigator.sendBeacon && navigator.sendBeacon(`${API_V1}/enquiries`, blob)) return;
   } catch { /* fall through */ }
+  if (isInternalDevice()) return;
   fetch(`${API_V1}/enquiries`, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
 }
 

@@ -139,8 +139,9 @@ export default function CheckoutPage() {
         if (v && !f[k].trim()) { next[k] = v; filled.push(label); }
       };
       take("pincode", data.pincode, "pincode");
-      take("line1", data.line1, "street");
-      take("line2", data.locality, "area");
+      // Street and area go on the second line; the first line is hers - the
+      // nearest mapped building is not her house.
+      take("line2", [data.line1, data.locality].filter(Boolean).join(", ") || null, "street and area");
       take("city", data.city, "city");
       if (data.state && INDIAN_STATES.includes(data.state) && (!f.pincode || f.pincode === data.pincode) && f.state !== data.state) {
         next.state = data.state; filled.push("state");
@@ -148,8 +149,8 @@ export default function CheckoutPage() {
       setForm(next);
       setLocated({ filled, attribution: data.attribution });
       trackEvent("address_located", { filled: filled.length, accuracy_m: acc });
-      if (!f.line1.trim() && data.line1) {
-        setTimeout(() => { const el = line1Ref.current; if (el) { el.focus(); el.setSelectionRange(0, 0); } }, 60);
+      if (!f.line1.trim()) {
+        setTimeout(() => { const el = line1Ref.current; if (el) el.focus(); }, 60);
       }
     } catch (e) {
       // Denied, timed out, or the lookup failed: the form is exactly as it was.
@@ -323,7 +324,8 @@ export default function CheckoutPage() {
   const detailsValid = useMemo(() => (
     form.name.trim().length >= 2 &&
     /^[6-9]\d{9}$/.test(form.phone.trim()) &&
-    form.line1.trim().length >= 4 &&
+    form.line1.trim().length >= 2 &&
+    form.line2.trim().length >= 3 &&
     form.city.trim().length >= 2 &&
     INDIAN_STATES.includes(form.state) &&
     /^\d{6}$/.test(form.pincode)
@@ -339,7 +341,7 @@ export default function CheckoutPage() {
         address: {
           line1: form.line1.trim(),
           ...(coords ? { latitude: coords.lat, longitude: coords.lng, location_accuracy_m: coords.acc } : {}),
-          line2: form.line2.trim() || null,
+          line2: form.line2.trim(),
           city: form.city.trim(),
           state: form.state,
           pincode: form.pincode,
@@ -597,8 +599,8 @@ export default function CheckoutPage() {
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Full name" className="col-span-2"><input className={input} name="name" value={form.name} onChange={set("name")} autoComplete="shipping name" /></Field>
-              <Field label="Mobile number" className="col-span-2">
+              <Field label="Full name" required className="col-span-2"><input className={input} name="name" value={form.name} onChange={set("name")} autoComplete="shipping name" /></Field>
+              <Field label="Mobile number" required className="col-span-2">
                 <div className="flex">
                   <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-line bg-rose text-sm text-ink">+91</span>
                   <input className={`${input} rounded-l-none`} name="tel" type="tel" value={form.phone} onChange={set("phone")} inputMode="numeric" maxLength={10} autoComplete="shipping tel-national" />
@@ -620,7 +622,7 @@ export default function CheckoutPage() {
                 </button>
                 {located && located.filled.length > 0 && (
                   <p className="mt-1.5 text-[11px] text-moss">
-                    Filled {located.filled.join(", ")} from your location. Please check them, and add your house or flat number.
+                    Filled {located.filled.join(", ")} from your location. Please check them, and type your house or flat number above the street.
                     <span className="block text-muted">Map data {located.attribution}</span>
                   </p>
                 )}
@@ -632,10 +634,10 @@ export default function CheckoutPage() {
                 )}
                 {locationError && <p className="mt-1 text-[11px] text-muted">{locationError}</p>}
               </div>
-              <Field label="Address" className="col-span-2"><input ref={line1Ref} className={input} name="address-line1" value={form.line1} onChange={set("line1")} placeholder="House / flat no., street" autoComplete="shipping address-line1" /></Field>
-              <Field label="Landmark (optional)" className="col-span-2"><input className={input} name="address-line2" value={form.line2} onChange={set("line2")} autoComplete="shipping address-line2" /></Field>
-              <Field label="City"><input className={input} name="address-level2" value={form.city} onChange={set("city")} autoComplete="shipping address-level2" /></Field>
-              <Field label="Pincode"><input className={input} name="postal-code" value={form.pincode} onChange={set("pincode")} inputMode="numeric" maxLength={6} autoComplete="shipping postal-code" /></Field>
+              <Field label="House / flat no., building" required className="col-span-2"><input ref={line1Ref} className={input} name="address-line1" value={form.line1} onChange={set("line1")} placeholder="e.g. 12, 2nd floor, Sai Residency" autoComplete="shipping address-line1" /></Field>
+              <Field label="Street, area, landmark" required className="col-span-2"><input className={input} name="address-line2" value={form.line2} onChange={set("line2")} placeholder="e.g. 5th Cross, Indiranagar, near the park" autoComplete="shipping address-line2" /></Field>
+              <Field label="City" required><input className={input} name="address-level2" value={form.city} onChange={set("city")} autoComplete="shipping address-level2" /></Field>
+              <Field label="Pincode" required><input className={input} name="postal-code" value={form.pincode} onChange={set("pincode")} inputMode="numeric" maxLength={6} autoComplete="shipping postal-code" /></Field>
 
               {/* The localities under this pincode, as taps. "Indiranagar"
                   spelled three ways is three addresses to a courier; this
@@ -658,7 +660,7 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <Field label="State" className="col-span-2">
+              <Field label="State" required className="col-span-2">
                 <select className={input} name="address-level1" value={form.state} onChange={set("state")} autoComplete="shipping address-level1">
                   {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -828,10 +830,10 @@ function Steps({ current, express = false }: { current: Step; express?: boolean 
   );
 }
 
-function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+function Field({ label, children, className = "", required = false }: { label: string; children: React.ReactNode; className?: string; required?: boolean }) {
   return (
     <label className={`block ${className}`}>
-      <span className="block text-xs text-muted mb-1.5">{label}</span>
+      <span className="block text-xs text-muted mb-1.5">{label}{required && <span className="text-burgundy" aria-hidden> *</span>}</span>
       {children}
     </label>
   );

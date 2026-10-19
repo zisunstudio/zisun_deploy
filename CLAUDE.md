@@ -328,6 +328,29 @@ it used to show the paise figure and send it back as paise, so a
 corrected "1039" saved as ₹10.39, and on a piece entered ex-tax the
 untouched figure was re-converted on every save.
 
+**The shop's own phones are not visitors.** `lib/internal.ts` keeps a
+flag on any device that opens the console (set in `admin/layout.tsx` once
+the role is known); while it is set `trackEvent` and `recordEnquiry` send
+nothing. The console's System page shows it, switches it, and can erase
+what the device recorded before it was marked
+(`DELETE /admin/analytics/visitors/{visitor}` - the id only that device
+knows). Decided on the device, before anything is sent: a flag the server
+could not see is a flag it could not honour. Until 2026-10-19 every check
+of a photograph by the founder was a visit, an impression and an open.
+
+**Length and sleeve are picked, not typed.** `LENGTH_OPTIONS` and
+`SLEEVE_OPTIONS` in `ProductForm.tsx` are the founder's own lists; a value
+stored earlier that is not on the list stays selectable, never blanked. A
+size chart is optional and `usableSizeChart` drops rows left at 0 before
+the save - a tapped-in row with no measurements made the API refuse the
+whole piece, which read as "a size chart is required".
+
+**An address is two lines, both required.** House/flat/building, then
+street/area/landmark; "Use my current location" fills the second line,
+city and pincode and never the first (the nearest mapped building is not
+her house). The order's `line2` is no longer optional on the storefront;
+the API still accepts a null for addresses that already exist.
+
 **A WhatsApp tap is not a conversation, and a hand-tick is not an order.**
 `recordEnquiry` fires on *click*; the site cannot know a message was ever
 sent. The payload says `whatsapp_clicks` and `whatsapp_marked_ordered`

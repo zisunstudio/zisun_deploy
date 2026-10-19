@@ -2,6 +2,7 @@
 
 import { API_V1 } from "@/lib/apiBase";
 import { attributionFields, isReturning, visitorId } from "@/lib/attribution";
+import { isInternalDevice } from "@/lib/internal";
 
 type AnalyticsEvent = {
   event_type: string;
@@ -65,6 +66,8 @@ function flush(leaving = false) {
 }
 
 export function trackEvent(event_type: string, properties: Record<string, unknown> = {}) {
+  // The founder's own phone is not a visitor (lib/internal.ts).
+  if (isInternalDevice()) return;
   // Every event carries where this visitor came from and whether she has been
   // here before. Without it the funnel could say what happened but never for
   // whom, so no channel could be judged by anything except raw traffic.

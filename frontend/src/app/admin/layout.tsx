@@ -2,6 +2,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
+import { markInternalDevice } from "@/lib/internal";
 import Link from "next/link";
 import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings, BookOpen, Store, Gift } from "lucide-react";
 
@@ -49,6 +50,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.push("/login");
       return;
     }
+    // A device that reaches the console is the shop's own: from here on
+    // the storefront records nothing from it (lib/internal.ts).
+    if (user?.role === "admin" || user?.role === "operations" || user?.role === "finance") markInternalDevice(true);
     if (user?.role !== "admin" && user?.role !== "operations" && user?.role !== "finance") {
       router.push("/");
     }

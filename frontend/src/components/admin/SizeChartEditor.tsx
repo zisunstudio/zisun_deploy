@@ -43,6 +43,7 @@ export default function SizeChartEditor({ value, onChange }: Props) {
 
   return (
     <div className="space-y-3">
+      <p className="text-[11px] text-gray-500 mb-2">Optional. Add a size only when you have measured it; a row left at 0 is not saved.</p>
       {/* What the numbers are. The customer's "Find my size" compares her
           own kurta, or her bust and hip, against this chart, and it needs to
           know whether a 39 is the kurta or the body it fits. */}

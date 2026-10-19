@@ -247,7 +247,7 @@ const VariantEditor = forwardRef<VariantEditorHandle, Props>(function VariantEdi
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-700">Variants</span>
+        <span className="text-sm font-semibold text-gray-700">Sizes &amp; stock <span className="text-red-500">*</span></span>
         {!adding && (
           <div className="flex items-center gap-3">
             <button

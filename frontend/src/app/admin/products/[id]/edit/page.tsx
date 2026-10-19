@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Tag } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import ProductForm, {
+  usableSizeChart,
   priceToPaise,
   type ProductFormData,
 } from "@/components/admin/ProductForm";
@@ -252,7 +253,7 @@ export default function EditProductPage() {
         // Offer: rupees -> paise, "" -> null (clears the offer on update).
         compare_at_price: form.compare_at_rupees ? priceToPaise(form.compare_at_rupees) : null,
         offer_ends_at: form.offer_ends_at ? new Date(form.offer_ends_at).toISOString() : null,
-        size_chart: form.size_chart,
+        size_chart: usableSizeChart(form.size_chart),
         model_size: form.model_size.trim(),
         model_height: form.model_height.trim(),
         worn_by_founder: form.worn_by_founder,
