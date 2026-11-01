@@ -75,6 +75,11 @@ class Order(BaseModel):
     campaign: Mapped[Optional[str]] = mapped_column(String(120))
     content: Mapped[Optional[str]] = mapped_column(String(120))
     referrer_domain: Mapped[Optional[str]] = mapped_column(String(200))
+    # The influencer this order is credited to (services/influencer.py), and
+    # how: "code" (her discount code) or "link" (her link, last click within
+    # the window). One per order, by construction.
+    influencer_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("influencers.id", ondelete="SET NULL"), index=True)
+    influencer_via: Mapped[Optional[str]] = mapped_column(String(10))
 
     # ── Tax invoice ───────────────────────────────────────────────────────────
     # Snapshotted at order time, never recomputed: rates change by

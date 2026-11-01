@@ -104,7 +104,7 @@ def test_frontend_never_reuses_an_attribution_key():
     import re
     from pathlib import Path
     root = Path(__file__).resolve().parents[3] / "frontend/src"
-    owned = ("source", "medium", "campaign", "content", "referrer_domain")
+    owned = ("source", "medium", "campaign", "content", "referrer_domain", "influencer")
     offenders = []
     for f in root.rglob("*.ts*"):
         for m in re.finditer(r"trackEvent\(\s*\"[a-z_]+\"\s*,\s*\{([^}]*)\}", f.read_text()):

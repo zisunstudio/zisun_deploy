@@ -3,6 +3,7 @@
 import { API_V1 } from "@/lib/apiBase";
 import { attributionFields, isReturning, visitorId } from "@/lib/attribution";
 import { isInternalDevice } from "@/lib/internal";
+import { currentInfluencer } from "@/lib/influencer";
 
 type AnalyticsEvent = {
   event_type: string;
@@ -77,7 +78,11 @@ export function trackEvent(event_type: string, properties: Record<string, unknow
     // Attribution is spread last and owns `source`, `medium`, `campaign`,
     // `content` and `referrer_domain`. An event must never use those names
     // for anything else - they will be overwritten (see `opened_from`).
-    properties: { ...properties, ...attributionFields(), visitor: visitorId(), returning: isReturning() },
+    // `returning` before `visitor`: the id is created on a first visit, and
+    // asking afterwards would call every newcomer a return (attribution.ts).
+    // `influencer` is owned too: the influencer whose link she last tapped
+    // (lib/influencer.ts), so her funnel is read from these same events.
+    properties: { ...properties, ...attributionFields(), influencer: currentInfluencer(), returning: isReturning(), visitor: visitorId() },
   });
   // Three seconds, not ten: most visits from a reel are shorter than ten
   // seconds, and an in-app browser that is swiped away does not always fire

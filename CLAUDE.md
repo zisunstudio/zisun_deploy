@@ -360,6 +360,30 @@ opens on an empty page is worse than none. "New arrivals" is not a
 category: the NEW badge and the console's New arrivals panel both derive
 it from `created_at` within 14 days (`NEW_DAYS`).
 
+**An order belongs to at most one influencer, and she is paid once.**
+`services/influencer.py`: her discount code beats any link; otherwise the
+last `zisun.in/r/<code>` tap within `INFLUENCER_WINDOW_DAYS` (30). One
+`orders.influencer_id`, and `influencer_commissions.order_id` is unique
+(inserted with ON CONFLICT DO NOTHING), so a retry or a second rule can
+never credit an order twice. Commission is on the goods paid for, without
+delivery, by the rule copied onto the row; it follows
+`referral.settle_decision` exactly - payable at delivery + 14 days, void if
+cancelled/failed/returned, reversed if it comes back after payment - and
+settles when the console reads, never on a schedule. The storefront keeps
+the code in `lib/influencer.ts` and removes `?inf=` from the address once
+read, so a refresh is not a tap; `influencer` is an attribution-owned event
+property. `/r/<code>` redirects with a *relative* Location: the standalone
+server knows itself as `localhost:<PORT>`, and `req.nextUrl.origin` sent
+the first version's every tap there. An influencer's coupon has
+`influencer_id` and is never in `/coupons/active`. `docs/INFLUENCERS.md`
+has the rules, the how-to and the test (`tests/e2e`, real Postgres).
+
+**"Returning" is decided once per visit.** `isReturning()` used to read
+storage at each event, after `visitorId()` had created the id on a first
+visit, so every newcomer read as a return. It is fixed in a sessionStorage
+flag and `trackEvent` asks before creating the id. Returning counts before
+2026-11-01 are overstated.
+
 **A WhatsApp tap is not a conversation, and a hand-tick is not an order.**
 `recordEnquiry` fires on *click*; the site cannot know a message was ever
 sent. The payload says `whatsapp_clicks` and `whatsapp_marked_ordered`

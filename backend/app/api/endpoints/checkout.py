@@ -4,6 +4,7 @@ import hmac
 import logging
 import re
 import uuid
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -392,6 +393,11 @@ class GuestCheckoutRequest(BaseModel):
     campaign: Optional[str] = Field(default=None, max_length=120)
     content: Optional[str] = Field(default=None, max_length=120)
     referrer_domain: Optional[str] = Field(default=None, max_length=200)
+    # The influencer whose link she last tapped, and when (lib/influencer.ts).
+    # Checked against the live influencer list and the window on the server;
+    # a stale or unknown code simply credits nobody.
+    influencer: Optional[str] = Field(default=None, max_length=30)
+    influencer_clicked_at: Optional[datetime] = None
 
 
 @router.post(
@@ -486,6 +492,12 @@ async def guest_checkout(
     for field in ("source", "medium", "campaign", "content", "referrer_domain"):
         value = (getattr(body, field, None) or "").strip().lower() or None
         setattr(order, field, value)
+    # Who sold it, if an influencer did: her discount code first, else her
+    # link within the window (services/influencer.py). Additive - the money,
+    # the stock and the gateway above are untouched by it.
+    from app.services import influencer as _influencer  # noqa: PLC0415
+    await _influencer.attribute(db, order, link_code=body.influencer,
+                                clicked_at=body.influencer_clicked_at, buyer_phone=phone)
     await db.commit()
 
     return {

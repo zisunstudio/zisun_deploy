@@ -184,6 +184,9 @@ class Settings(BaseSettings):
     # Shipping: free when paid online; Cash on Delivery carries this charge
     # (paise). Added to the order total by the server - see services/pricing.
     COD_SHIPPING_FEE_PAISE: int = 9900
+    # How long after a tap on an influencer's link an order still counts as
+    # hers (services/influencer.py). The storefront keeps the same 30 days.
+    INFLUENCER_WINDOW_DAYS: int = 30
 
     # ── GST ───────────────────────────────────────────────────────────────────
     # Configuration, not code: the garment slab has moved before and will

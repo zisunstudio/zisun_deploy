@@ -12,6 +12,7 @@ import { formatPrice } from "@/lib/queries/catalog";
 import { trackEvent } from "@/lib/queries/analytics";
 import { useCheckoutPolicy } from "@/lib/queries/policy";
 import { attributionFields } from "@/lib/attribution";
+import { influencerForOrder } from "@/lib/influencer";
 import { BROWSE_ONLY, whatsappCartUrl } from "@/lib/launchMode";
 import { recordEnquiry } from "@/lib/enquiry";
 import { INDIAN_STATES } from "@/lib/india";
@@ -355,6 +356,8 @@ export default function CheckoutPage() {
         // usefulness, an order is permanent, and revenue by channel is the
         // only version of this question worth answering.
         ...attributionFields(),
+        // Whose link she came by, if any; the server decides whether it counts.
+        ...influencerForOrder(),
       });
       const { order_id, razorpay_order_id, razorpay_key_id, total_amount } = res.data;
       if (codeResult?.ok) clearReferral();

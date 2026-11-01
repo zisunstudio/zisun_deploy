@@ -15,6 +15,7 @@ admin_router = APIRouter()
 from app.api.admin.endpoints import dashboard as admin_dashboard
 from app.api.admin.endpoints import products as admin_products
 from app.api.admin.endpoints import analytics as admin_analytics
+from app.api.admin.endpoints import influencers as admin_influencers
 from app.api.admin.endpoints import orders as admin_orders
 from app.api.admin.endpoints import content as admin_content
 from app.api.admin.endpoints import categories as admin_categories
@@ -32,6 +33,18 @@ from app.api.admin.endpoints import referrals as admin_referrals
 admin_router.include_router(
     admin_dashboard.router,
     tags=["Admin - Dashboard"],
+    dependencies=[Depends(require_role("admin", "operations", "finance"))],
+)
+admin_router.include_router(
+    admin_influencers.collections_router,
+    prefix="/collections",
+    tags=["Admin — Collections"],
+    dependencies=[Depends(require_role("admin", "operations"))],
+)
+admin_router.include_router(
+    admin_influencers.influencers_router,
+    prefix="/influencers",
+    tags=["Admin — Influencers"],
     dependencies=[Depends(require_role("admin", "operations", "finance"))],
 )
 admin_router.include_router(

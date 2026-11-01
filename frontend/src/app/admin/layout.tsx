@@ -4,7 +4,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
 import { markInternalDevice } from "@/lib/internal";
 import Link from "next/link";
-import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings, BookOpen, Store, Gift } from "lucide-react";
+import { Package, ShoppingBag, Image, BarChart3, LogOut, Scale, Tag, Ticket, Star, Menu, X, LayoutGrid, Gauge, MessageCircle, Settings, BookOpen, Store, Gift, Layers, Megaphone } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Analytics", Icon: Gauge },
@@ -16,6 +16,8 @@ const NAV = [
   { href: "/admin/categories", label: "Categories", Icon: Tag },
   { href: "/admin/inventory", label: "Inventory", Icon: BarChart3 },
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
+  { href: "/admin/collections", label: "Collections", Icon: Layers },
+  { href: "/admin/influencers", label: "Influencers", Icon: Megaphone },
   { href: "/admin/referrals", label: "Referrals", Icon: Gift },
   { href: "/admin/reviews", label: "Reviews", Icon: Star },
   { href: "/admin/journal", label: "Journal", Icon: BookOpen },

@@ -25,7 +25,8 @@ async def active_coupons(db: AsyncSession = Depends(get_async_db)):
         coupons = await CouponService(db).list_coupons(active_only=True)
         return [
             PublicCoupon.model_validate(c, from_attributes=True)
-            for c in coupons if not c.is_referral
+            # An influencer's code is hers to announce, not the shop's.
+            for c in coupons if not c.is_referral and c.influencer_id is None
         ]
     # The expiry filter runs on every request, outside the cache, so a code
     # whose timer has passed is withdrawn on the second it ends - the cache

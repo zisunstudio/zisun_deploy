@@ -28,6 +28,20 @@ export async function fetchProduct(id: string): Promise<Product | null> {
   }
 }
 
+export type CollectionPage = { slug: string; name: string; description: string | null; products: Product[] };
+
+/** A published collection with its live pieces, in the founder's order. */
+export async function fetchCollection(slug: string): Promise<CollectionPage | null> {
+  if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(slug)) return null;
+  try {
+    const res = await fetch(`${API_V1}/catalog/collections/${slug}`, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    return (await res.json()) as CollectionPage;
+  } catch {
+    return null;
+  }
+}
+
 /** The categories with their live-piece counts, for the home page's chips. */
 export async function fetchCategoryList(): Promise<Category[]> {
   try {

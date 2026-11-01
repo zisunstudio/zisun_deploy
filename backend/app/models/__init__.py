@@ -17,6 +17,7 @@ from .order import (
 )
 from .coupon import Coupon, CouponUsage, CouponType
 from .referral import ReferralReward
+from .influencer import Collection, CollectionProduct, Influencer, InfluencerCommission
 from .review import Review, ReviewStatus
 from .ml import ProductEmbedding, SearchQuery
 from .content import ContentCard, ContentTag, ContentProduct, ContentStatus, ContentType, TagType

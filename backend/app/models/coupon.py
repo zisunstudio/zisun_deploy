@@ -32,6 +32,9 @@ class Coupon(BaseModel):
     owner_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     referral_kind: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     owner_label: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    # An influencer's own discount code. Never advertised on the storefront
+    # (she announces it), and an order that uses it is hers.
+    influencer_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("influencers.id", ondelete="SET NULL"), nullable=True, index=True)
 
     usages: Mapped[List["CouponUsage"]] = relationship("CouponUsage", back_populates="coupon")
 

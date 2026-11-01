@@ -80,10 +80,26 @@ export function visitorId(): string {
   return fresh;
 }
 
-/** True when this browser has been here before today's visit began. */
+/**
+ * True when this browser had been here before this visit began.
+ *
+ * Decided once per visit and kept in sessionStorage. It used to read
+ * storage at the moment of each event - and the first event of a brand-new
+ * visitor creates her id just before asking, so every first visit read as
+ * a return (found 2026-11-01: the New-or-returning panel and the
+ * influencer board both said nearly everyone "came back"). Call it before
+ * `visitorId()` on an event; `trackEvent` does.
+ */
+const RETURNING_KEY = "zisun-returning";
 export function isReturning(): boolean {
   if (typeof window === "undefined") return false;
-  return read<string>(VISITOR_KEY, "local") !== null && read<Attribution>(FIRST_KEY, "local") !== null;
+  try {
+    const known = sessionStorage.getItem(RETURNING_KEY);
+    if (known !== null) return known === "1";
+  } catch { /* private mode: decide afresh each time */ }
+  const before = read<string>(VISITOR_KEY, "local") !== null;
+  try { sessionStorage.setItem(RETURNING_KEY, before ? "1" : "0"); } catch { /* ignore */ }
+  return before;
 }
 
 /**

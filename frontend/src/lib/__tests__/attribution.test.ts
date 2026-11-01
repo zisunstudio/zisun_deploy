@@ -46,12 +46,18 @@ describe("first-touch attribution", () => {
     expect(attributionFields().source).toBe("instagram");
   });
 
-  it("gives a stable visitor id and reports a return", () => {
+  it("gives a stable visitor id, and a first visit is not a return", () => {
     visit("https://zisun.in/");
+    expect(isReturning()).toBe(false);
     const id = visitorId();
     captureAttribution();
     expect(visitorId()).toBe(id);
+    // Still the first visit, though the id now exists.
+    expect(isReturning()).toBe(false);
+    // A new visit (a new tab session) in the same browser is a return.
+    sessionStorage.clear();
     expect(isReturning()).toBe(true);
+    expect(visitorId()).toBe(id);
   });
 
   it("never stores the full referring URL, only its domain", () => {

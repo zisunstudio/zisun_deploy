@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { captureAttribution } from "@/lib/attribution";
+import { captureInfluencer } from "@/lib/influencer";
 import { flushEvents, trackEvent } from "@/lib/queries/analytics";
 import { resetImpressions } from "@/lib/useImpression";
 
@@ -45,6 +46,7 @@ export function PageTracker() {
   useEffect(() => {
     if (!pathname || pathname.startsWith("/admin")) return;
     captureAttribution();
+    captureInfluencer();
     resetImpressions();
     const page = pageKind(pathname);
     let landing = false;
