@@ -250,6 +250,16 @@ if (process.env.PANELS_FAILED) {
   const ctx = await browser.newContext({ ...devices["Pixel 7"] });
   await ctx.route("**/api/**", async (route) => {
     const url = route.request().url();
+    // LIVE_API=http://127.0.0.1:8600 LIVE_TOKEN=<admin jwt>: everything but
+    // the faked sign-in goes to a real API with that token, so a click is
+    // proven all the way to the database rather than against a fixture.
+    if (process.env.LIVE_API && !/\/auth\/refresh/.test(url)) {
+      const target = url.replace(/^https?:\/\/[^/]+/, process.env.LIVE_API);
+      const headers = { ...route.request().headers(), authorization: `Bearer ${process.env.LIVE_TOKEN || ""}` };
+      const res = await route.fetch({ url: target, headers });
+      if (res.status() >= 400) console.log(`    (live ${res.status()}) ${route.request().method()} ${target.replace(process.env.LIVE_API, "")} ${(await res.text()).slice(0, 200)}`);
+      return route.fulfill({ response: res });
+    }
     const hit = FIXTURES.find(([re]) => re.test(url));
     if (!hit) {
       // Loud on purpose: a silent {} renders an empty page that looks fine.

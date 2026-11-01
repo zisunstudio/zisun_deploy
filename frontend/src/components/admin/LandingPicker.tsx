@@ -57,6 +57,8 @@ export async function resolveLanding(c: Choice, code: string, influencerName: st
   const name = reelName.trim() || `${influencerName.split(" ")[0]}'s pieces`;
   const slug = `${code}-${(reelName.trim() || "edit").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "edit"}-${stamp}${tail}`;
   const r = await adminApi.post("/collections", { name, slug, is_published: true, product_ids: c.ids });
+  // Never save a link to a page that was not made.
+  if (!r.data?.slug) throw new Error("The pieces page was not made");
   return { kind: "collection", slug: r.data.slug };
 }
 
@@ -154,14 +156,23 @@ export default function LandingPicker({ value, onChange }: { value: Choice; onCh
             </div>
           )}
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a piece to add" />
-          <ul className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
-            {live.filter((p) => !ids.includes(p.id) && p.name.toLowerCase().includes(q.trim().toLowerCase())).map((p) => (
-              <li key={p.id} className="py-1.5 flex items-center gap-2">
-                <span className="w-8 h-10 rounded bg-gray-100 overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)!} alt="" className="w-full h-full object-cover" />}</span>
-                <span className="min-w-0 flex-1"><span className="block text-sm text-gray-900 truncate">{p.name}</span><span className="block text-xs text-gray-500">{rs(p.base_price)}</span></span>
-                <Button size="sm" onClick={() => add([p.id])}>Add</Button>
-              </li>
-            ))}
+          {/* The count sits where her thumb is. A piece stays in this list
+              when added and its button says so: it used to move to the
+              picked list above, off screen on a phone, and the founder read
+              the tap as "nothing happened" (2026-11-01). */}
+          <p className="text-xs font-medium text-gray-700" aria-live="polite">{ids.length === 0 ? "No pieces picked yet." : `${ids.length} ${ids.length === 1 ? "piece" : "pieces"} picked`}</p>
+          <ul className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+            {live.filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase())).map((p) => {
+              const on = ids.includes(p.id);
+              return (
+                <li key={p.id} className={`py-1.5 flex items-center gap-2 ${on ? "bg-green-50" : ""}`}>
+                  <span className="w-8 h-10 rounded bg-gray-100 overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)!} alt="" className="w-full h-full object-cover" />}</span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm text-gray-900 truncate">{p.name}</span><span className="block text-xs text-gray-500">{rs(p.base_price)}</span></span>
+                  <Button size="sm" variant={on ? "primary" : "secondary"} aria-pressed={on}
+                    onClick={() => (on ? setIds(ids.filter((x) => x !== p.id)) : add([p.id]))}>{on ? "✓ Added" : "Add"}</Button>
+                </li>
+              );
+            })}
             {loading && <li className="py-2 text-xs text-gray-500">Loading pieces…</li>}
           </ul>
         </div>

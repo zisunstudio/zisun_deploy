@@ -53,7 +53,9 @@ export default function CollectionEditor() {
   const link = `https://zisun.in/collections/${col.data?.slug ?? form.slug}`;
   const set = (patch: Partial<typeof form>) => { setMsg(null); setForm({ ...form, ...patch }); };
   const move = (i: number, d: -1 | 1) => { const ids = [...form.ids]; const j = i + d; if (j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; set({ ids }); };
-  const choosable = (products.data ?? []).filter((p) => p.is_active && !form.ids.includes(p.id) && p.name.toLowerCase().includes(q.trim().toLowerCase()));
+  // Added pieces stay in this list with "✓ Added" - moving them to the list
+  // above put them off screen on a phone, and the tap read as doing nothing.
+  const choosable = (products.data ?? []).filter((p) => p.is_active !== false && p.name.toLowerCase().includes(q.trim().toLowerCase()));
   const dirty = !!col.data && (form.name !== col.data.name || form.slug !== col.data.slug || form.description !== (col.data.description ?? "") || form.is_published !== col.data.is_published || form.ids.join() !== col.data.product_ids.join());
 
   return (
@@ -106,15 +108,18 @@ export default function CollectionEditor() {
       <Card className="mb-3">
         <CardHeader title="Add pieces" />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your pieces" className="mb-2" />
+        <p className="mb-1 text-xs font-medium text-gray-700" aria-live="polite">{form.ids.length === 0 ? "No pieces picked yet." : `${form.ids.length} ${form.ids.length === 1 ? "piece" : "pieces"} picked - remember to Save`}</p>
         <ul className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
           {choosable.map((p) => (
             <li key={p.id} className="py-2 flex items-center gap-3">
               <span className="w-10 h-12 rounded bg-gray-100 overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)!} alt="" className="w-full h-full object-cover" />}</span>
               <span className="min-w-0 flex-1"><span className="block text-sm text-gray-900 truncate">{p.name}</span><span className="block text-xs text-gray-500">{rs(p.base_price)}</span></span>
-              <Button size="sm" onClick={() => set({ ids: [...form.ids, p.id] })}>Add</Button>
+              {form.ids.includes(p.id)
+                ? <Button size="sm" variant="primary" aria-pressed onClick={() => set({ ids: form.ids.filter((x) => x !== p.id) })}>✓ Added</Button>
+                : <Button size="sm" onClick={() => set({ ids: [...form.ids, p.id] })}>Add</Button>}
             </li>
           ))}
-          {choosable.length === 0 && <li className="py-3 text-sm text-gray-500">{products.isLoading ? "Loading…" : "Every live piece is already in."}</li>}
+          {choosable.length === 0 && <li className="py-3 text-sm text-gray-500">{products.isLoading ? "Loading…" : "No piece matches."}</li>}
         </ul>
       </Card>
 

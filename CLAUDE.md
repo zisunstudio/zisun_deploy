@@ -912,6 +912,13 @@ Each of these produced a green build or a healthy-looking deploy:
   the screenshot shows a neat "Something went wrong" panel. The console
   harness checks the rendered text for it and treats a console error as a
   failure; without that check it reported "fits" on a board that was dead.
+- **A tap that moves the thing tapped looks like a tap that did nothing.**
+  The influencer picker's *Add* moved a piece from the list under her thumb
+  to a picked list above it, off screen on a phone; the founder reported
+  "Add does not add". A picked piece stays where it is, its button reads
+  "✓ Added", and a count sits beside the list. `console.js` with
+  `LIVE_API=<api> LIVE_TOKEN=<admin jwt>` drives the console against a real
+  API (a local one on a throwaway Postgres) - that is how this was proven.
 - **A fixture harness proves the page, not the endpoint.** The analytics
   board 500'd for a day (`NameError: by_size`) while every screenshot of it
   looked perfect, because the console review harness answered the admin API

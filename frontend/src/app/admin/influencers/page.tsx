@@ -6,7 +6,7 @@ import { Copy, Download } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { Button, Card, CardHeader, EmptyState, Field, Input, Page, Pill, Select, Textarea } from "@/components/admin/ui";
 import LandingPicker, { choiceFromPath, choiceReady, resolveLanding, type Choice } from "@/components/admin/LandingPicker";
-import { linkFor, pathFor } from "@/lib/influencerLink";
+import { linkFor, pathFor, type Landing } from "@/lib/influencerLink";
 
 /**
  * Influencers: who sends visitors, who sells, and what each is owed.
@@ -94,6 +94,7 @@ export default function InfluencersPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formMsg, setFormMsg] = useState<string | null>(null);
   const [choice, setChoice] = useState<Choice>({ kind: "pieces", ids: [] });
+  const [made, setMade] = useState<{ for: Choice; landing: Landing } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -112,8 +113,11 @@ export default function InfluencersPage() {
     mutationFn: async () => {
       const v = Number(form.commission_value) || 0;
       const code = codeFrom(form.code || form.name);
-      // "A few pieces" becomes its own collection, made now, live at once.
-      const landing = await resolveLanding(choice, code, form.name, `${form.name.split(" ")[0]}'s edit`);
+      // "A few pieces" becomes its own collection, made now, live at once -
+      // once: a retry after an error (a taken link name) reuses the page
+      // already made instead of making another.
+      const landing = made && made.for === choice ? made.landing : await resolveLanding(choice, code, form.name, `${form.name.split(" ")[0]}'s edit`);
+      setMade({ for: choice, landing });
       const body = {
         name: form.name.trim(), code: form.code.trim() || null, instagram: form.instagram.trim() || null,
         phone: /^[6-9]\d{9}$/.test(form.phone.trim()) ? `+91${form.phone.trim()}` : null,
@@ -125,7 +129,7 @@ export default function InfluencersPage() {
       return editing === "new" ? adminApi.post("/influencers", body) : adminApi.put(`/influencers/${editing}`, body);
     },
     onSuccess: () => { setEditing(null); refresh(); qc.invalidateQueries({ queryKey: ["admin", "collections"] }); },
-    onError: (e) => setFormMsg(errorText(e, "Could not save.")),
+    onError: (e) => setFormMsg(errorText(e, e instanceof Error && !("response" in e) ? e.message : "Could not save.")),
   });
 
   const rows = perf.data?.influencers ?? [];
