@@ -11,4 +11,14 @@ declare -A SVC=(
   [beat]=13dd6cab-808f-499d-abbc-892207f81449
   [web]=135000fe-7fdd-42e9-8684-7fb62ba0953a
 )
-gql() { curl -s https://backboard.railway.app/graphql/v2 -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d "$1"; }
+# An account or team token goes as a Bearer token; a project token (Project
+# Settings -> Tokens) needs its own header. Try the first, fall back to the
+# second, so either kind of token works.
+gql() {
+  local out
+  out=$(curl -s https://backboard.railway.app/graphql/v2 -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d "$1")
+  if printf '%s' "$out" | grep -q '"Not Authorized"'; then
+    out=$(curl -s https://backboard.railway.app/graphql/v2 -H "Project-Access-Token: $TOK" -H 'Content-Type: application/json' -d "$1")
+  fi
+  printf '%s' "$out"
+}
