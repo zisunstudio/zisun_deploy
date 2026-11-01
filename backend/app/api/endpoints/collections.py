@@ -18,7 +18,7 @@ from app.core.database import get_async_db
 from app.models.catalog import Product
 from app.models.influencer import Collection, CollectionProduct, Influencer
 from app.schemas.catalog import ProductResponse
-from app.services.influencer import normalise_code
+from app.services.influencer import normalise_code, safe_landing
 
 router = APIRouter()
 TTL = 30
@@ -73,13 +73,15 @@ async def influencer_landing(code: str, db: AsyncSession = Depends(get_async_db)
 
     async def load(db):
         row = (await db.execute(
-            select(Influencer.code, Collection.slug, Collection.is_published)
+            select(Influencer.code, Influencer.landing, Collection.slug, Collection.is_published)
             .outerjoin(Collection, Collection.id == Influencer.collection_id)
             .where(Influencer.code == c, Influencer.is_active.is_(True))
         )).first()
         if row is None:
             return None
-        return {"code": row.code, "path": f"/collections/{row.slug}" if row.slug and row.is_published else "/"}
+        if row.slug and row.is_published and not row.landing:
+            return {"code": row.code, "path": f"/collections/{row.slug}"}
+        return {"code": row.code, "path": safe_landing(row.landing) or "/"}
     found = await memo.cached(("influencer_landing", c), TTL, lambda: load(db), memo.own_session(load))
     if found is None:
         raise HTTPException(status_code=404, detail="Unknown link")

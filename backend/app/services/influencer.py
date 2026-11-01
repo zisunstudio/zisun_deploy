@@ -73,6 +73,19 @@ def normalise_code(raw: Optional[str]) -> Optional[str]:
     return code if CODE_RE.match(code) else None
 
 
+_LANDING_RE = re.compile(r"^/(?:$|shop$|product/[0-9a-f-]{36}$|category/[a-z0-9-]{1,80}$|collections/[a-z0-9-]{1,80}$)")
+
+
+def safe_landing(path: Optional[str]) -> Optional[str]:
+    """A page on this site, and only the kinds an influencer link may open.
+
+    Anything else - another domain, a console page, a query string - is
+    refused, so a link can never be turned into a redirect to somewhere else.
+    """
+    p = (path or "").strip()
+    return p if _LANDING_RE.match(p) else None
+
+
 def decide(code_influencer: Optional[uuid.UUID], link_influencer: Optional[uuid.UUID],
            clicked_at: Optional[datetime], now: datetime, window_days: int) -> Optional[tuple[uuid.UUID, str]]:
     """(influencer, "code" | "link"), or None. Her code first; else a link inside the window."""

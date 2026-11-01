@@ -126,6 +126,8 @@ class InfluencerIn(BaseModel):
     instagram: Optional[str] = Field(None, max_length=300)
     phone: Optional[str] = Field(None, max_length=20)
     collection_id: Optional[uuid.UUID] = None
+    # A piece, a category or "/" instead of a collection. Empty: her collection.
+    landing: Optional[str] = Field(None, max_length=300)
     commission_type: Literal["percent", "fixed"] = "percent"
     # Whole percent (10 = 10%), or paise per order for "fixed".
     commission_value: int = Field(0, ge=0, le=10_000_000)
@@ -138,7 +140,7 @@ class InfluencerIn(BaseModel):
 
 def _influencer_out(i: Influencer, code: Optional[Coupon]) -> dict:
     return {"id": str(i.id), "name": i.name, "code": i.code, "instagram": i.instagram, "phone": i.phone,
-            "collection_id": str(i.collection_id) if i.collection_id else None,
+            "collection_id": str(i.collection_id) if i.collection_id else None, "landing": i.landing,
             "commission_type": i.commission_type, "commission_value": i.commission_value,
             "is_active": i.is_active, "notes": i.notes,
             "discount_code": code.code if code else None, "discount_percent": code.value if code else None,
@@ -170,6 +172,8 @@ async def _apply_discount(db: AsyncSession, inf: Influencer, body: InfluencerIn)
 
 
 def _validate(body: InfluencerIn) -> None:
+    if body.landing and not svc.safe_landing(body.landing):
+        raise HTTPException(status_code=422, detail="Her link can open a piece, a category, a collection or the home page")
     if body.commission_type == "percent" and body.commission_value > 50:
         raise HTTPException(status_code=422, detail="A commission above 50% is almost certainly a typing slip")
 
@@ -189,7 +193,7 @@ async def create_influencer(body: InfluencerIn, db: AsyncSession = Depends(get_a
     if (await db.execute(select(Influencer.id).where(Influencer.code == code))).scalar_one_or_none():
         raise HTTPException(status_code=409, detail=f"zisun.in/r/{code} is already someone's link")
     inf = Influencer(id=uuid.uuid4(), name=body.name.strip(), code=code, instagram=body.instagram, phone=body.phone,
-                     collection_id=body.collection_id, commission_type=body.commission_type,
+                     collection_id=body.collection_id, landing=svc.safe_landing(body.landing), commission_type=body.commission_type,
                      commission_value=body.commission_value, is_active=body.is_active, notes=body.notes)
     db.add(inf)
     await db.flush()
@@ -207,6 +211,7 @@ async def update_influencer(iid: uuid.UUID, body: InfluencerIn, db: AsyncSession
     # The code is her link; changing it would break every post already out.
     for f in ("instagram", "phone", "collection_id", "commission_type", "commission_value", "is_active", "notes"):
         setattr(inf, f, getattr(body, f))
+    inf.landing = svc.safe_landing(body.landing)
     inf.name = body.name.strip()
     await _apply_discount(db, inf, body)
     current = await _discount(db, inf.id)

@@ -55,3 +55,11 @@ def test_status_buckets():
     assert svc.bucket("DELIVERED", "COD") == "delivered"
     assert svc.bucket("RETURNED", "RAZORPAY") == "returned"
     assert svc.bucket("FAILED_PAYMENT", "RAZORPAY") == "cancelled"
+
+
+def test_a_link_only_opens_shop_pages():
+    pid = "774f350f-4fcc-4535-b9ec-c1ffe7d277ab"
+    for ok in ("/", "/shop", f"/product/{pid}", "/category/co-ord-sets", "/collections/riya-diwali"):
+        assert svc.safe_landing(ok) == ok
+    for bad in ("https://evil.example", "//evil.example", "/admin", "/product/x", "/category/../admin", "/?inf=x", "/collections/a b", None, ""):
+        assert svc.safe_landing(bad) is None

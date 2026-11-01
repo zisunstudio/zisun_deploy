@@ -84,15 +84,31 @@ cancelled order voids its commission.
 
 ## 3. How the founder uses it
 
-1. **Console → Collections → New collection.** Name it, add pieces, put them
-   in order (↑ ↓), switch on *Live*, Save. Link: `zisun.in/collections/<name>`.
-2. **Console → Influencers → Add influencer.** Name; her link name (e.g.
-   `riya` → `zisun.in/r/riya`, cannot change later); the collection it lands
-   on; commission (% or ₹ per order); optionally her discount code and %;
+1. **Console → Influencers → Add influencer.** Name; her link name (e.g.
+   `riya` → `zisun.in/r/riya`, cannot change later); **Her link opens**:
+   - *A few pieces* - tap Add on each piece in her reel (or "+ Teal" to add
+     every teal piece, "+ Co-ord Sets" for a category's pieces), put them in
+     order. A page of exactly those pieces is made when you save.
+   - *One piece*, *A category*, *Home page*, or a *Saved collection*.
+   Then commission (% or ₹ per order), optionally her discount code and %,
    her phone (only to spot her own orders). Save.
-3. **Send her `zisun.in/r/riya`** for her bio, reels, stories and WhatsApp.
-   To move her to a new collection later, change *Lands on* - every post
-   already out follows.
+2. **Send her `zisun.in/r/riya`** for her bio. To move her bio link to a
+   new edit later, edit her and change *Her link opens*.
+3. **A link for each reel:** on her card, *New link for a reel* → what the
+   reel shows (the pieces, one piece, a category, the home page) → *Make the
+   link* → Copy. It looks like `zisun.in/r/riya/riya-diwali-reel-261101abc`
+   and credits her exactly like her main link. Links made this way stay
+   listed on her card.
+
+Link shapes (`lib/influencerLink.ts`): `/r/<code>` (her default),
+`/r/<code>/<collection>`, `/r/<code>/piece/<id>`, `/r/<code>/category/<slug>`,
+`/r/<code>/home`. Only shop pages can be reached; anything else lands on the
+home page. Collections can still be made by hand under Console → Collections.
+
+The pieces page is a vertical feed, not a sideways swipe: on 19 Oct the
+home page's sideways rail got 14 taps on its button from 2,029 ad visits
+and was replaced by a feed that scrolls the way the thumb already moves.
+If the reel pages' numbers argue otherwise, it is one component to change.
 4. **Read the board** with Today / Yesterday / 7 / 30 days / This month /
    Last month / Custom. CSV downloads the same table.
 5. **Pay:** *Orders & payouts* → enter the UPI reference → *Mark paid*.

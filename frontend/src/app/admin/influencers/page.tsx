@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Download } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
 import { Button, Card, CardHeader, EmptyState, Field, Input, Page, Pill, Select, Textarea } from "@/components/admin/ui";
+import LandingPicker, { choiceFromPath, choiceReady, resolveLanding, type Choice } from "@/components/admin/LandingPicker";
+import { linkFor, pathFor } from "@/lib/influencerLink";
 
 /**
  * Influencers: who sends visitors, who sells, and what each is owed.
@@ -28,12 +30,13 @@ type Perf = {
 };
 type PerfData = { totals: Record<string, number | null>; influencers: Perf[]; window_days: number };
 type Influencer = {
-  id: string; name: string; code: string; instagram: string | null; phone: string | null; collection_id: string | null;
+  id: string; name: string; code: string; instagram: string | null; phone: string | null; collection_id: string | null; landing: string | null;
   commission_type: "percent" | "fixed"; commission_value: number; is_active: boolean; notes: string | null;
   discount_code: string | null; discount_percent: number | null;
 };
 type Commission = { id: string; order_ref: string; ordered_at: string | null; order_status: string; payment_method: string; order_total_paise: number; base_paise: number; amount_paise: number; rule: string; status: string; reason: string | null; payout_ref: string | null };
-type Collection = { id: string; name: string; slug: string; is_published: boolean };
+type Collection = { id: string; name: string; slug: string; is_published: boolean; product_ids: string[] };
+const codeFrom = (raw: string) => raw.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
 
 const rs = (p: number | null | undefined) => (p == null ? "—" : `₹${Math.round(p / 100).toLocaleString("en-IN")}`);
 const n = (v: number | null | undefined) => (v ?? 0).toLocaleString("en-IN");
@@ -90,33 +93,38 @@ export default function InfluencersPage() {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formMsg, setFormMsg] = useState<string | null>(null);
+  const [choice, setChoice] = useState<Choice>({ kind: "pieces", ids: [] });
   const [open, setOpen] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   const startEdit = (id: string | "new") => {
     setFormMsg(null);
-    if (id === "new") { setForm(EMPTY_FORM); setEditing("new"); return; }
+    if (id === "new") { setForm(EMPTY_FORM); setChoice({ kind: "pieces", ids: [] }); setEditing("new"); return; }
     const i = list.data?.find((x) => x.id === id);
     if (!i) return;
+    setChoice(choiceFromPath(i.landing, cols.data?.find((c) => c.id === i.collection_id)?.slug));
     setForm({ name: i.name, code: i.code, instagram: i.instagram ?? "", phone: (i.phone ?? "").replace(/^\+91/, ""), collection_id: i.collection_id ?? "",
       commission_type: i.commission_type, commission_value: String(i.commission_type === "fixed" ? i.commission_value / 100 : i.commission_value),
       is_active: i.is_active, notes: i.notes ?? "", discount_code: i.discount_code ?? "", discount_percent: String(i.discount_percent ?? 10) });
     setEditing(id);
   };
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const v = Number(form.commission_value) || 0;
+      const code = codeFrom(form.code || form.name);
+      // "A few pieces" becomes its own collection, made now, live at once.
+      const landing = await resolveLanding(choice, code, form.name, `${form.name.split(" ")[0]}'s edit`);
       const body = {
         name: form.name.trim(), code: form.code.trim() || null, instagram: form.instagram.trim() || null,
         phone: /^[6-9]\d{9}$/.test(form.phone.trim()) ? `+91${form.phone.trim()}` : null,
-        collection_id: form.collection_id || null, commission_type: form.commission_type,
+        collection_id: null, landing: pathFor(landing), commission_type: form.commission_type,
         commission_value: form.commission_type === "fixed" ? Math.round(v * 100) : Math.round(v),
         is_active: form.is_active, notes: form.notes.trim() || null,
         discount_code: form.discount_code.trim() || null, discount_percent: form.discount_code.trim() ? Number(form.discount_percent) || 10 : null,
       };
       return editing === "new" ? adminApi.post("/influencers", body) : adminApi.put(`/influencers/${editing}`, body);
     },
-    onSuccess: () => { setEditing(null); refresh(); },
+    onSuccess: () => { setEditing(null); refresh(); qc.invalidateQueries({ queryKey: ["admin", "collections"] }); },
     onError: (e) => setFormMsg(errorText(e, "Could not save.")),
   });
 
@@ -155,10 +163,9 @@ export default function InfluencersPage() {
               <div className="flex items-center gap-1"><span className="text-sm text-gray-500 shrink-0">zisun.in/r/</span>
                 <Input value={form.code} disabled={editing !== "new"} onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} placeholder="riya" /></div>
             </Field>
-            <Field label="Lands on"><Select value={form.collection_id} onChange={(e) => setForm({ ...form, collection_id: e.target.value })}>
-              <option value="">The home page</option>
-              {(cols.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}{c.is_published ? "" : " (draft - home page until it is live)"}</option>)}
-            </Select></Field>
+            <Field label="Her link opens" hint="Pick the pieces in her reel, one piece, a category or the home page. You can make a different link for each reel later, from her card.">
+              <LandingPicker value={choice} onChange={setChoice} />
+            </Field>
             <div className="flex flex-wrap gap-3">
               <Field label="Commission" className="w-40"><Select value={form.commission_type} onChange={(e) => setForm({ ...form, commission_type: e.target.value as "percent" | "fixed" })}>
                 <option value="percent">% of the goods</option><option value="fixed">₹ per order</option></Select></Field>
@@ -173,7 +180,7 @@ export default function InfluencersPage() {
             <Field label="Notes"><Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="What was agreed, when, for which posts." /></Field>
             <label className="flex items-center justify-between gap-3"><span className="text-sm text-gray-700">Active <span className="text-xs text-gray-500">— off stops new credit; her link still opens the shop</span></span>
               <input type="checkbox" className="h-5 w-5" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /></label>
-            <div className="flex gap-2"><Button variant="primary" disabled={!form.name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save"}</Button><Button onClick={() => setEditing(null)}>Cancel</Button></div>
+            <div className="flex gap-2"><Button variant="primary" disabled={!form.name.trim() || !choiceReady(choice) || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save"}</Button><Button onClick={() => setEditing(null)}>Cancel</Button></div>
             {formMsg && <p className="text-xs text-red-700">{formMsg}</p>}
           </div>
         </Card>
@@ -249,6 +256,7 @@ export default function InfluencersPage() {
                   {r.top_bought.length > 0 && <div className="min-w-0"><p className="text-gray-500">Most bought</p>{r.top_bought.slice(0, 3).map((p) => <p key={p.id} className="text-gray-800 truncate">{p.name} · {p.units}</p>)}</div>}
                 </div>
               )}
+              <ReelLinks code={r.code} name={r.name} collections={cols.data ?? []} />
               {open === r.id && <Commissions influencerId={r.id} onChange={refresh} />}
             </Card>
           </li>
@@ -295,6 +303,64 @@ function Commissions({ influencerId, onChange }: { influencerId: string; onChang
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * A link for each reel. The pieces she shows in one reel become a page of
+ * exactly those pieces; every link credits her the same way. Links made
+ * here are listed under her card (the collections named after her code).
+ */
+function ReelLinks({ code, name, collections }: { code: string; name: string; collections: Collection[] }) {
+  const qc = useQueryClient();
+  const [making, setMaking] = useState(false);
+  const [title, setTitle] = useState("");
+  const [choice, setChoice] = useState<Choice>({ kind: "pieces", ids: [] });
+  const [made, setMade] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const mine = collections.filter((c) => c.slug.startsWith(`${code}-`));
+  const make = useMutation({
+    mutationFn: async () => linkFor(code, await resolveLanding(choice, code, name, title || `${name.split(" ")[0]}'s reel`)),
+    onSuccess: (link) => { setMade(link); setMsg(null); qc.invalidateQueries({ queryKey: ["admin", "collections"] }); },
+    onError: () => setMsg("Could not make that link. Try again."),
+  });
+  const copy = (t: string) => { navigator.clipboard?.writeText(t); setCopied(t); setTimeout(() => setCopied(null), 1500); };
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-3">
+      {mine.length > 0 && (
+        <ul className="mb-2 space-y-1.5">
+          {mine.map((c) => {
+            const link = linkFor(code, { kind: "collection", slug: c.slug });
+            return (
+              <li key={c.id} className="flex items-center gap-2 text-xs">
+                <span className="min-w-0 flex-1"><span className="block text-gray-900 truncate">{c.name} · {c.product_ids.length} {c.product_ids.length === 1 ? "piece" : "pieces"}</span><span className="block text-gray-500 truncate">{link.replace("https://", "")}</span></span>
+                <Button size="sm" onClick={() => copy(link)}>{copied === link ? "Copied" : "Copy"}</Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!making ? (
+        <Button size="sm" onClick={() => { setMaking(true); setMade(null); }}>New link for a reel</Button>
+      ) : (
+        <div className="space-y-3 rounded-lg bg-gray-50 p-3">
+          <Field label="What is the reel?" hint="Optional, for you: e.g. Diwali reel, teal colours."><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+          <LandingPicker value={choice} onChange={(c) => { setChoice(c); setMade(null); }} />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" disabled={!choiceReady(choice) || make.isPending} onClick={() => make.mutate()}>{make.isPending ? "Making…" : "Make the link"}</Button>
+            <Button onClick={() => { setMaking(false); setTitle(""); setChoice({ kind: "pieces", ids: [] }); }}>Close</Button>
+          </div>
+          {made && (
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="text-xs bg-white border border-gray-200 rounded px-2 py-1 break-all">{made.replace("https://", "")}</code>
+              <Button size="sm" onClick={() => copy(made)}>{copied === made ? "Copied" : "Copy link"}</Button>
+            </div>
+          )}
+          {msg && <p className="text-xs text-red-700">{msg}</p>}
+        </div>
+      )}
     </div>
   );
 }

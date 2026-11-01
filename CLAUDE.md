@@ -372,7 +372,12 @@ cancelled/failed/returned, reversed if it comes back after payment - and
 settles when the console reads, never on a schedule. The storefront keeps
 the code in `lib/influencer.ts` and removes `?inf=` from the address once
 read, so a refresh is not a tap; `influencer` is an attribution-owned event
-property. `/r/<code>` redirects with a *relative* Location: the standalone
+property. An influencer link can open her collection, one piece, a category or the
+home page (`influencers.landing`, checked by `safe_landing`), and every reel
+can have its own link `/r/<code>/<collection|piece/<id>|category/<slug>|home>`
+(`lib/influencerLink.ts`, the only shapes allowed - nothing off the shop).
+"A few pieces" picked in the console becomes a collection named after her
+code. `/r/<code>` redirects with a *relative* Location: the standalone
 server knows itself as `localhost:<PORT>`, and `req.nextUrl.origin` sent
 the first version's every tap there. An influencer's coupon has
 `influencer_id` and is never in `/coupons/active`. `docs/INFLUENCERS.md`

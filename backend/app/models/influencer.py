@@ -54,6 +54,10 @@ class Influencer(BaseModel):
     # anywhere but the console, never sent to anyone.
     phone: Mapped[Optional[str]] = mapped_column(String(20))
     collection_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("collections.id", ondelete="SET NULL"))
+    # Where `zisun.in/r/<code>` lands when it is not her collection: a piece
+    # (`/product/<id>`), a category (`/category/<slug>`) or `/`. Checked by
+    # `services.influencer.safe_landing`; empty means her collection.
+    landing: Mapped[Optional[str]] = mapped_column(String(300))
     # "percent" (value = whole percent) or "fixed" (value = paise per order).
     commission_type: Mapped[str] = mapped_column(String(10), nullable=False, default="percent")
     commission_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

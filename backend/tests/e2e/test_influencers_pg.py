@@ -100,6 +100,17 @@ async def test_the_whole_journey():
     sneha = r.json()
     land = (await c.get(f"/api/v1/influencers/{sneha['code']}/landing")).json()
     assert land["path"] == f"/collections/{col['slug']}"
+    # Her default link can open one piece instead; anything off the shop is refused.
+    body = {"name": sneha["name"], "commission_type": "fixed", "commission_value": 10000, "landing": f"/product/{products[1].id}"}
+    assert (await c.put(f"/api/admin/v1/influencers/{sneha['id']}", headers=H, json=body)).status_code == 200
+    assert (await c.get(f"/api/v1/influencers/{sneha['code']}/landing")).json()["path"] == f"/product/{products[1].id}"
+    bad = await c.put(f"/api/admin/v1/influencers/{sneha['id']}", headers=H, json={**body, "landing": "https://elsewhere.example"})
+    assert bad.status_code == 422
+    body["landing"] = f"/collections/{col['slug']}"
+    await c.put(f"/api/admin/v1/influencers/{sneha['id']}", headers=H, json=body)
+    assert (await c.get(f"/api/v1/influencers/{sneha['code']}/landing")).json()["path"] == f"/collections/{col['slug']}"
+    report.append("a link can open one piece or a collection; a link to another site is refused")
+
     active = [x["code"] for x in (await c.get("/api/v1/coupons/active")).json()]
     assert riya["discount_code"] not in active
     report.append("two influencers on one collection; short link lands on it; Riya's code is not advertised")
